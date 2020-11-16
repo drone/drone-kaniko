@@ -40,13 +40,14 @@ docker build \
 
 ## Usage
 
-> Notice: Be aware that the Docker plugin currently requires privileged capabilities, otherwise the integrated Docker daemon is not able to start.
-
 ```console
 docker run --rm \
-  -e PLUGIN_TAG=latest \
-  -e PLUGIN_REPO=octocat/hello-world \
-  -v $(pwd):$(pwd) \
-  -w $(pwd) \
-  plugins/kaniko-docker
+    -e PLUGIN_TAGS=1.2,latest \
+    -e PLUGIN_DOCKERFILE=/drone/Dockerfile \
+    -e PLUGIN_REPO=foo/bar \
+    -e PLUGIN_USERNAME=foo \
+    -e PLUGIN_PASSWORD=bar \
+    -v $(pwd):/drone \
+    -w /drone \
+    plugins/kaniko-docker
 ```
