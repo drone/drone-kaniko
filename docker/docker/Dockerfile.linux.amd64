@@ -3,5 +3,5 @@ FROM gcr.io/kaniko-project/executor:debug-v0.19.0
 ENV HOME /root
 ENV USER root
 
-ADD release/linux/amd64/drone-docker /kaniko/
-ENTRYPOINT ["/kaniko/drone-docker"]
+ADD release/linux/amd64/kaniko-docker /kaniko/
+ENTRYPOINT ["/kaniko/kaniko-docker"]

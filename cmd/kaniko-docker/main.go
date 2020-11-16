@@ -11,7 +11,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 
-	docker "github.com/drone-plugins/drone-docker"
+	kaniko "github.com/drone/drone-kaniko"
 )
 
 const (
@@ -103,8 +103,8 @@ func run(c *cli.Context) error {
 		return err
 	}
 
-	plugin := docker.Plugin{
-		Build: docker.Build{
+	plugin := kaniko.Plugin{
+		Build: kaniko.Build{
 			Dockerfile: c.String("dockerfile"),
 			Context:    c.String("context"),
 			Tags:       c.StringSlice("tags"),

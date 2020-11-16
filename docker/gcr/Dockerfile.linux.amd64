@@ -1,4 +1,7 @@
-FROM plugins/docker:linux-amd64
+FROM gcr.io/kaniko-project/executor:debug-v0.19.0
 
-ADD release/linux/amd64/drone-gcr /bin/
-ENTRYPOINT ["/usr/local/bin/dockerd-entrypoint.sh", "/bin/drone-gcr"]
+ENV HOME /root
+ENV USER root
+
+ADD release/linux/amd64/kaniko-gcr /kaniko/
+ENTRYPOINT ["/kaniko/kaniko-gcr"]

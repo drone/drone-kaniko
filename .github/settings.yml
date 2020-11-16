@@ -1,7 +1,7 @@
 repository:
-  name: drone-docker
+  name: kaniko-docker
   description: Drone plugin for publishing Docker images
-  homepage: http://plugins.drone.io/drone-plugins/drone-docker
+  homepage:  http://plugins.drone.io/drone-plugins/drone-kaniko
   topics: drone, drone-plugin
 
   private: false
