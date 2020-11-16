@@ -14,9 +14,9 @@ import (
 )
 
 const (
-	// GCR JSON key file path
-	gcrKeyPath     string = "/kaniko/gcr.json"
-	gcrEnvVariable string = "GOOGLE_APPLICATION_CREDENTIALS"
+	accessKeyEnv     string = "AWS_ACCESS_KEY_ID"
+	secretKeyEnv     string = "AWS_SECRET_ACCESS_KEY"
+	dockerConfigPath string = "/kaniko/.docker/config.json"
 )
 
 var (
@@ -30,8 +30,8 @@ func main() {
 	}
 
 	app := cli.NewApp()
-	app.Name = "kaniko gcr plugin"
-	app.Usage = "kaniko gcr plugin"
+	app.Name = "kaniko docker plugin"
+	app.Usage = "kaniko docker plugin"
 	app.Action = run
 	app.Version = version
 	app.Flags = []cli.Flag{
@@ -66,7 +66,7 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:   "repo",
-			Usage:  "gcr repository",
+			Usage:  "docker repository",
 			EnvVar: "PLUGIN_REPO",
 		},
 		cli.StringSliceFlag{
@@ -76,14 +76,18 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:   "registry",
-			Usage:  "gcr registry",
-			Value:  "gcr.io",
+			Usage:  "ECR registry",
 			EnvVar: "PLUGIN_REGISTRY",
 		},
 		cli.StringFlag{
-			Name:   "json-key",
-			Usage:  "docker username",
-			EnvVar: "PLUGIN_JSON_KEY",
+			Name:   "access-key",
+			Usage:  "ECR access key",
+			EnvVar: "PLUGIN_ACCESS_KEY",
+		},
+		cli.StringFlag{
+			Name:   "secret-key",
+			Usage:  "ECR secret key",
+			EnvVar: "PLUGIN_SECRET_KEY",
 		},
 	}
 
@@ -93,13 +97,9 @@ func main() {
 }
 
 func run(c *cli.Context) error {
-	err := setupGCRAuth(c.String("json-key"))
+	err := setupECRAuth(c.String("access-key"), c.String("secret-key"), c.String("registry"))
 	if err != nil {
 		return err
-	}
-
-	if c.String("repo") == "" {
-		return fmt.Errorf("repo must be specified")
 	}
 
 	plugin := kaniko.Plugin{
@@ -109,26 +109,38 @@ func run(c *cli.Context) error {
 			Tags:       c.StringSlice("tags"),
 			Args:       c.StringSlice("args"),
 			Target:     c.String("target"),
-			Repo:       fmt.Sprintf("%s/%s", c.String("registry"), c.String("repo")),
+			Repo:       c.String("repo"),
 			Labels:     c.StringSlice("custom-labels"),
 		},
 	}
 	return plugin.Exec()
 }
 
-func setupGCRAuth(jsonKey string) error {
-	if jsonKey == "" {
-		return fmt.Errorf("GCR JSON key must be specified")
+func setupECRAuth(accessKey, secretKey, registry string) error {
+	if accessKey == "" {
+		return fmt.Errorf("Access key must be specified")
+	}
+	if secretKey == "" {
+		return fmt.Errorf("Secret key must be specified")
+	}
+	if registry == "" {
+		return fmt.Errorf("Registry must be specified")
 	}
 
-	err := ioutil.WriteFile(gcrKeyPath, []byte(jsonKey), 0644)
+	err := os.Setenv(accessKeyEnv, accessKey)
 	if err != nil {
-		return errors.Wrap(err, "failed to write GCR JSON key")
+		return errors.Wrap(err, fmt.Sprintf("failed to set %s environment variable", accessKeyEnv))
 	}
 
-	err = os.Setenv(gcrEnvVariable, gcrKeyPath)
+	err = os.Setenv(secretKeyEnv, secretKey)
 	if err != nil {
-		return errors.Wrap(err, fmt.Sprintf("failed to set %s environment variable", gcrEnvVariable))
+		return errors.Wrap(err, fmt.Sprintf("failed to set %s environment variable", secretKeyEnv))
+	}
+
+	jsonBytes := []byte(fmt.Sprintf(`{"credStore": "ecr-login", "credHelpers": {"%s": "ecr-login"}}`, registry))
+	err = ioutil.WriteFile(dockerConfigPath, jsonBytes, 0644)
+	if err != nil {
+		return errors.Wrap(err, "failed to create docker config file")
 	}
 	return nil
 }
