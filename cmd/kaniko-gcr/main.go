@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -15,8 +14,8 @@ import (
 )
 
 const (
-	// Docker config file path
-	dockerConfigPath string = "/kaniko/.docker/config.json"
+	// GCR JSON key file path
+	gcrKeyPath string = "/kaniko/gcr.json"
 )
 
 var (
@@ -30,8 +29,8 @@ func main() {
 	}
 
 	app := cli.NewApp()
-	app.Name = "kaniko docker plugin"
-	app.Usage = "kaniko docker plugin"
+	app.Name = "kaniko gcr plugin"
+	app.Usage = "kaniko gcr plugin"
 	app.Action = run
 	app.Version = version
 	app.Flags = []cli.Flag{
@@ -66,7 +65,7 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:   "repo",
-			Usage:  "docker repository",
+			Usage:  "gcr repository",
 			EnvVar: "PLUGIN_REPO",
 		},
 		cli.StringSliceFlag{
@@ -76,19 +75,14 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:   "registry",
-			Usage:  "docker registry",
-			Value:  "https://index.docker.io/v1/",
+			Usage:  "gcr registry",
+			Value:  "gcr.io",
 			EnvVar: "PLUGIN_REGISTRY",
 		},
 		cli.StringFlag{
-			Name:   "username",
+			Name:   "json-key",
 			Usage:  "docker username",
-			EnvVar: "PLUGIN_USERNAME",
-		},
-		cli.StringFlag{
-			Name:   "password",
-			Usage:  "docker password",
-			EnvVar: "PLUGIN_PASSWORD",
+			EnvVar: "PLUGIN_JSON_KEY",
 		},
 	}
 
@@ -98,9 +92,13 @@ func main() {
 }
 
 func run(c *cli.Context) error {
-	err := createDockerCfgFile(c.String("username"), c.String("password"), c.String("registry"))
+	err := setupGCRAuth(c.String("json-key"))
 	if err != nil {
 		return err
+	}
+
+	if c.String("repo") == "" {
+		return fmt.Errorf("repo must be specified")
 	}
 
 	plugin := kaniko.Plugin{
@@ -110,7 +108,7 @@ func run(c *cli.Context) error {
 			Tags:       c.StringSlice("tags"),
 			Args:       c.StringSlice("args"),
 			Target:     c.String("target"),
-			Repo:       c.String("repo"),
+			Repo:       fmt.Sprintf("%s/%s", c.String("registry"), c.String("repo")),
 			Labels:     c.StringSlice("custom-labels"),
 		},
 	}
@@ -118,23 +116,16 @@ func run(c *cli.Context) error {
 }
 
 // Create the docker config file for authentication
-func createDockerCfgFile(username, password, registry string) error {
-	if username == "" {
-		return fmt.Errorf("Username must be specified")
-	}
-	if password == "" {
-		return fmt.Errorf("Password must be specified")
-	}
-	if registry == "" {
-		return fmt.Errorf("Registry must be specified")
+func setupGCRAuth(jsonKey string) error {
+	if jsonKey == "" {
+		return fmt.Errorf("GCR JSON key must be specified")
 	}
 
-	authBytes := []byte(fmt.Sprintf("%s:%s", username, password))
-	encodedString := base64.StdEncoding.EncodeToString(authBytes)
-	jsonBytes := []byte(fmt.Sprintf(`{"auths": {"%s": {"auth": "%s"}}}`, registry, encodedString))
-	err := ioutil.WriteFile(dockerConfigPath, jsonBytes, 0644)
+	err := ioutil.WriteFile(gcrKeyPath, []byte(jsonKey), 0644)
 	if err != nil {
-		return errors.Wrap(err, "failed to create docker config file")
+		return errors.Wrap(err, "failed to write GCR JSON key")
 	}
+
+	os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", gcrKeyPath)
 	return nil
 }
