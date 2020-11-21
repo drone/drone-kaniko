@@ -15,7 +15,8 @@ import (
 )
 
 const (
-	// Docker config file path
+	// Docker file path
+	dockerPath       string = "/kaniko/.docker"
 	dockerConfigPath string = "/kaniko/.docker/config.json"
 )
 
@@ -129,10 +130,15 @@ func createDockerCfgFile(username, password, registry string) error {
 		return fmt.Errorf("Registry must be specified")
 	}
 
+	err := os.MkdirAll(dockerPath, 0600)
+	if err != nil {
+		return errors.Wrap(err, fmt.Sprintf("failed to create %s directory", dockerPath))
+	}
+
 	authBytes := []byte(fmt.Sprintf("%s:%s", username, password))
 	encodedString := base64.StdEncoding.EncodeToString(authBytes)
 	jsonBytes := []byte(fmt.Sprintf(`{"auths": {"%s": {"auth": "%s"}}}`, registry, encodedString))
-	err := ioutil.WriteFile(dockerConfigPath, jsonBytes, 0644)
+	err = ioutil.WriteFile(dockerConfigPath, jsonBytes, 0644)
 	if err != nil {
 		return errors.Wrap(err, "failed to create docker config file")
 	}
