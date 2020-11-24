@@ -1,4 +1,4 @@
-FROM gcr.io/kaniko-project/executor:arm64-v0.19.0
+FROM gcr.io/kaniko-project/executor:arm64-v1.3.0
 
 ENV HOME /root
 ENV USER root
