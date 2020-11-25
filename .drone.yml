@@ -14,7 +14,7 @@ steps:
   settings:
     repo: plugins/kaniko
     auto_tag: true
-    dockerfile: docker/gcr/Dockerfile.linux.amd64
+    dockerfile: docker/docker/Dockerfile.linux.amd64
     username:
       from_secret: docker_username
     password:
