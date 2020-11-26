@@ -25,7 +25,7 @@ Build the Docker images with the following commands:
 docker build \
   --label org.label-schema.build-date=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
   --label org.label-schema.vcs-ref=$(git rev-parse --short HEAD) \
-  --file docker/docker/Dockerfile.linux.amd64 --tag plugins/kaniko-docker .
+  --file docker/docker/Dockerfile.linux.amd64 --tag plugins/kaniko .
 
 docker build \
   --label org.label-schema.build-date=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
