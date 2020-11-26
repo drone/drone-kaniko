@@ -15,7 +15,7 @@ import (
 
 const (
 	// GCR JSON key file path
-	gcrKeyPath     string = "/kaniko/gcr.json"
+	gcrKeyPath     string = "/kaniko/config.json"
 	gcrEnvVariable string = "GOOGLE_APPLICATION_CREDENTIALS"
 )
 

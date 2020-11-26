@@ -1,7 +1,4 @@
-FROM gcr.io/kaniko-project/executor:amd64-v1.3.0
-
-ENV HOME /root
-ENV USER root
+FROM gcr.io/kaniko-project/executor:v1.3.0
 
 ADD release/linux/amd64/kaniko-ecr /kaniko/
 ENTRYPOINT ["/kaniko/kaniko-ecr"]
