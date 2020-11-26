@@ -18,6 +18,9 @@ const (
 	// Docker file path
 	dockerPath       string = "/kaniko/.docker"
 	dockerConfigPath string = "/kaniko/.docker/config.json"
+
+	v1Registry string = "https://index.docker.io/v1/" // Default registry
+	v2Registry string = "https://index.docker.io/v2/" // v2 registry is not supported
 )
 
 var (
@@ -78,7 +81,7 @@ func main() {
 		cli.StringFlag{
 			Name:   "registry",
 			Usage:  "docker registry",
-			Value:  "https://index.docker.io/v1/",
+			Value:  v1Registry,
 			EnvVar: "PLUGIN_REGISTRY",
 		},
 		cli.StringFlag{
@@ -128,6 +131,12 @@ func createDockerCfgFile(username, password, registry string) error {
 	}
 	if registry == "" {
 		return fmt.Errorf("Registry must be specified")
+	}
+
+	if registry == v2Registry {
+		fmt.Println("Docker v2 registry is not supported in kaniko. Refer issue: https://github.com/GoogleContainerTools/kaniko/issues/1209")
+		fmt.Printf("Using v1 registry instead: %s\n", v1Registry)
+		registry = v1Registry
 	}
 
 	err := os.MkdirAll(dockerPath, 0600)
