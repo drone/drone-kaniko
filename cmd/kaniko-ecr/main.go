@@ -109,7 +109,7 @@ func run(c *cli.Context) error {
 			Tags:       c.StringSlice("tags"),
 			Args:       c.StringSlice("args"),
 			Target:     c.String("target"),
-			Repo:       c.String("repo"),
+			Repo:       fmt.Sprintf("%s/%s", c.String("registry"), c.String("repo")),
 			Labels:     c.StringSlice("custom-labels"),
 		},
 	}
