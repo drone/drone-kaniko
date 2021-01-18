@@ -46,7 +46,7 @@ func (p Plugin) Exec() error {
 	}
 	// Set the labels
 	for _, label := range p.Build.Labels {
-		cmdArgs = append(cmdArgs, fmt.Sprintf("--label %s", label))
+		cmdArgs = append(cmdArgs, fmt.Sprintf("--label=%s", label))
 	}
 
 	if p.Build.Target != "" {
