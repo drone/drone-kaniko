@@ -117,28 +117,25 @@ func run(c *cli.Context) error {
 }
 
 func setupECRAuth(accessKey, secretKey, registry string) error {
-	if accessKey == "" {
-		return fmt.Errorf("Access key must be specified")
-	}
-	if secretKey == "" {
-		return fmt.Errorf("Secret key must be specified")
-	}
 	if registry == "" {
 		return fmt.Errorf("Registry must be specified")
 	}
 
-	err := os.Setenv(accessKeyEnv, accessKey)
-	if err != nil {
-		return errors.Wrap(err, fmt.Sprintf("failed to set %s environment variable", accessKeyEnv))
-	}
+	// If IAM role is used, access key & secret key are not required
+	if accessKey != "" && secretKey != "" {
+		err := os.Setenv(accessKeyEnv, accessKey)
+		if err != nil {
+			return errors.Wrap(err, fmt.Sprintf("failed to set %s environment variable", accessKeyEnv))
+		}
 
-	err = os.Setenv(secretKeyEnv, secretKey)
-	if err != nil {
-		return errors.Wrap(err, fmt.Sprintf("failed to set %s environment variable", secretKeyEnv))
+		err = os.Setenv(secretKeyEnv, secretKey)
+		if err != nil {
+			return errors.Wrap(err, fmt.Sprintf("failed to set %s environment variable", secretKeyEnv))
+		}
 	}
 
 	jsonBytes := []byte(fmt.Sprintf(`{"credStore": "ecr-login", "credHelpers": {"%s": "ecr-login"}}`, registry))
-	err = ioutil.WriteFile(dockerConfigPath, jsonBytes, 0644)
+	err := ioutil.WriteFile(dockerConfigPath, jsonBytes, 0644)
 	if err != nil {
 		return errors.Wrap(err, "failed to create docker config file")
 	}
