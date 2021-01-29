@@ -14,30 +14,45 @@ steps:
   settings:
     repo: plugins/kaniko
     auto_tag: true
+    auto_tag_suffix: linux-amd64
     dockerfile: docker/docker/Dockerfile.linux.amd64
     username:
       from_secret: docker_username
     password:
       from_secret: docker_password
+  when:
+    event:
+    - push
+    - tag
 
 - name: gcr
   image: plugins/docker
   settings:
     repo: plugins/kaniko-gcr
     auto_tag: true
+    auto_tag_suffix: linux-amd64
     dockerfile: docker/gcr/Dockerfile.linux.amd64
     username:
       from_secret: docker_username
     password:
       from_secret: docker_password
+  when:
+    event:
+    - push
+    - tag
 
 - name: ecr
   image: plugins/docker
   settings:
     repo: plugins/kaniko-ecr
     auto_tag: true
+    auto_tag_suffix: linux-amd64
     dockerfile: docker/ecr/Dockerfile.linux.amd64
     username:
       from_secret: docker_username
     password:
       from_secret: docker_password
+  when:
+    event:
+    - push
+    - tag
