@@ -31,6 +31,10 @@ func (p Plugin) Exec() error {
 		return fmt.Errorf("repository name to publish image must be specified")
 	}
 
+	if _, err := os.Stat(p.Build.Dockerfile); os.IsNotExist(err) {
+		return fmt.Errorf("dockerfile does not exist at path: %s", p.Build.Dockerfile)
+	}
+
 	cmdArgs := []string{
 		fmt.Sprintf("--dockerfile=%s", p.Build.Dockerfile),
 		fmt.Sprintf("--context=dir://%s", p.Build.Context),
