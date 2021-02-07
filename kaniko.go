@@ -10,13 +10,14 @@ import (
 type (
 	// Build defines Docker build parameters.
 	Build struct {
-		Dockerfile string   // Docker build Dockerfile
-		Context    string   // Docker build context
-		Tags       []string // Docker build tags
-		Args       []string // Docker build args
-		Target     string   // Docker build target
-		Repo       string   // Docker build repository
-		Labels     []string // Label map
+		Dockerfile    string   // Docker build Dockerfile
+		Context       string   // Docker build context
+		Tags          []string // Docker build tags
+		Args          []string // Docker build args
+		Target        string   // Docker build target
+		Repo          string   // Docker build repository
+		Labels        []string // Label map
+		SkipTlsVerify bool     // Docker skip tls certificate verify for registry
 	}
 
 	// Plugin defines the Docker plugin parameters.
@@ -55,6 +56,10 @@ func (p Plugin) Exec() error {
 
 	if p.Build.Target != "" {
 		cmdArgs = append(cmdArgs, fmt.Sprintf("--target=%s", p.Build.Target))
+	}
+
+	if p.Build.SkipTlsVerify {
+		cmdArgs = append(cmdArgs, fmt.Sprintf("--skip-tls-verify=true"))
 	}
 
 	cmd := exec.Command("/kaniko/executor", cmdArgs...)
