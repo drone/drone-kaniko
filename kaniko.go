@@ -27,7 +27,7 @@ type (
 
 // Exec executes the plugin step
 func (p Plugin) Exec() error {
-	if p.Build.Repo == "" {
+	if p.Build.Repo == "" 
 		return fmt.Errorf("repository name to publish image must be specified")
 	}
 
