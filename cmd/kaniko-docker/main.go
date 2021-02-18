@@ -94,6 +94,11 @@ func main() {
 			Usage:  "docker password",
 			EnvVar: "PLUGIN_PASSWORD",
 		},
+		cli.BoolFlag {
+			Name: "skip-tls-verify",
+			Usage: "Skip registry tls verify",
+			EnvVar: "PLUGIN_SKIP_TLS_VERIFY",
+		},
 	}
 
 	if err := app.Run(os.Args); err != nil {
@@ -116,6 +121,7 @@ func run(c *cli.Context) error {
 			Target:     c.String("target"),
 			Repo:       c.String("repo"),
 			Labels:     c.StringSlice("custom-labels"),
+			SkipTlsVerify: c.Bool("skip-tls-verify"),
 		},
 	}
 	return plugin.Exec()
