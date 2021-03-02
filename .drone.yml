@@ -15,6 +15,7 @@ steps:
     repo: plugins/kaniko
     auto_tag: true
     auto_tag_suffix: linux-amd64
+    daemon_off: false
     dockerfile: docker/docker/Dockerfile.linux.amd64
     username:
       from_secret: docker_username
@@ -22,8 +23,8 @@ steps:
       from_secret: docker_password
   when:
     event:
-    - push
-    - tag
+      exclude:
+      - pull_request
 
 - name: gcr
   image: plugins/docker
@@ -31,6 +32,7 @@ steps:
     repo: plugins/kaniko-gcr
     auto_tag: true
     auto_tag_suffix: linux-amd64
+    daemon_off: false
     dockerfile: docker/gcr/Dockerfile.linux.amd64
     username:
       from_secret: docker_username
@@ -38,8 +40,8 @@ steps:
       from_secret: docker_password
   when:
     event:
-    - push
-    - tag
+      exclude:
+      - pull_request
 
 - name: ecr
   image: plugins/docker
@@ -47,6 +49,7 @@ steps:
     repo: plugins/kaniko-ecr
     auto_tag: true
     auto_tag_suffix: linux-amd64
+    daemon_off: false
     dockerfile: docker/ecr/Dockerfile.linux.amd64
     username:
       from_secret: docker_username
@@ -54,5 +57,5 @@ steps:
       from_secret: docker_password
   when:
     event:
-    - push
-    - tag
+      exclude:
+      - pull_request
