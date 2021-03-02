@@ -18,6 +18,7 @@ type (
 		Repo          string   // Docker build repository
 		Labels        []string // Label map
 		SkipTlsVerify bool     // Docker skip tls certificate verify for registry
+		SnapshotMode  string   // Kaniko snapshot mode
 	}
 
 	// Plugin defines the Docker plugin parameters.
@@ -60,6 +61,10 @@ func (p Plugin) Exec() error {
 
 	if p.Build.SkipTlsVerify {
 		cmdArgs = append(cmdArgs, fmt.Sprintf("--skip-tls-verify=true"))
+	}
+
+	if p.Build.SnapshotMode != "" {
+		cmdArgs = append(cmdArgs, fmt.Sprintf("--snapshotMode=%s", p.Build.SnapshotMode))
 	}
 
 	cmd := exec.Command("/kaniko/executor", cmdArgs...)
