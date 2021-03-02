@@ -94,10 +94,15 @@ func main() {
 			Usage:  "docker password",
 			EnvVar: "PLUGIN_PASSWORD",
 		},
-		cli.BoolFlag {
-			Name: "skip-tls-verify",
-			Usage: "Skip registry tls verify",
+		cli.BoolFlag{
+			Name:   "skip-tls-verify",
+			Usage:  "Skip registry tls verify",
 			EnvVar: "PLUGIN_SKIP_TLS_VERIFY",
+		},
+		cli.StringFlag{
+			Name:   "snapshot-mode",
+			Usage:  "Specify one of full, redo or time as snapshot mode",
+			EnvVar: "PLUGIN_SNAPSHOT_MODE",
 		},
 	}
 
@@ -114,14 +119,15 @@ func run(c *cli.Context) error {
 
 	plugin := kaniko.Plugin{
 		Build: kaniko.Build{
-			Dockerfile: c.String("dockerfile"),
-			Context:    c.String("context"),
-			Tags:       c.StringSlice("tags"),
-			Args:       c.StringSlice("args"),
-			Target:     c.String("target"),
-			Repo:       c.String("repo"),
-			Labels:     c.StringSlice("custom-labels"),
+			Dockerfile:    c.String("dockerfile"),
+			Context:       c.String("context"),
+			Tags:          c.StringSlice("tags"),
+			Args:          c.StringSlice("args"),
+			Target:        c.String("target"),
+			Repo:          c.String("repo"),
+			Labels:        c.StringSlice("custom-labels"),
 			SkipTlsVerify: c.Bool("skip-tls-verify"),
+			SnapshotMode:  c.String("snapshot-mode"),
 		},
 	}
 	return plugin.Exec()

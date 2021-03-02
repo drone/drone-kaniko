@@ -49,5 +49,5 @@ docker run --rm \
     -e PLUGIN_PASSWORD=bar \
     -v $(pwd):/drone \
     -w /drone \
-    plugins/kaniko-docker
+    plugins/kaniko:linux-amd64
 ```
