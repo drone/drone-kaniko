@@ -1,4 +1,15 @@
+FROM golang
+
+ENV GOOS="linux"
+ENV GOARCH="amd64"
+ENV CGO_ENABLED=0
+ENV GO111MODULE="on"
+
+WORKDIR /build
+ADD . .
+RUN go build -v -a -tags netgo -o release/linux/amd64/kaniko-docker ./cmd/kaniko-docker
+
 FROM gcr.io/kaniko-project/executor:v1.3.0
 
-ADD release/linux/amd64/kaniko-docker /kaniko/
+COPY --from=0 /build/release/linux/amd64/kaniko-docker /kaniko/
 ENTRYPOINT ["/kaniko/kaniko-docker"]
