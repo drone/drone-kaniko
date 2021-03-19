@@ -59,3 +59,57 @@ steps:
     event:
       exclude:
       - pull_request
+
+---
+kind: pipeline
+type: docker
+name: notifications-docker
+
+platform:
+  os: linux
+  arch: amd64
+
+steps:
+- name: manifest-docker
+  pull: always
+  image: plugins/manifest
+  settings:
+    auto_tag: true
+    ignore_missing: true
+    password:
+      from_secret: docker_password
+    spec: docker/docker/manifest.tmpl
+    username:
+      from_secret: docker_username
+
+- name: manifest-gcr
+  pull: always
+  image: plugins/manifest
+  settings:
+    auto_tag: true
+    ignore_missing: true
+    password:
+      from_secret: docker_password
+    spec: docker/gcr/manifest.tmpl
+    username:
+      from_secret: docker_username
+
+- name: manifest-ecr
+  pull: always
+  image: plugins/manifest
+  settings:
+    auto_tag: true
+    ignore_missing: true
+    password:
+      from_secret: docker_password
+    spec: docker/ecr/manifest.tmpl
+    username:
+      from_secret: docker_username
+
+trigger:
+  ref:
+  - refs/heads/main
+  - "refs/tags/**"
+
+depends_on:
+- default
