@@ -19,6 +19,9 @@ type (
 		Labels        []string // Label map
 		SkipTlsVerify bool     // Docker skip tls certificate verify for registry
 		SnapshotMode  string   // Kaniko snapshot mode
+		EnableCache   bool     // Whether to enable kaniko cache
+		CacheRepo     string   // Remote repository that will be used to store cached layers
+		CacheTTL      int      // Cache timeout in hours
 	}
 
 	// Plugin defines the Docker plugin parameters.
@@ -65,6 +68,18 @@ func (p Plugin) Exec() error {
 
 	if p.Build.SnapshotMode != "" {
 		cmdArgs = append(cmdArgs, fmt.Sprintf("--snapshotMode=%s", p.Build.SnapshotMode))
+	}
+
+	if p.Build.EnableCache == true {
+		cmdArgs = append(cmdArgs, fmt.Sprintf("--cache=true"))
+	}
+
+	if p.Build.CacheRepo != "" {
+		cmdArgs = append(cmdArgs, fmt.Sprintf("--cache-repo=%s", p.Build.CacheRepo))
+	}
+
+	if p.Build.CacheTTL != 0 {
+		cmdArgs = append(cmdArgs, fmt.Sprintf("--cache-ttl=%d", p.Build.CacheTTL))
 	}
 
 	cmd := exec.Command("/kaniko/executor", cmdArgs...)
