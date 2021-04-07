@@ -94,6 +94,21 @@ func main() {
 			Usage:  "Specify one of full, redo or time as snapshot mode",
 			EnvVar: "PLUGIN_SNAPSHOT_MODE",
 		},
+		cli.BoolFlag{
+			Name:   "enable-cache",
+			Usage:  "Set this flag to opt into caching with kaniko",
+			EnvVar: "PLUGIN_ENABLE_CACHE",
+		},
+		cli.StringFlag{
+			Name:   "cache-repo",
+			Usage:  "Remote repository that will be used to store cached layers. enable-cache needs to be set to use this flag",
+			EnvVar: "PLUGIN_CACHE_REPO",
+		},
+		cli.IntFlag{
+			Name:   "cache-ttl",
+			Usage:  "Cache timeout in hours. Defaults to two weeks.",
+			EnvVar: "PLUGIN_CACHE_TTL",
+		},
 	}
 
 	if err := app.Run(os.Args); err != nil {
