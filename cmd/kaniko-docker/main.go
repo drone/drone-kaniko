@@ -12,6 +12,8 @@ import (
 	"github.com/urfave/cli"
 
 	kaniko "github.com/drone/drone-kaniko"
+	"github.com/drone/drone-kaniko/cmd/digest"
+	"github.com/drone/drone-kaniko/cmd/output"
 )
 
 const (
@@ -119,6 +121,16 @@ func main() {
 			Usage:  "Cache timeout in hours. Defaults to two weeks.",
 			EnvVar: "PLUGIN_CACHE_TTL",
 		},
+		cli.StringFlag{
+			Name:   "digest-file",
+			Usage:  "Digest file Location",
+			EnvVar: "PLUGIN_DIGEST_FILE",
+		},
+		cli.StringFlag{
+			Name:   "output-file",
+			Usage:  "output file Location",
+			EnvVar: "PLUGIN_OUTPUT_FILE",
+		},
 	}
 
 	if err := app.Run(os.Args); err != nil {
@@ -128,6 +140,11 @@ func main() {
 
 func run(c *cli.Context) error {
 	err := createDockerCfgFile(c.String("username"), c.String("password"), c.String("registry"))
+	if err != nil {
+		return err
+	}
+
+	digestFileName, err := digest.GetDigestFileName(c.String("digest-file"), c.String("output-file"))
 	if err != nil {
 		return err
 	}
@@ -146,9 +163,26 @@ func run(c *cli.Context) error {
 			EnableCache:   c.Bool("enable-cache"),
 			CacheRepo:     c.String("cache-repo"),
 			CacheTTL:      c.Int("cache-ttl"),
+			DigestFile:    digestFileName,
 		},
 	}
-	return plugin.Exec()
+	err = plugin.Exec()
+	if err != nil {
+		return err
+	}
+
+	if c.String("output-file") != "" {
+		digestValue, err := digest.ReadDigestFile(digestFileName)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s\n", err)
+		}
+		err = output.WritePluginOutput(c.String("output-file"), "Docker", c.String("registry"), c.String("repo"), digestValue, c.StringSlice("tags"))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s\n", err)
+		}
+	}
+
+	return nil
 }
 
 // Create the docker config file for authentication
