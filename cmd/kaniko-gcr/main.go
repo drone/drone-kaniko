@@ -97,7 +97,7 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:   "cache-repo",
-			Usage:  "Remote repository that will be used to store cached layers. enable-cache needs to be set to use this flag",
+			Usage:  "Remote repository that will be used to store cached layers. Cache repo should be present in specified registry. enable-cache needs to be set to use this flag",
 			EnvVar: "PLUGIN_CACHE_REPO",
 		},
 		cli.IntFlag{
@@ -133,7 +133,7 @@ func run(c *cli.Context) error {
 			Labels:       c.StringSlice("custom-labels"),
 			SnapshotMode: c.String("snapshot-mode"),
 			EnableCache:  c.Bool("enable-cache"),
-			CacheRepo:    c.String("cache-repo"),
+			CacheRepo:    fmt.Sprintf("%s/%s", c.String("registry"), c.String("cache-repo")),
 			CacheTTL:     c.Int("cache-ttl"),
 		},
 	}
