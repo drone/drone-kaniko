@@ -14,15 +14,23 @@ const (
 	dockerArtifactV1 string = "docker/v1"
 )
 
+type RegistryTypeEnum string
+
+const (
+	Docker RegistryTypeEnum = "Docker"
+	ECR    RegistryTypeEnum = "ECR"
+	GCR    RegistryTypeEnum = "GCR"
+)
+
 type (
 	Image struct {
 		Image  string `json:"image"`
 		Digest string `json:"digest"`
 	}
 	Data struct {
-		RegistryType string  `json:"registryType"`
-		RegistryUrl  string  `json:"registryUrl"`
-		Images       []Image `json:"images"`
+		RegistryType RegistryTypeEnum `json:"registryType"`
+		RegistryUrl  string           `json:"registryUrl"`
+		Images       []Image          `json:"images"`
 	}
 	DockerArtifact struct {
 		Kind string `json:"kind"`
@@ -30,7 +38,7 @@ type (
 	}
 )
 
-func WritePluginArtifactFile(artifactFilePath, registryType, registryUrl, imageName, digest string, tags []string) error {
+func WritePluginArtifactFile(registryType RegistryTypeEnum, artifactFilePath, registryUrl, imageName, digest string, tags []string) error {
 	var images []Image
 	for _, tag := range tags {
 		images = append(images, Image{
@@ -54,12 +62,10 @@ func WritePluginArtifactFile(artifactFilePath, registryType, registryUrl, imageN
 		return errors.Wrap(err, fmt.Sprintf("failed to marshal output %+v", dockerArtifact))
 	}
 
-	if _, err := os.Stat(artifactFilePath); os.IsNotExist(err) {
-		path := filepath.Dir(artifactFilePath)
-		err = os.MkdirAll(path, 0644)
-		if err != nil {
-			return errors.Wrap(err, fmt.Sprintf("failed to create %s directory for artifact file", artifactFilePath))
-		}
+	path := filepath.Dir(artifactFilePath)
+	err = os.MkdirAll(path, 0644)
+	if err != nil {
+		return errors.Wrap(err, fmt.Sprintf("failed to create %s directory for artifact file", artifactFilePath))
 	}
 
 	err = ioutil.WriteFile(artifactFilePath, b, 0644)

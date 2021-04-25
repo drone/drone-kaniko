@@ -9,7 +9,7 @@ func TestWritePluginArtifactFile(t *testing.T) {
 
 	testFile := t.TempDir() + "got.json"
 
-	err := WritePluginArtifactFile(testFile, "Docker", "https://index.docker.io/", "image", "sha256:22332233", []string{"a1", "latest"})
+	err := WritePluginArtifactFile(Docker, testFile, "https://index.docker.io/", "image", "sha256:22332233", []string{"a1", "latest"})
 	if err != nil {
 		t.Error(err)
 		t.FailNow()
