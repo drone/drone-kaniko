@@ -12,8 +12,7 @@ import (
 	"github.com/urfave/cli"
 
 	kaniko "github.com/drone/drone-kaniko"
-	"github.com/drone/drone-kaniko/cmd/digest"
-	"github.com/drone/drone-kaniko/cmd/output"
+	"github.com/drone/drone-kaniko/cmd/artifact"
 )
 
 const (
@@ -23,6 +22,8 @@ const (
 
 	v1Registry string = "https://index.docker.io/v1/" // Default registry
 	v2Registry string = "https://index.docker.io/v2/" // v2 registry is not supported
+
+	defaultDigestFile string = "/kaniko/.docker/digest-file"
 )
 
 var (
@@ -122,14 +123,9 @@ func main() {
 			EnvVar: "PLUGIN_CACHE_TTL",
 		},
 		cli.StringFlag{
-			Name:   "digest-file",
-			Usage:  "Digest file Location",
-			EnvVar: "PLUGIN_DIGEST_FILE",
-		},
-		cli.StringFlag{
-			Name:   "output-file",
-			Usage:  "output file Location",
-			EnvVar: "PLUGIN_OUTPUT_FILE",
+			Name:   "artifact-file",
+			Usage:  "Artifact file location",
+			EnvVar: "PLUGIN_ARTIFACT_FILE",
 		},
 	}
 
@@ -144,9 +140,9 @@ func run(c *cli.Context) error {
 		return err
 	}
 
-	digestFileName, err := digest.GetDigestFileName(c.String("digest-file"), c.String("output-file"))
-	if err != nil {
-		return err
+	var digestFileName = ""
+	if c.String("artifact-file") != "" {
+		digestFileName = defaultDigestFile
 	}
 
 	plugin := kaniko.Plugin{
@@ -171,12 +167,12 @@ func run(c *cli.Context) error {
 		return err
 	}
 
-	if c.String("output-file") != "" {
-		digestValue, err := digest.ReadDigestFile(digestFileName)
+	if c.String("artifact-file") != "" {
+		content, err := ioutil.ReadFile(digestFileName)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s\n", err)
 		}
-		err = output.WritePluginOutput(c.String("output-file"), "Docker", c.String("registry"), c.String("repo"), digestValue, c.StringSlice("tags"))
+		err = artifact.WritePluginArtifactFile(c.String("artifact-file"), "Docker", c.String("registry"), c.String("repo"), string(content), c.StringSlice("tags"))
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s\n", err)
 		}
