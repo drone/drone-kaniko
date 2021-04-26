@@ -11,7 +11,6 @@ import (
 	"github.com/urfave/cli"
 
 	kaniko "github.com/drone/drone-kaniko"
-	"github.com/drone/drone-kaniko/cmd/artifact"
 )
 
 const (
@@ -148,22 +147,7 @@ func run(c *cli.Context) error {
 	}
 
 	err = plugin.Exec()
-	if err != nil {
-		return err
-	}
-
-	if c.String("artifact-file") != "" {
-		content, err := ioutil.ReadFile(defaultDigestFile)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s\n", err)
-		}
-		err = artifact.WritePluginArtifactFile(artifact.GCR, c.String("artifact-file"), c.String("registry"), c.String("repo"), string(content), c.StringSlice("tags"))
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s\n", err)
-		}
-	}
-
-	return nil
+	return err
 }
 
 func setupGCRAuth(jsonKey string) error {

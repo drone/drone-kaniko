@@ -11,7 +11,6 @@ import (
 	"github.com/urfave/cli"
 
 	kaniko "github.com/drone/drone-kaniko"
-	"github.com/drone/drone-kaniko/cmd/artifact"
 )
 
 const (
@@ -145,24 +144,15 @@ func run(c *cli.Context) error {
 			CacheTTL:     c.Int("cache-ttl"),
 			DigestFile:   defaultDigestFile,
 		},
+		Artifact: kaniko.Artifact{
+			Tags:         c.StringSlice("tags"),
+			Repo:         c.String("repo"),
+			Registry:     c.String("registry"),
+			ArtifactFile: c.String("artifact-file"),
+		},
 	}
 	err = plugin.Exec()
-	if err != nil {
-		return err
-	}
-
-	if c.String("artifact-file") != "" {
-		content, err := ioutil.ReadFile(defaultDigestFile)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s\n", err)
-		}
-		err = artifact.WritePluginArtifactFile(artifact.ECR, c.String("artifact-file"), c.String("registry"), c.String("repo"), string(content), c.StringSlice("tags"))
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s\n", err)
-		}
-	}
-
-	return nil
+	return err
 }
 
 func setupECRAuth(accessKey, secretKey, registry string) error {

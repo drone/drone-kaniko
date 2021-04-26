@@ -2,9 +2,12 @@ package kaniko
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"strings"
+
+	"github.com/drone/drone-kaniko/cmd/artifact"
 )
 
 type (
@@ -16,6 +19,7 @@ type (
 		Args          []string // Docker build args
 		Target        string   // Docker build target
 		Repo          string   // Docker build repository
+		Registry      string   // Docker registry
 		Labels        []string // Label map
 		SkipTlsVerify bool     // Docker skip tls certificate verify for registry
 		SnapshotMode  string   // Kaniko snapshot mode
@@ -24,10 +28,19 @@ type (
 		CacheTTL      int      // Cache timeout in hours
 		DigestFile    string   // Digest file location
 	}
+	// Artifact defines content of artifact file
+	Artifact struct {
+		Tags         []string // Docker artifact tags
+		Repo         string   // Docker artifact repository
+		Registry     string   // Docker artifact registry
+		ArtifactFile string   // Artifact file location
+
+	}
 
 	// Plugin defines the Docker plugin parameters.
 	Plugin struct {
-		Build Build // Docker build configuration
+		Build    Build    // Docker build configuration
+		Artifact Artifact // Artifact file content
 	}
 )
 
@@ -93,7 +106,22 @@ func (p Plugin) Exec() error {
 	trace(cmd)
 
 	err := cmd.Run()
-	return err
+	if err != nil {
+		return err
+	}
+
+	if p.Build.DigestFile != "" {
+		content, err := ioutil.ReadFile(p.Build.DigestFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s\n", err)
+		}
+		err = artifact.WritePluginArtifactFile(artifact.Docker, p.Artifact.ArtifactFile, p.Artifact.Registry, p.Artifact.Repo, string(content), p.Artifact.Tags)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s\n", err)
+		}
+	}
+
+	return nil
 }
 
 // trace writes each command to stdout with the command wrapped in an xml
