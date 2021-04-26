@@ -19,7 +19,6 @@ type (
 		Args          []string // Docker build args
 		Target        string   // Docker build target
 		Repo          string   // Docker build repository
-		Registry      string   // Docker registry
 		Labels        []string // Label map
 		SkipTlsVerify bool     // Docker skip tls certificate verify for registry
 		SnapshotMode  string   // Kaniko snapshot mode

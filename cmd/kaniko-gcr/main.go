@@ -151,9 +151,7 @@ func run(c *cli.Context) error {
 			ArtifactFile: c.String("artifact-file"),
 		},
 	}
-
-	err = plugin.Exec()
-	return err
+	return plugin.Exec()
 }
 
 func setupGCRAuth(jsonKey string) error {

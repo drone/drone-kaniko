@@ -147,7 +147,6 @@ func run(c *cli.Context) error {
 			Args:          c.StringSlice("args"),
 			Target:        c.String("target"),
 			Repo:          c.String("repo"),
-			Registry:      c.String("registry"),
 			Labels:        c.StringSlice("custom-labels"),
 			SkipTlsVerify: c.Bool("skip-tls-verify"),
 			SnapshotMode:  c.String("snapshot-mode"),
@@ -163,8 +162,7 @@ func run(c *cli.Context) error {
 			ArtifactFile: c.String("artifact-file"),
 		},
 	}
-	err = plugin.Exec()
-	return err
+	return plugin.Exec()
 }
 
 // Create the docker config file for authentication
