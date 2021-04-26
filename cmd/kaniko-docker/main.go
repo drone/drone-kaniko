@@ -23,7 +23,7 @@ const (
 	v1Registry string = "https://index.docker.io/v1/" // Default registry
 	v2Registry string = "https://index.docker.io/v2/" // v2 registry is not supported
 
-	defaultDigestFile string = "/kaniko/.docker/digest-file"
+	defaultDigestFile string = "/kaniko/digest-file"
 )
 
 var (
@@ -140,11 +140,6 @@ func run(c *cli.Context) error {
 		return err
 	}
 
-	var digestFileName = ""
-	if c.String("artifact-file") != "" {
-		digestFileName = defaultDigestFile
-	}
-
 	plugin := kaniko.Plugin{
 		Build: kaniko.Build{
 			Dockerfile:    c.String("dockerfile"),
@@ -159,7 +154,7 @@ func run(c *cli.Context) error {
 			EnableCache:   c.Bool("enable-cache"),
 			CacheRepo:     c.String("cache-repo"),
 			CacheTTL:      c.Int("cache-ttl"),
-			DigestFile:    digestFileName,
+			DigestFile:    defaultDigestFile,
 		},
 	}
 	err = plugin.Exec()
@@ -168,7 +163,7 @@ func run(c *cli.Context) error {
 	}
 
 	if c.String("artifact-file") != "" {
-		content, err := ioutil.ReadFile(digestFileName)
+		content, err := ioutil.ReadFile(defaultDigestFile)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s\n", err)
 		}
