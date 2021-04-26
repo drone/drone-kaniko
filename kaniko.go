@@ -29,10 +29,11 @@ type (
 	}
 	// Artifact defines content of artifact file
 	Artifact struct {
-		Tags         []string // Docker artifact tags
-		Repo         string   // Docker artifact repository
-		Registry     string   // Docker artifact registry
-		ArtifactFile string   // Artifact file location
+		Tags         []string                  // Docker artifact tags
+		Repo         string                    // Docker artifact repository
+		Registry     string                    // Docker artifact registry
+		RegistryType artifact.RegistryTypeEnum // Rocker artifact registry type
+		ArtifactFile string                    // Artifact file location
 
 	}
 
@@ -114,7 +115,7 @@ func (p Plugin) Exec() error {
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s\n", err)
 		}
-		err = artifact.WritePluginArtifactFile(artifact.Docker, p.Artifact.ArtifactFile, p.Artifact.Registry, p.Artifact.Repo, string(content), p.Artifact.Tags)
+		err = artifact.WritePluginArtifactFile(p.Artifact.RegistryType, p.Artifact.ArtifactFile, p.Artifact.Registry, p.Artifact.Repo, string(content), p.Artifact.Tags)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s\n", err)
 		}

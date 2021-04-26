@@ -62,10 +62,10 @@ func WritePluginArtifactFile(registryType RegistryTypeEnum, artifactFilePath, re
 		return errors.Wrap(err, fmt.Sprintf("failed to marshal output %+v", dockerArtifact))
 	}
 
-	path := filepath.Dir(artifactFilePath)
-	err = os.MkdirAll(path, 0644)
+	dir := filepath.Dir(artifactFilePath)
+	err = os.MkdirAll(dir, 0644)
 	if err != nil {
-		return errors.Wrap(err, fmt.Sprintf("failed to create %s directory for artifact file", artifactFilePath))
+		return errors.Wrap(err, fmt.Sprintf("failed to create %s directory for artifact file", dir))
 	}
 
 	err = ioutil.WriteFile(artifactFilePath, b, 0644)

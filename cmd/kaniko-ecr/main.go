@@ -11,6 +11,7 @@ import (
 	"github.com/urfave/cli"
 
 	kaniko "github.com/drone/drone-kaniko"
+	"github.com/drone/drone-kaniko/cmd/artifact"
 )
 
 const (
@@ -149,6 +150,7 @@ func run(c *cli.Context) error {
 			Repo:         c.String("repo"),
 			Registry:     c.String("registry"),
 			ArtifactFile: c.String("artifact-file"),
+			RegistryType: artifact.ECR,
 		},
 	}
 	return plugin.Exec()
