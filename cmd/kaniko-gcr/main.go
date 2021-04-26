@@ -144,6 +144,12 @@ func run(c *cli.Context) error {
 			CacheTTL:     c.Int("cache-ttl"),
 			DigestFile:   defaultDigestFile,
 		},
+		Artifact: kaniko.Artifact{
+			Tags:         c.StringSlice("tags"),
+			Repo:         c.String("repo"),
+			Registry:     c.String("registry"),
+			ArtifactFile: c.String("artifact-file"),
+		},
 	}
 
 	err = plugin.Exec()
