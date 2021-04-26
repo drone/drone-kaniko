@@ -158,7 +158,7 @@ func setupECRAuth(accessKey, secretKey, registry string) error {
 		}
 	}
 
-	jsonBytes := []byte(fmt.Sprintf(`{"credStore": "ecr-login", "credHelpers": {"%s": "ecr-login"}}`, registry))
+	jsonBytes := []byte(fmt.Sprintf(`{"credStore": "ecr-login", "credHelpers": {"public.ecr.aws": "ecr-login", "%s": "ecr-login"}}`, registry))
 	err := ioutil.WriteFile(dockerConfigPath, jsonBytes, 0644)
 	if err != nil {
 		return errors.Wrap(err, "failed to create docker config file")

@@ -1,4 +1,4 @@
-FROM gcr.io/kaniko-project/executor:v1.3.0
+FROM gcr.io/kaniko-project/executor:v1.5.2
 
 ADD release/linux/amd64/kaniko-gcr /kaniko/
 ENTRYPOINT ["/kaniko/kaniko-gcr"]
