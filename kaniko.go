@@ -22,6 +22,7 @@ type (
 		EnableCache   bool     // Whether to enable kaniko cache
 		CacheRepo     string   // Remote repository that will be used to store cached layers
 		CacheTTL      int      // Cache timeout in hours
+		NoPush        string   // Set this flag if you only want to build the image, without pushing to a registry
 	}
 
 	// Plugin defines the Docker plugin parameters.
@@ -80,6 +81,10 @@ func (p Plugin) Exec() error {
 
 	if p.Build.CacheTTL != 0 {
 		cmdArgs = append(cmdArgs, fmt.Sprintf("--cache-ttl=%d", p.Build.CacheTTL))
+	}
+
+	if p.Build.NoPush != "" {
+		cmdArgs = append(cmdArgs, "--no-push")
 	}
 
 	cmd := exec.Command("/kaniko/executor", cmdArgs...)
