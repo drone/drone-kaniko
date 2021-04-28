@@ -109,7 +109,7 @@ func main() {
 			Usage:  "Cache timeout in hours. Defaults to two weeks.",
 			EnvVar: "PLUGIN_CACHE_TTL",
 		},
-		cli.StringFlag{
+		cli.BoolFlag{
 			Name:   "no-push",
 			Usage:  "Set this flag if you only want to build the image, without pushing to a registry",
 			EnvVar: "PLUGIN_NO_PUSH",
@@ -140,7 +140,7 @@ func run(c *cli.Context) error {
 			EnableCache:  c.Bool("enable-cache"),
 			CacheRepo:    fmt.Sprintf("%s/%s", c.String("registry"), c.String("cache-repo")),
 			CacheTTL:     c.Int("cache-ttl"),
-			NoPush:       c.String("no-push"),
+			NoPush:       c.Bool("no-push"),
 		},
 	}
 	return plugin.Exec()
