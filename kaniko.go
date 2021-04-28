@@ -84,7 +84,7 @@ func (p Plugin) Exec() error {
 	}
 
 	if p.Build.NoPush == true {
-		cmdArgs = append(cmdArgs, "--no-push")
+		cmdArgs = append(cmdArgs, fmt.Sprintf("--no-push"))
 	}
 
 	cmd := exec.Command("/kaniko/executor", cmdArgs...)
