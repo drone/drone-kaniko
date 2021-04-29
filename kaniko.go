@@ -110,14 +110,14 @@ func (p Plugin) Exec() error {
 		return err
 	}
 
-	if p.Build.DigestFile != "" {
+	if p.Build.DigestFile != "" && p.Artifact.ArtifactFile != "" {
 		content, err := ioutil.ReadFile(p.Build.DigestFile)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s\n", err)
+			fmt.Fprintf(os.Stderr, "failed to read digest file contents at path: %s with error: %s\n", p.Build.DigestFile, err)
 		}
 		err = artifact.WritePluginArtifactFile(p.Artifact.RegistryType, p.Artifact.ArtifactFile, p.Artifact.Registry, p.Artifact.Repo, string(content), p.Artifact.Tags)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s\n", err)
+			fmt.Fprintf(os.Stderr, "failed to write plugin artifact file at path: %s with error: %s\n", p.Artifact.ArtifactFile, err)
 		}
 	}
 
