@@ -2,9 +2,12 @@ package kaniko
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"strings"
+
+	"github.com/drone/drone-kaniko/cmd/artifact"
 )
 
 type (
@@ -22,12 +25,22 @@ type (
 		EnableCache   bool     // Whether to enable kaniko cache
 		CacheRepo     string   // Remote repository that will be used to store cached layers
 		CacheTTL      int      // Cache timeout in hours
-		NoPush        bool     // Set this flag if you only want to build the image, without pushing to a registry
+		DigestFile    string   // Digest file location
+    NoPush        bool     // Set this flag if you only want to build the image, without pushing to a registry
+	}
+	// Artifact defines content of artifact file
+	Artifact struct {
+		Tags         []string                  // Docker artifact tags
+		Repo         string                    // Docker artifact repository
+		Registry     string                    // Docker artifact registry
+		RegistryType artifact.RegistryTypeEnum // Rocker artifact registry type
+		ArtifactFile string                    // Artifact file location
 	}
 
 	// Plugin defines the Docker plugin parameters.
 	Plugin struct {
-		Build Build // Docker build configuration
+		Build    Build    // Docker build configuration
+		Artifact Artifact // Artifact file content
 	}
 )
 
@@ -83,9 +96,13 @@ func (p Plugin) Exec() error {
 		cmdArgs = append(cmdArgs, fmt.Sprintf("--cache-ttl=%d", p.Build.CacheTTL))
 	}
 
-	if p.Build.NoPush == true {
-		cmdArgs = append(cmdArgs, fmt.Sprintf("--no-push"))
+	if p.Build.DigestFile != "" {
+		cmdArgs = append(cmdArgs, fmt.Sprintf("--digest-file=%s", p.Build.DigestFile))
 	}
+  
+  if p.Build.NoPush {
+		cmdArgs = append(cmdArgs, fmt.Sprintf("--no-push"))
+  }
 
 	cmd := exec.Command("/kaniko/executor", cmdArgs...)
 	cmd.Stdout = os.Stdout
@@ -93,7 +110,22 @@ func (p Plugin) Exec() error {
 	trace(cmd)
 
 	err := cmd.Run()
-	return err
+	if err != nil {
+		return err
+	}
+
+	if p.Build.DigestFile != "" && p.Artifact.ArtifactFile != "" {
+		content, err := ioutil.ReadFile(p.Build.DigestFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed to read digest file contents at path: %s with error: %s\n", p.Build.DigestFile, err)
+		}
+		err = artifact.WritePluginArtifactFile(p.Artifact.RegistryType, p.Artifact.ArtifactFile, p.Artifact.Registry, p.Artifact.Repo, string(content), p.Artifact.Tags)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed to write plugin artifact file at path: %s with error: %s\n", p.Artifact.ArtifactFile, err)
+		}
+	}
+
+	return nil
 }
 
 // trace writes each command to stdout with the command wrapped in an xml
