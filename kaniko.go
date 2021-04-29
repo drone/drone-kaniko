@@ -26,6 +26,7 @@ type (
 		CacheRepo     string   // Remote repository that will be used to store cached layers
 		CacheTTL      int      // Cache timeout in hours
 		DigestFile    string   // Digest file location
+		NoPush        bool     // Set this flag if you only want to build the image, without pushing to a registry
 	}
 	// Artifact defines content of artifact file
 	Artifact struct {
@@ -34,7 +35,6 @@ type (
 		Registry     string                    // Docker artifact registry
 		RegistryType artifact.RegistryTypeEnum // Rocker artifact registry type
 		ArtifactFile string                    // Artifact file location
-
 	}
 
 	// Plugin defines the Docker plugin parameters.
@@ -98,6 +98,10 @@ func (p Plugin) Exec() error {
 
 	if p.Build.DigestFile != "" {
 		cmdArgs = append(cmdArgs, fmt.Sprintf("--digest-file=%s", p.Build.DigestFile))
+	}
+
+	if p.Build.NoPush {
+		cmdArgs = append(cmdArgs, fmt.Sprintf("--no-push"))
 	}
 
 	cmd := exec.Command("/kaniko/executor", cmdArgs...)
