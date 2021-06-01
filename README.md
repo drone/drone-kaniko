@@ -51,3 +51,23 @@ docker run --rm \
     -w /drone \
     plugins/kaniko:linux-amd64
 ```
+
+### Automatic Tagging
+
+With auto tagging enabled, semantic versions can be passed to PLUGIN_TAGS directly for expansion:
+
+```console
+docker run --rm \
+    -e PLUGIN_TAGS=v1.2.3,latest \
+    -v $(pwd):/drone \
+    -w /drone \
+    plugins/kaniko:linux-amd64
+```
+
+This would be equivalent to
+
+```
+PLUGIN_TAGS=1,1.2,1.2.3,latest
+```
+
+This allows for passing `$DRONE_TAG` directly as a tag for repos that use [semver](https://semver.org) tags.
