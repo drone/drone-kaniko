@@ -6,10 +6,12 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ecr v1.4.3
 	github.com/aws/aws-sdk-go-v2/service/ecrpublic v1.4.3
 	github.com/aws/smithy-go v1.7.0
+	github.com/google/go-cmp v0.5.6
 	github.com/joho/godotenv v1.3.0
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.3.0
 	github.com/urfave/cli v1.22.2
+	golang.org/x/mod v0.4.2
 )
 
 require (
