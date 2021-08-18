@@ -166,7 +166,7 @@ func run(c *cli.Context) error {
 			CacheTTL:      c.Int("cache-ttl"),
 			DigestFile:    defaultDigestFile,
 			NoPush:        c.Bool("no-push"),
-			Verbosity: 	   c.String("verbosity"),
+			Verbosity:     c.String("verbosity"),
 		},
 		Artifact: kaniko.Artifact{
 			Tags:         c.StringSlice("tags"),
