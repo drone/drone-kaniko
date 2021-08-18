@@ -132,6 +132,11 @@ func main() {
 			Usage:  "Set this flag if you only want to build the image, without pushing to a registry",
 			EnvVar: "PLUGIN_NO_PUSH",
 		},
+		cli.StringFlag{
+			Name:   "verbosity",
+			Usage:  "Set this flag with value as oneof <panic|fatal|error|warn|info|debug|trace> to set the logging level for kaniko. Defaults to info.",
+			EnvVar: "PLUGIN_VERBOSITY",
+		},
 	}
 
 	if err := app.Run(os.Args); err != nil {
@@ -161,6 +166,7 @@ func run(c *cli.Context) error {
 			CacheTTL:      c.Int("cache-ttl"),
 			DigestFile:    defaultDigestFile,
 			NoPush:        c.Bool("no-push"),
+			Verbosity: 	   c.String("verbosity"),
 		},
 		Artifact: kaniko.Artifact{
 			Tags:         c.StringSlice("tags"),
