@@ -120,7 +120,7 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:   "verbosity",
-			Usage:  "Set this flag with value as oneof <panic|fatal|error|warn|info|debug|trace> to set the logging level for kaniko. Defaults to info.",
+			Usage:  "Set this flag as --verbosity=<panic|fatal|error|warn|info|debug|trace> to set the logging level for kaniko. Defaults to info.",
 			EnvVar: "PLUGIN_VERBOSITY",
 		},
 	}
