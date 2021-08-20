@@ -27,6 +27,7 @@ type (
 		CacheTTL      int      // Cache timeout in hours
 		DigestFile    string   // Digest file location
 		NoPush        bool     // Set this flag if you only want to build the image, without pushing to a registry
+		Verbosity     string   // Log level
 	}
 	// Artifact defines content of artifact file
 	Artifact struct {
@@ -86,10 +87,10 @@ func (p Plugin) Exec() error {
 
 	if p.Build.EnableCache == true {
 		cmdArgs = append(cmdArgs, fmt.Sprintf("--cache=true"))
-	}
 
-	if p.Build.CacheRepo != "" {
-		cmdArgs = append(cmdArgs, fmt.Sprintf("--cache-repo=%s", p.Build.CacheRepo))
+		if p.Build.CacheRepo != "" {
+			cmdArgs = append(cmdArgs, fmt.Sprintf("--cache-repo=%s", p.Build.CacheRepo))
+		}
 	}
 
 	if p.Build.CacheTTL != 0 {
@@ -102,6 +103,10 @@ func (p Plugin) Exec() error {
 
 	if p.Build.NoPush {
 		cmdArgs = append(cmdArgs, fmt.Sprintf("--no-push"))
+	}
+
+	if p.Build.Verbosity != "" {
+		cmdArgs = append(cmdArgs, fmt.Sprintf("--verbosity=%s", p.Build.Verbosity))
 	}
 
 	cmd := exec.Command("/kaniko/executor", cmdArgs...)
