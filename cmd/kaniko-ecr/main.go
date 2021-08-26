@@ -36,7 +36,9 @@ var (
 func main() {
 	// Load env-file if it exists first
 	if env := os.Getenv("PLUGIN_ENV_FILE"); env != "" {
-		godotenv.Load(env)
+		if err := godotenv.Load(env); err != nil {
+			logrus.Fatal(err)
+		}
 	}
 
 	app := cli.NewApp()
@@ -237,19 +239,13 @@ func createRepository(region, repo, registry string) error {
 	}
 
 	var createErr error
-	switch registry {
-	case ecrPublicDomain:
-		splitRepo := strings.SplitN(repo, "/", 2)
-
-		if len(splitRepo) < 2 {
-			return fmt.Errorf("repo %s does not contain public registry alias", repo)
-		}
-
-		// create public repo
+	switch {
+	// create public repo if registry string starts with public domain (ex: public.ecr.aws/example-registry)
+	case strings.HasPrefix(registry, ecrPublicDomain):
 		svc := ecrpublic.NewFromConfig(cfg)
-		_, createErr = svc.CreateRepository(context.TODO(), &ecrpublic.CreateRepositoryInput{RepositoryName: &splitRepo[1]})
+		_, createErr = svc.CreateRepository(context.TODO(), &ecrpublic.CreateRepositoryInput{RepositoryName: &repo})
+	// create private repo
 	default:
-		// create private repo
 		svc := ecr.NewFromConfig(cfg)
 		_, createErr = svc.CreateRepository(context.TODO(), &ecr.CreateRepositoryInput{RepositoryName: &repo})
 	}
