@@ -1,10 +1,16 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/ecr"
+	"github.com/aws/aws-sdk-go-v2/service/ecrpublic"
+	"github.com/aws/smithy-go"
 	"github.com/joho/godotenv"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -18,6 +24,7 @@ const (
 	accessKeyEnv     string = "AWS_ACCESS_KEY_ID"
 	secretKeyEnv     string = "AWS_SECRET_ACCESS_KEY"
 	dockerConfigPath string = "/kaniko/.docker/config.json"
+	ecrPublicDomain  string = "public.ecr.aws"
 
 	defaultDigestFile string = "/kaniko/digest-file"
 )
@@ -29,7 +36,9 @@ var (
 func main() {
 	// Load env-file if it exists first
 	if env := os.Getenv("PLUGIN_ENV_FILE"); env != "" {
-		godotenv.Load(env)
+		if err := godotenv.Load(env); err != nil {
+			logrus.Fatal(err)
+		}
 	}
 
 	app := cli.NewApp()
@@ -71,6 +80,17 @@ func main() {
 			Name:   "repo",
 			Usage:  "docker repository",
 			EnvVar: "PLUGIN_REPO",
+		},
+		cli.BoolFlag{
+			Name:   "create-repository",
+			Usage:  "create ECR repository",
+			EnvVar: "PLUGIN_CREATE_REPOSITORY",
+		},
+		cli.StringFlag{
+			Name:   "region",
+			Usage:  "AWS region",
+			Value:  "us-east-1",
+			EnvVar: "PLUGIN_REGION",
 		},
 		cli.StringSliceFlag{
 			Name:   "custom-labels",
@@ -135,9 +155,21 @@ func main() {
 }
 
 func run(c *cli.Context) error {
-	err := setupECRAuth(c.String("access-key"), c.String("secret-key"), c.String("registry"))
-	if err != nil {
+	repo := c.String("repo")
+	registry := c.String("registry")
+
+	if err := checkEmptyStringFlags(repo, registry); err != nil {
 		return err
+	}
+
+	if err := setupECRAuth(c.String("access-key"), c.String("secret-key"), registry); err != nil {
+		return err
+	}
+
+	if c.Bool("create-repository") {
+		if err := createRepository(c.String("region"), repo, registry); err != nil {
+			return err
+		}
 	}
 
 	plugin := kaniko.Plugin{
@@ -168,11 +200,17 @@ func run(c *cli.Context) error {
 	return plugin.Exec()
 }
 
-func setupECRAuth(accessKey, secretKey, registry string) error {
-	if registry == "" {
-		return fmt.Errorf("registry must be specified")
+func checkEmptyStringFlags(flags ...string) error {
+	for _, flag := range flags {
+		if flag == "" {
+			return fmt.Errorf("%s must be specified", flag)
+		}
 	}
 
+	return nil
+}
+
+func setupECRAuth(accessKey, secretKey, registry string) error {
 	// If IAM role is used, access key & secret key are not required
 	if accessKey != "" && secretKey != "" {
 		err := os.Setenv(accessKeyEnv, accessKey)
@@ -186,10 +224,36 @@ func setupECRAuth(accessKey, secretKey, registry string) error {
 		}
 	}
 
-	jsonBytes := []byte(fmt.Sprintf(`{"credStore": "ecr-login", "credHelpers": {"public.ecr.aws": "ecr-login", "%s": "ecr-login"}}`, registry))
+	jsonBytes := []byte(fmt.Sprintf(`{"credStore": "ecr-login", "credHelpers": {"%s": "ecr-login", "%s": "ecr-login"}}`, ecrPublicDomain, registry))
 	err := ioutil.WriteFile(dockerConfigPath, jsonBytes, 0644)
 	if err != nil {
 		return errors.Wrap(err, "failed to create docker config file")
 	}
+	return nil
+}
+
+func createRepository(region, repo, registry string) error {
+	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
+	if err != nil {
+		return errors.Wrap(err, "failed to load aws config")
+	}
+
+	var createErr error
+	switch {
+	// create public repo if registry string starts with public domain (ex: public.ecr.aws/example-registry)
+	case strings.HasPrefix(registry, ecrPublicDomain):
+		svc := ecrpublic.NewFromConfig(cfg)
+		_, createErr = svc.CreateRepository(context.TODO(), &ecrpublic.CreateRepositoryInput{RepositoryName: &repo})
+	// create private repo
+	default:
+		svc := ecr.NewFromConfig(cfg)
+		_, createErr = svc.CreateRepository(context.TODO(), &ecr.CreateRepositoryInput{RepositoryName: &repo})
+	}
+
+	var apiError smithy.APIError
+	if errors.As(createErr, &apiError) && apiError.ErrorCode() != "RepositoryAlreadyExistsException" {
+		return errors.Wrap(createErr, "failed to create repository")
+	}
+
 	return nil
 }
