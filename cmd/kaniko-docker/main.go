@@ -145,9 +145,11 @@ func main() {
 }
 
 func run(c *cli.Context) error {
-	err := createDockerCfgFile(c.String("username"), c.String("password"), c.String("registry"))
-	if err != nil {
-		return err
+	if !c.Bool("no-push") {
+		err := createDockerCfgFile(c.String("username"), c.String("password"), c.String("registry"))
+		if err != nil {
+			return err
+		}
 	}
 
 	plugin := kaniko.Plugin{

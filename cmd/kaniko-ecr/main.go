@@ -155,20 +155,22 @@ func main() {
 }
 
 func run(c *cli.Context) error {
-	repo := c.String("repo")
-	registry := c.String("registry")
+	if !c.Bool("no-push") {
+		repo := c.String("repo")
+		registry := c.String("registry")
 
-	if err := checkEmptyStringFlags(repo, registry); err != nil {
-		return err
-	}
-
-	if err := setupECRAuth(c.String("access-key"), c.String("secret-key"), registry); err != nil {
-		return err
-	}
-
-	if c.Bool("create-repository") {
-		if err := createRepository(c.String("region"), repo, registry); err != nil {
+		if err := checkEmptyStringFlags(repo, registry); err != nil {
 			return err
+		}
+
+		if err := setupECRAuth(c.String("access-key"), c.String("secret-key"), registry); err != nil {
+			return err
+		}
+
+		if c.Bool("create-repository") {
+			if err := createRepository(c.String("region"), repo, registry); err != nil {
+				return err
+			}
 		}
 	}
 

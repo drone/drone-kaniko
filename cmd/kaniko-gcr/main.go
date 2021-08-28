@@ -131,13 +131,15 @@ func main() {
 }
 
 func run(c *cli.Context) error {
-	err := setupGCRAuth(c.String("json-key"))
-	if err != nil {
-		return err
-	}
+	if !c.Bool("no-push") {
+		err := setupGCRAuth(c.String("json-key"))
+		if err != nil {
+			return err
+		}
 
-	if c.String("repo") == "" {
-		return fmt.Errorf("repo must be specified")
+		if c.String("repo") == "" {
+			return fmt.Errorf("repo must be specified")
+		}
 	}
 
 	plugin := kaniko.Plugin{
