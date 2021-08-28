@@ -33,7 +33,9 @@ var (
 func main() {
 	// Load env-file if it exists first
 	if env := os.Getenv("PLUGIN_ENV_FILE"); env != "" {
-		godotenv.Load(env)
+		if err := godotenv.Load(env); err != nil {
+			logrus.Fatal(err)
+		}
 	}
 
 	app := cli.NewApp()

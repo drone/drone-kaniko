@@ -80,15 +80,15 @@ func (p Plugin) Exec() error {
 	}
 
 	if p.Build.SkipTlsVerify {
-		cmdArgs = append(cmdArgs, fmt.Sprintf("--skip-tls-verify=true"))
+		cmdArgs = append(cmdArgs, "--skip-tls-verify=true")
 	}
 
 	if p.Build.SnapshotMode != "" {
 		cmdArgs = append(cmdArgs, fmt.Sprintf("--snapshotMode=%s", p.Build.SnapshotMode))
 	}
 
-	if p.Build.EnableCache == true {
-		cmdArgs = append(cmdArgs, fmt.Sprintf("--cache=true"))
+	if p.Build.EnableCache {
+		cmdArgs = append(cmdArgs, "--cache=true")
 
 		if p.Build.CacheRepo != "" {
 			cmdArgs = append(cmdArgs, fmt.Sprintf("--cache-repo=%s", p.Build.CacheRepo))
@@ -104,7 +104,7 @@ func (p Plugin) Exec() error {
 	}
 
 	if p.Build.NoPush {
-		cmdArgs = append(cmdArgs, fmt.Sprintf("--no-push"))
+		cmdArgs = append(cmdArgs, "--no-push")
 	}
 
 	if p.Build.Verbosity != "" {
