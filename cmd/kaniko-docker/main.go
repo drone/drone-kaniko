@@ -147,9 +147,12 @@ func main() {
 }
 
 func run(c *cli.Context) error {
-	if !c.Bool("no-push") {
-		err := createDockerCfgFile(c.String("username"), c.String("password"), c.String("registry"))
-		if err != nil {
+	username := c.String("username")
+	noPush := c.Bool("no-push")
+
+	// only setup auth when pushing or credentials are defined
+	if !noPush || username != "" {
+		if err := createDockerCfgFile(username, c.String("password"), c.String("registry")); err != nil {
 			return err
 		}
 	}
@@ -169,7 +172,7 @@ func run(c *cli.Context) error {
 			CacheRepo:     c.String("cache-repo"),
 			CacheTTL:      c.Int("cache-ttl"),
 			DigestFile:    defaultDigestFile,
-			NoPush:        c.Bool("no-push"),
+			NoPush:        noPush,
 			Verbosity:     c.String("verbosity"),
 		},
 		Artifact: kaniko.Artifact{

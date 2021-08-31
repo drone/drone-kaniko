@@ -155,20 +155,19 @@ func main() {
 }
 
 func run(c *cli.Context) error {
-	if !c.Bool("no-push") {
-		repo := c.String("repo")
-		registry := c.String("registry")
+	registry := c.String("registry")
+	accessKey := c.String("access-key")
+	noPush := c.Bool("no-push")
 
-		if err := checkEmptyStringFlags(repo, registry); err != nil {
+	// only setup auth when pushing or credentials are defined
+	if !noPush || accessKey != "" {
+		if err := setupECRAuth(accessKey, c.String("secret-key"), registry); err != nil {
 			return err
 		}
 
-		if err := setupECRAuth(c.String("access-key"), c.String("secret-key"), registry); err != nil {
-			return err
-		}
-
-		if c.Bool("create-repository") {
-			if err := createRepository(c.String("region"), repo, registry); err != nil {
+		// only create repository when pushing and create-repository is true
+		if !noPush && c.Bool("create-repository") {
+			if err := createRepository(c.String("region"), c.String("repo"), registry); err != nil {
 				return err
 			}
 		}
@@ -188,7 +187,7 @@ func run(c *cli.Context) error {
 			CacheRepo:    fmt.Sprintf("%s/%s", c.String("registry"), c.String("cache-repo")),
 			CacheTTL:     c.Int("cache-ttl"),
 			DigestFile:   defaultDigestFile,
-			NoPush:       c.Bool("no-push"),
+			NoPush:       noPush,
 			Verbosity:    c.String("verbosity"),
 		},
 		Artifact: kaniko.Artifact{
@@ -202,17 +201,11 @@ func run(c *cli.Context) error {
 	return plugin.Exec()
 }
 
-func checkEmptyStringFlags(flags ...string) error {
-	for _, flag := range flags {
-		if flag == "" {
-			return fmt.Errorf("%s must be specified", flag)
-		}
+func setupECRAuth(accessKey, secretKey, registry string) error {
+	if registry == "" {
+		return fmt.Errorf("registry must be specified")
 	}
 
-	return nil
-}
-
-func setupECRAuth(accessKey, secretKey, registry string) error {
 	// If IAM role is used, access key & secret key are not required
 	if accessKey != "" && secretKey != "" {
 		err := os.Setenv(accessKeyEnv, accessKey)
@@ -235,6 +228,14 @@ func setupECRAuth(accessKey, secretKey, registry string) error {
 }
 
 func createRepository(region, repo, registry string) error {
+	if registry == "" {
+		return fmt.Errorf("registry must be specified")
+	}
+
+	if repo == "" {
+		return fmt.Errorf("repo must be specified")
+	}
+
 	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
 	if err != nil {
 		return errors.Wrap(err, "failed to load aws config")

@@ -133,14 +133,13 @@ func main() {
 }
 
 func run(c *cli.Context) error {
-	if !c.Bool("no-push") {
-		err := setupGCRAuth(c.String("json-key"))
-		if err != nil {
-			return err
-		}
+	noPush := c.Bool("no-push")
+	jsonKey := c.String("json-key")
 
-		if c.String("repo") == "" {
-			return fmt.Errorf("repo must be specified")
+	// only setup auth when pushing or credentials are defined
+	if !noPush || jsonKey != "" {
+		if err := setupGCRAuth(jsonKey); err != nil {
+			return err
 		}
 	}
 
@@ -158,7 +157,7 @@ func run(c *cli.Context) error {
 			CacheRepo:    fmt.Sprintf("%s/%s", c.String("registry"), c.String("cache-repo")),
 			CacheTTL:     c.Int("cache-ttl"),
 			DigestFile:   defaultDigestFile,
-			NoPush:       c.Bool("no-push"),
+			NoPush:       noPush,
 			Verbosity:    c.String("verbosity"),
 		},
 		Artifact: kaniko.Artifact{
