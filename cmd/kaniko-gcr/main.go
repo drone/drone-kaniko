@@ -29,7 +29,9 @@ var (
 func main() {
 	// Load env-file if it exists first
 	if env := os.Getenv("PLUGIN_ENV_FILE"); env != "" {
-		godotenv.Load(env)
+		if err := godotenv.Load(env); err != nil {
+			logrus.Fatal(err)
+		}
 	}
 
 	app := cli.NewApp()
@@ -131,13 +133,14 @@ func main() {
 }
 
 func run(c *cli.Context) error {
-	err := setupGCRAuth(c.String("json-key"))
-	if err != nil {
-		return err
-	}
+	noPush := c.Bool("no-push")
+	jsonKey := c.String("json-key")
 
-	if c.String("repo") == "" {
-		return fmt.Errorf("repo must be specified")
+	// only setup auth when pushing or credentials are defined
+	if !noPush || jsonKey != "" {
+		if err := setupGCRAuth(jsonKey); err != nil {
+			return err
+		}
 	}
 
 	plugin := kaniko.Plugin{
@@ -154,7 +157,7 @@ func run(c *cli.Context) error {
 			CacheRepo:    fmt.Sprintf("%s/%s", c.String("registry"), c.String("cache-repo")),
 			CacheTTL:     c.Int("cache-ttl"),
 			DigestFile:   defaultDigestFile,
-			NoPush:       c.Bool("no-push"),
+			NoPush:       noPush,
 			Verbosity:    c.String("verbosity"),
 		},
 		Artifact: kaniko.Artifact{

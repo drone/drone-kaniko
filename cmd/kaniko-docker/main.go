@@ -33,7 +33,9 @@ var (
 func main() {
 	// Load env-file if it exists first
 	if env := os.Getenv("PLUGIN_ENV_FILE"); env != "" {
-		godotenv.Load(env)
+		if err := godotenv.Load(env); err != nil {
+			logrus.Fatal(err)
+		}
 	}
 
 	app := cli.NewApp()
@@ -145,9 +147,14 @@ func main() {
 }
 
 func run(c *cli.Context) error {
-	err := createDockerCfgFile(c.String("username"), c.String("password"), c.String("registry"))
-	if err != nil {
-		return err
+	username := c.String("username")
+	noPush := c.Bool("no-push")
+
+	// only setup auth when pushing or credentials are defined
+	if !noPush || username != "" {
+		if err := createDockerCfgFile(username, c.String("password"), c.String("registry")); err != nil {
+			return err
+		}
 	}
 
 	plugin := kaniko.Plugin{
@@ -165,7 +172,7 @@ func run(c *cli.Context) error {
 			CacheRepo:     c.String("cache-repo"),
 			CacheTTL:      c.Int("cache-ttl"),
 			DigestFile:    defaultDigestFile,
-			NoPush:        c.Bool("no-push"),
+			NoPush:        noPush,
 			Verbosity:     c.String("verbosity"),
 		},
 		Artifact: kaniko.Artifact{

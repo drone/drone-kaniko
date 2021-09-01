@@ -47,7 +47,7 @@ type (
 
 // Exec executes the plugin step
 func (p Plugin) Exec() error {
-	if p.Build.Repo == "" {
+	if !p.Build.NoPush && p.Build.Repo == "" {
 		return fmt.Errorf("repository name to publish image must be specified")
 	}
 
@@ -61,8 +61,10 @@ func (p Plugin) Exec() error {
 	}
 
 	// Set the destination repository
-	for _, tag := range p.Build.Tags {
-		cmdArgs = append(cmdArgs, fmt.Sprintf("--destination=%s:%s", p.Build.Repo, tag))
+	if !p.Build.NoPush {
+		for _, tag := range p.Build.Tags {
+			cmdArgs = append(cmdArgs, fmt.Sprintf("--destination=%s:%s", p.Build.Repo, tag))
+		}
 	}
 	// Set the build arguments
 	for _, arg := range p.Build.Args {
@@ -78,15 +80,15 @@ func (p Plugin) Exec() error {
 	}
 
 	if p.Build.SkipTlsVerify {
-		cmdArgs = append(cmdArgs, fmt.Sprintf("--skip-tls-verify=true"))
+		cmdArgs = append(cmdArgs, "--skip-tls-verify=true")
 	}
 
 	if p.Build.SnapshotMode != "" {
 		cmdArgs = append(cmdArgs, fmt.Sprintf("--snapshotMode=%s", p.Build.SnapshotMode))
 	}
 
-	if p.Build.EnableCache == true {
-		cmdArgs = append(cmdArgs, fmt.Sprintf("--cache=true"))
+	if p.Build.EnableCache {
+		cmdArgs = append(cmdArgs, "--cache=true")
 
 		if p.Build.CacheRepo != "" {
 			cmdArgs = append(cmdArgs, fmt.Sprintf("--cache-repo=%s", p.Build.CacheRepo))
@@ -102,7 +104,7 @@ func (p Plugin) Exec() error {
 	}
 
 	if p.Build.NoPush {
-		cmdArgs = append(cmdArgs, fmt.Sprintf("--no-push"))
+		cmdArgs = append(cmdArgs, "--no-push")
 	}
 
 	if p.Build.Verbosity != "" {
