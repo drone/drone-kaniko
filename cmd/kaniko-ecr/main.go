@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -11,13 +12,12 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ecr"
 	"github.com/aws/aws-sdk-go-v2/service/ecrpublic"
 	"github.com/aws/smithy-go"
+	kaniko "github.com/drone/drone-kaniko"
+	"github.com/drone/drone-kaniko/cmd/artifact"
 	"github.com/joho/godotenv"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
-
-	kaniko "github.com/drone/drone-kaniko"
-	"github.com/drone/drone-kaniko/cmd/artifact"
 )
 
 const (
@@ -117,6 +117,16 @@ func main() {
 			Usage:  "Specify one of full, redo or time as snapshot mode",
 			EnvVar: "PLUGIN_SNAPSHOT_MODE",
 		},
+		cli.StringFlag{
+			Name:   "lifecycle-policy",
+			Usage:  "Path to lifecycle policy file",
+			EnvVar: "PLUGIN_LIFECYCLE_POLICY",
+		},
+		cli.StringFlag{
+			Name:   "repository-policy",
+			Usage:  "Path to repository policy file",
+			EnvVar: "PLUGIN_REPOSITORY_POLICY",
+		},
 		cli.BoolFlag{
 			Name:   "enable-cache",
 			Usage:  "Set this flag to opt into caching with kaniko",
@@ -155,7 +165,9 @@ func main() {
 }
 
 func run(c *cli.Context) error {
+	repo := c.String("repo")
 	registry := c.String("registry")
+	region := c.String("region")
 	accessKey := c.String("access-key")
 	noPush := c.Bool("no-push")
 
@@ -164,12 +176,32 @@ func run(c *cli.Context) error {
 		if err := setupECRAuth(accessKey, c.String("secret-key"), registry); err != nil {
 			return err
 		}
+	}
 
-		// only create repository when pushing and create-repository is true
-		if !noPush && c.Bool("create-repository") {
-			if err := createRepository(c.String("region"), c.String("repo"), registry); err != nil {
-				return err
-			}
+	// only create repository when pushing and create-repository is true
+	if !noPush && c.Bool("create-repository") {
+		if err := createRepository(region, repo, registry); err != nil {
+			return err
+		}
+	}
+
+	if c.IsSet("lifecycle-policy") {
+		contents, err := ioutil.ReadFile(c.String("lifecycle-policy"))
+		if err != nil {
+			logrus.Fatal(err)
+		}
+		if err := uploadLifeCyclePolicy(region, repo, string(contents)); err != nil {
+			logrus.Fatal(fmt.Sprintf("error uploading ECR lifecycle policy: %v", err))
+		}
+	}
+
+	if c.IsSet("repository-policy") {
+		contents, err := ioutil.ReadFile(c.String("repository-policy"))
+		if err != nil {
+			logrus.Fatal(err)
+		}
+		if err := uploadRepositoryPolicy(region, repo, registry, string(contents)); err != nil {
+			logrus.Fatal(fmt.Sprintf("error uploading ECR lifecycle policy: %v", err))
 		}
 	}
 
@@ -242,13 +274,14 @@ func createRepository(region, repo, registry string) error {
 	}
 
 	var createErr error
-	switch {
-	// create public repo if registry string starts with public domain (ex: public.ecr.aws/example-registry)
-	case strings.HasPrefix(registry, ecrPublicDomain):
+
+	//create public repo
+	//if registry string starts with public domain (ex: public.ecr.aws/example-registry)
+	if isRegistryPublic(registry) {
 		svc := ecrpublic.NewFromConfig(cfg)
 		_, createErr = svc.CreateRepository(context.TODO(), &ecrpublic.CreateRepositoryInput{RepositoryName: &repo})
-	// create private repo
-	default:
+		//create private repo
+	} else {
 		svc := ecr.NewFromConfig(cfg)
 		_, createErr = svc.CreateRepository(context.TODO(), &ecr.CreateRepositoryInput{RepositoryName: &repo})
 	}
@@ -259,4 +292,59 @@ func createRepository(region, repo, registry string) error {
 	}
 
 	return nil
+}
+
+func uploadLifeCyclePolicy(region, repo, lifecyclePolicy string) (err error) {
+	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
+	if err != nil {
+		return errors.Wrap(err, "failed to load aws config")
+	}
+
+	svc := ecr.NewFromConfig(cfg)
+
+	input := &ecr.PutLifecyclePolicyInput{
+		LifecyclePolicyText: aws.String(lifecyclePolicy),
+		RepositoryName:      aws.String(repo),
+	}
+	_, err = svc.PutLifecyclePolicy(context.TODO(), input)
+
+	return err
+}
+
+func uploadRepositoryPolicy(region, repo, registry, repositoryPolicy string) (err error) {
+	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
+	if err != nil {
+		return errors.Wrap(err, "failed to load aws config")
+	}
+
+	if isRegistryPublic(registry) {
+		svc := ecrpublic.NewFromConfig(cfg)
+
+		input := &ecrpublic.SetRepositoryPolicyInput{
+			PolicyText:     aws.String(repositoryPolicy),
+			RepositoryName: aws.String(repo),
+		}
+		_, err = svc.SetRepositoryPolicy(context.TODO(), input)
+	} else {
+
+		svc := ecr.NewFromConfig(cfg)
+
+		input := &ecr.SetRepositoryPolicyInput{
+			PolicyText:     aws.String(repositoryPolicy),
+			RepositoryName: aws.String(repo),
+		}
+		_, err = svc.SetRepositoryPolicy(context.TODO(), input)
+	}
+
+	return err
+}
+
+func isRegistryPublic(registry string) bool {
+	return strings.HasPrefix(registry, ecrPublicDomain)
+}
+
+func trimHostname(repo, registry string) string {
+	repo = strings.TrimPrefix(repo, registry)
+	repo = strings.TrimLeft(repo, "/")
+	return repo
 }

@@ -1,6 +1,7 @@
 module github.com/drone/drone-kaniko
 
 require (
+	github.com/aws/aws-sdk-go-v2 v1.8.1
 	github.com/aws/aws-sdk-go-v2/config v1.6.1
 	github.com/aws/aws-sdk-go-v2/service/ecr v1.4.3
 	github.com/aws/aws-sdk-go-v2/service/ecrpublic v1.4.3
