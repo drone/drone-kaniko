@@ -342,9 +342,3 @@ func uploadRepositoryPolicy(region, repo, registry, repositoryPolicy string) (er
 func isRegistryPublic(registry string) bool {
 	return strings.HasPrefix(registry, ecrPublicDomain)
 }
-
-func trimHostname(repo, registry string) string {
-	repo = strings.TrimPrefix(repo, registry)
-	repo = strings.TrimLeft(repo, "/")
-	return repo
-}
