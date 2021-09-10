@@ -2,18 +2,20 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"io/ioutil"
 	"os"
 	"strings"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ecr"
 	"github.com/aws/aws-sdk-go-v2/service/ecrpublic"
 	"github.com/aws/smithy-go"
 	kaniko "github.com/drone/drone-kaniko"
 	"github.com/drone/drone-kaniko/cmd/artifact"
+	"github.com/drone/drone-kaniko/pkg/docker"
 	"github.com/joho/godotenv"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -52,6 +54,16 @@ func main() {
 			Usage:  "build dockerfile",
 			Value:  "Dockerfile",
 			EnvVar: "PLUGIN_DOCKERFILE",
+		},
+		cli.StringFlag{
+			Name:   "docker-username",
+			Usage:  "docker username",
+			EnvVar: "PLUGIN_USERNAME,DOCKER_USERNAME",
+		},
+		cli.StringFlag{
+			Name:   "docker-password",
+			Usage:  "docker password",
+			EnvVar: "PLUGIN_PASSWORD,DOCKER_PASSWORD",
 		},
 		cli.StringFlag{
 			Name:   "context",
@@ -168,14 +180,27 @@ func run(c *cli.Context) error {
 	repo := c.String("repo")
 	registry := c.String("registry")
 	region := c.String("region")
-	accessKey := c.String("access-key")
 	noPush := c.Bool("no-push")
 
-	// only setup auth when pushing or credentials are defined
-	if !noPush || accessKey != "" {
-		if err := setupECRAuth(accessKey, c.String("secret-key"), registry); err != nil {
-			return err
-		}
+	dockerConfig, err := createDockerConfig(
+		c.String("docker-username"),
+		c.String("docker-password"),
+		c.String("access-key"),
+		c.String("secret-key"),
+		registry,
+		noPush,
+	)
+	if err != nil {
+		return err
+	}
+
+	jsonBytes, err := json.Marshal(dockerConfig)
+	if err != nil {
+		return err
+	}
+
+	if err := ioutil.WriteFile(dockerConfigPath, jsonBytes, 0644); err != nil {
+		return err
 	}
 
 	// only create repository when pushing and create-repository is true
@@ -233,30 +258,37 @@ func run(c *cli.Context) error {
 	return plugin.Exec()
 }
 
-func setupECRAuth(accessKey, secretKey, registry string) error {
-	if registry == "" {
-		return fmt.Errorf("registry must be specified")
+func createDockerConfig(dockerUsername, dockerPassword, accessKey, secretKey, registry string, noPush bool) (*docker.Config, error) {
+	dockerConfig := docker.NewConfig()
+
+	if dockerUsername != "" {
+		dockerConfig.SetAuth(docker.RegistryV1, dockerUsername, dockerPassword)
 	}
 
-	// If IAM role is used, access key & secret key are not required
-	if accessKey != "" && secretKey != "" {
-		err := os.Setenv(accessKeyEnv, accessKey)
-		if err != nil {
-			return errors.Wrap(err, fmt.Sprintf("failed to set %s environment variable", accessKeyEnv))
+	// only setup auth when pushing or credentials are defined
+	if !noPush || accessKey != "" {
+		if registry == "" {
+			return nil, fmt.Errorf("registry must be specified")
 		}
 
-		err = os.Setenv(secretKeyEnv, secretKey)
-		if err != nil {
-			return errors.Wrap(err, fmt.Sprintf("failed to set %s environment variable", secretKeyEnv))
+		// If IAM role is used, access key & secret key are not required
+		if accessKey != "" && secretKey != "" {
+			err := os.Setenv(accessKeyEnv, accessKey)
+			if err != nil {
+				return nil, errors.Wrap(err, fmt.Sprintf("failed to set %s environment variable", accessKeyEnv))
+			}
+
+			err = os.Setenv(secretKeyEnv, secretKey)
+			if err != nil {
+				return nil, errors.Wrap(err, fmt.Sprintf("failed to set %s environment variable", secretKeyEnv))
+			}
 		}
+
+		dockerConfig.SetCredHelper(ecrPublicDomain, "ecr-login")
+		dockerConfig.SetCredHelper(registry, "ecr-login")
 	}
 
-	jsonBytes := []byte(fmt.Sprintf(`{"credStore": "ecr-login", "credHelpers": {"%s": "ecr-login", "%s": "ecr-login"}}`, ecrPublicDomain, registry))
-	err := ioutil.WriteFile(dockerConfigPath, jsonBytes, 0644)
-	if err != nil {
-		return errors.Wrap(err, "failed to create docker config file")
-	}
-	return nil
+	return dockerConfig, nil
 }
 
 func createRepository(region, repo, registry string) error {
