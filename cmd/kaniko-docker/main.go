@@ -20,8 +20,9 @@ const (
 	dockerPath       string = "/kaniko/.docker"
 	dockerConfigPath string = "/kaniko/.docker/config.json"
 
-	v1Registry string = "https://index.docker.io/v1/" // Default registry
-	v2Registry string = "https://index.docker.io/v2/" // v2 registry is not supported
+	v1RegistryURL    string = "https://index.docker.io/v1/" // Default registry
+	v2RegistryURL    string = "https://index.docker.io/v2/" // v2 registry is not supported
+	v2HubRegistryURL string = "https://registry.hub.docker.com/v2/"
 
 	defaultDigestFile string = "/kaniko/digest-file"
 )
@@ -86,7 +87,7 @@ func main() {
 		cli.StringFlag{
 			Name:   "registry",
 			Usage:  "docker registry",
-			Value:  v1Registry,
+			Value:  v1RegistryURL,
 			EnvVar: "PLUGIN_REGISTRY",
 		},
 		cli.StringFlag{
@@ -198,10 +199,10 @@ func createDockerCfgFile(username, password, registry string) error {
 		return fmt.Errorf("Registry must be specified")
 	}
 
-	if registry == v2Registry {
+	if registry == v2RegistryURL || registry == v2HubRegistryURL {
 		fmt.Println("Docker v2 registry is not supported in kaniko. Refer issue: https://github.com/GoogleContainerTools/kaniko/issues/1209")
-		fmt.Printf("Using v1 registry instead: %s\n", v1Registry)
-		registry = v1Registry
+		fmt.Printf("Using v1 registry instead: %s\n", v1RegistryURL)
+		registry = v1RegistryURL
 	}
 
 	err := os.MkdirAll(dockerPath, 0600)
