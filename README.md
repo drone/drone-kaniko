@@ -59,6 +59,7 @@ With auto tagging enabled, semantic versions can be passed to PLUGIN_TAGS direct
 ```console
 docker run --rm \
     -e PLUGIN_TAGS=v1.2.3,latest \
+    -e PLUGIN_AUTO_TAG=true \
     -v $(pwd):/drone \
     -w /drone \
     plugins/kaniko:linux-amd64
