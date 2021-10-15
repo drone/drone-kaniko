@@ -60,6 +60,11 @@ func (b Build) labelsForTag(tag string) (labels []string) {
 	//   https://semver.org/
 	semverTag := strings.ReplaceAll(tag, "_", "-")
 
+	// Allow tags of the form "1.2.3" as well as "v1.2.3" to avoid confusion.
+	if withV := VersionPrefix + semverTag; !semver.IsValid(semverTag) && semver.IsValid(withV) {
+		semverTag = withV
+	}
+
 	// Pass through tags if auto-tag is not set, or if the tag is not a semantic version
 	if !b.AutoTag || !semver.IsValid(semverTag) {
 		return []string{tag}

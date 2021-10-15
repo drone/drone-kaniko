@@ -64,11 +64,22 @@ docker run --rm \
     -w /drone \
     plugins/kaniko:linux-amd64
 ```
-
-This would be equivalent to
+would both be equivalent to
 
 ```
 PLUGIN_TAGS=1,1.2,1.2.3,latest
 ```
 
 This allows for passing `$DRONE_TAG` directly as a tag for repos that use [semver](https://semver.org) tags.
+
+To avoid confusion between repo tags and image tags, `PLUGIN_AUTO_TAG` also recognizes a semantic version
+without the `v` prefix.  As such, the following is also equivalent to the above:
+
+```console
+docker run --rm \
+    -e PLUGIN_TAGS=1.2.3,latest \
+    -e PLUGIN_AUTO_TAG=true \
+    -v $(pwd):/drone \
+    -w /drone \
+    plugins/kaniko:linux-amd64
+```

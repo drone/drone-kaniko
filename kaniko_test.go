@@ -53,6 +53,11 @@ func TestBuild_labelsForTag(t *testing.T) {
 			autoTags: []string{"v1+bld"},
 		},
 		{
+			name:     "accidental_non_semver",
+			tag:      "1.2.3",
+			autoTags: []string{"1", "1.2", "1.2.3"},
+		},
+		{
 			name:     "non_semver",
 			tag:      "latest",
 			autoTags: []string{"latest"},
