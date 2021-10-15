@@ -26,8 +26,8 @@ require (
 	github.com/konsorten/go-windows-terminal-sequences v1.0.1 // indirect
 	github.com/russross/blackfriday/v2 v2.0.1 // indirect
 	github.com/shurcooL/sanitized_anchor_name v1.0.0 // indirect
-	golang.org/x/crypto v0.0.0-20180904163835-0709b304e793 // indirect
-	golang.org/x/sys v0.0.0-20180905080454-ebe1bf3edb33 // indirect
+	golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550 // indirect
+	golang.org/x/sys v0.0.0-20190412213103-97732733099d // indirect
 )
 
 go 1.17
