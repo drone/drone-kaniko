@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/drone/drone-kaniko/cmd/artifact"
+	"golang.org/x/mod/semver"
 )
 
 type (
@@ -16,6 +17,7 @@ type (
 		Dockerfile    string   // Docker build Dockerfile
 		Context       string   // Docker build context
 		Tags          []string // Docker build tags
+		AutoTag       bool     // Set this to create semver-tagged labels
 		Args          []string // Docker build args
 		Target        string   // Docker build target
 		Repo          string   // Docker build repository
@@ -29,6 +31,7 @@ type (
 		NoPush        bool     // Set this flag if you only want to build the image, without pushing to a registry
 		Verbosity     string   // Log level
 	}
+
 	// Artifact defines content of artifact file
 	Artifact struct {
 		Tags         []string                  // Docker artifact tags
@@ -44,6 +47,47 @@ type (
 		Artifact Artifact // Artifact file content
 	}
 )
+
+// labelsForTag returns the labels to use for the given tag, subject to the value of AutoTag.
+//
+// Build information (e.g. +linux_amd64) is carried through to all labels.
+// Pre-release information (e.g. -rc1) suppresses major and major+minor auto-labels.
+func (b Build) labelsForTag(tag string) (labels []string) {
+	// We strip "v" off of the beginning of semantic versions, as they are not used in docker tags
+	const VersionPrefix = "v"
+
+	// Semantic Versions don't allow underscores, so replace them with dashes.
+	//   https://semver.org/
+	semverTag := strings.ReplaceAll(tag, "_", "-")
+
+	// Allow tags of the form "1.2.3" as well as "v1.2.3" to avoid confusion.
+	if withV := VersionPrefix + semverTag; !semver.IsValid(semverTag) && semver.IsValid(withV) {
+		semverTag = withV
+	}
+
+	// Pass through tags if auto-tag is not set, or if the tag is not a semantic version
+	if !b.AutoTag || !semver.IsValid(semverTag) {
+		return []string{tag}
+	}
+	tag = semverTag
+
+	// If the version is pre-release, only the full release should be tagged, not the major/minor versions.
+	if semver.Prerelease(tag) != "" {
+		return []string{
+			strings.TrimPrefix(tag, VersionPrefix),
+		}
+	}
+
+	// tagFor carries any build information from the semantic version through to major and minor tags.
+	labelFor := func(base string) string {
+		return strings.TrimPrefix(base, VersionPrefix) + semver.Build(tag)
+	}
+	return []string{
+		labelFor(semver.Major(tag)),
+		labelFor(semver.MajorMinor(tag)),
+		labelFor(semver.Canonical(tag)),
+	}
+}
 
 // Exec executes the plugin step
 func (p Plugin) Exec() error {
@@ -63,7 +107,9 @@ func (p Plugin) Exec() error {
 	// Set the destination repository
 	if !p.Build.NoPush {
 		for _, tag := range p.Build.Tags {
-			cmdArgs = append(cmdArgs, fmt.Sprintf("--destination=%s:%s", p.Build.Repo, tag))
+			for _, label := range p.Build.labelsForTag(tag) {
+				cmdArgs = append(cmdArgs, fmt.Sprintf("--destination=%s:%s", p.Build.Repo, label))
+			}
 		}
 	}
 	// Set the build arguments

@@ -64,6 +64,11 @@ func main() {
 			EnvVar:   "PLUGIN_TAGS",
 			FilePath: ".tags",
 		},
+		cli.BoolFlag{
+			Name:   "auto_tag",
+			Usage:  "enable for semver tagging",
+			EnvVar: "PLUGIN_AUTO_TAG",
+		},
 		cli.StringSliceFlag{
 			Name:   "args",
 			Usage:  "build args",
@@ -163,6 +168,7 @@ func run(c *cli.Context) error {
 			Dockerfile:    c.String("dockerfile"),
 			Context:       c.String("context"),
 			Tags:          c.StringSlice("tags"),
+			AutoTag:       c.Bool("auto_tag"),
 			Args:          c.StringSlice("args"),
 			Target:        c.String("target"),
 			Repo:          c.String("repo"),

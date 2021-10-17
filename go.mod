@@ -6,10 +6,12 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ecr v1.4.3
 	github.com/aws/aws-sdk-go-v2/service/ecrpublic v1.4.3
 	github.com/aws/smithy-go v1.7.0
+	github.com/google/go-cmp v0.5.6
 	github.com/joho/godotenv v1.3.0
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.3.0
 	github.com/urfave/cli v1.22.2
+	golang.org/x/mod v0.4.2
 )
 
 require (
@@ -24,8 +26,8 @@ require (
 	github.com/konsorten/go-windows-terminal-sequences v1.0.1 // indirect
 	github.com/russross/blackfriday/v2 v2.0.1 // indirect
 	github.com/shurcooL/sanitized_anchor_name v1.0.0 // indirect
-	golang.org/x/crypto v0.0.0-20180904163835-0709b304e793 // indirect
-	golang.org/x/sys v0.0.0-20180905080454-ebe1bf3edb33 // indirect
+	golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550 // indirect
+	golang.org/x/sys v0.0.0-20190412213103-97732733099d // indirect
 )
 
 go 1.17
