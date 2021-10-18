@@ -11,7 +11,7 @@ import (
 	"github.com/urfave/cli"
 
 	kaniko "github.com/drone/drone-kaniko"
-	"github.com/drone/drone-kaniko/cmd/artifact"
+	"github.com/drone/drone-kaniko/pkg/artifact"
 )
 
 const (
@@ -141,8 +141,10 @@ func run(c *cli.Context) error {
 	noPush := c.Bool("no-push")
 	jsonKey := c.String("json-key")
 
-	// only setup auth when pushing or credentials are defined
-	if !noPush || jsonKey != "" {
+	// JSON key may not be set in the following cases:
+	// 1. Image does not need to be pushed to GCR.
+	// 2. Workload identity is set on GKE in which pod will inherit the credentials via service account.
+	if jsonKey != "" {
 		if err := setupGCRAuth(jsonKey); err != nil {
 			return err
 		}
@@ -178,10 +180,6 @@ func run(c *cli.Context) error {
 }
 
 func setupGCRAuth(jsonKey string) error {
-	if jsonKey == "" {
-		return fmt.Errorf("GCR JSON key must be specified")
-	}
-
 	err := ioutil.WriteFile(gcrKeyPath, []byte(jsonKey), 0644)
 	if err != nil {
 		return errors.Wrap(err, "failed to write GCR JSON key")

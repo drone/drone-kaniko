@@ -12,7 +12,7 @@ import (
 	"github.com/urfave/cli"
 
 	kaniko "github.com/drone/drone-kaniko"
-	"github.com/drone/drone-kaniko/cmd/artifact"
+	"github.com/drone/drone-kaniko/pkg/artifact"
 )
 
 const (
