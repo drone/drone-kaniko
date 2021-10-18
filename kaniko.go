@@ -7,7 +7,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/drone/drone-kaniko/cmd/artifact"
+	"github.com/drone/drone-kaniko/pkg/artifact"
 	"golang.org/x/mod/semver"
 )
 
