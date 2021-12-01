@@ -130,6 +130,11 @@ func main() {
 			Usage:  "Set this flag as --verbosity=<panic|fatal|error|warn|info|debug|trace> to set the logging level for kaniko. Defaults to info.",
 			EnvVar: "PLUGIN_VERBOSITY",
 		},
+		cli.StringFlag{
+			Name:   "platform",
+			Usage:  "Allows to build with another default platform than the host, similarly to docker build --platform",
+			EnvVar: "PLUGIN_PLATFORM",
+		},
 	}
 
 	if err := app.Run(os.Args); err != nil {
@@ -167,6 +172,7 @@ func run(c *cli.Context) error {
 			DigestFile:   defaultDigestFile,
 			NoPush:       noPush,
 			Verbosity:    c.String("verbosity"),
+			Platform:     c.String("platform"),
 		},
 		Artifact: kaniko.Artifact{
 			Tags:         c.StringSlice("tags"),

@@ -30,6 +30,7 @@ type (
 		DigestFile    string   // Digest file location
 		NoPush        bool     // Set this flag if you only want to build the image, without pushing to a registry
 		Verbosity     string   // Log level
+		Platform      string   // Allows to build with another default platform than the host, similarly to docker build --platform
 	}
 
 	// Artifact defines content of artifact file
@@ -155,6 +156,10 @@ func (p Plugin) Exec() error {
 
 	if p.Build.Verbosity != "" {
 		cmdArgs = append(cmdArgs, fmt.Sprintf("--verbosity=%s", p.Build.Verbosity))
+	}
+
+	if p.Build.Platform != "" {
+		cmdArgs = append(cmdArgs, fmt.Sprintf("--customPlatform=%s", p.Build.Platform))
 	}
 
 	cmd := exec.Command("/kaniko/executor", cmdArgs...)
