@@ -19,6 +19,7 @@ type (
 		Tags          []string // Docker build tags
 		AutoTag       bool     // Set this to create semver-tagged labels
 		Args          []string // Docker build args
+		ArgsEnv       []string // Docker build args from env
 		Target        string   // Docker build target
 		Repo          string   // Docker build repository
 		Labels        []string // Label map
@@ -114,6 +115,9 @@ func (p Plugin) Exec() error {
 		}
 	}
 	// Set the build arguments
+	for _, arg := range p.Build.ArgsEnv {
+		addProxyValue(&p.Build, arg)
+	}
 	for _, arg := range p.Build.Args {
 		cmdArgs = append(cmdArgs, fmt.Sprintf("--build-arg=%s", arg))
 	}
@@ -190,4 +194,40 @@ func (p Plugin) Exec() error {
 // tag so that it can be extracted and displayed in the logs.
 func trace(cmd *exec.Cmd) {
 	fmt.Fprintf(os.Stdout, "+ %s\n", strings.Join(cmd.Args, " "))
+}
+
+// helper function to add the upper and lower case version of a proxy value.
+func addProxyValue(build *Build, key string) {
+	value := getProxyValue(key)
+
+	if len(value) > 0 && !hasProxyBuildArg(build, key) {
+		build.Args = append(build.Args, fmt.Sprintf("%s=%s", key, value))
+		build.Args = append(build.Args, fmt.Sprintf("%s=%s", strings.ToUpper(key), value))
+	}
+}
+
+// helper function to get a proxy value from the environment.
+//
+// assumes that the upper and lower case versions of are the same.
+func getProxyValue(key string) string {
+	value := os.Getenv(key)
+
+	if len(value) > 0 {
+		return value
+	}
+
+	return os.Getenv(strings.ToUpper(key))
+}
+
+// helper function that looks to see if a proxy value was set in the build args.
+func hasProxyBuildArg(build *Build, key string) bool {
+	keyUpper := strings.ToUpper(key)
+
+	for _, s := range build.Args {
+		if strings.HasPrefix(s, key) || strings.HasPrefix(s, keyUpper) {
+			return true
+		}
+	}
+
+	return false
 }

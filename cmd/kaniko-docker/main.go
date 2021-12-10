@@ -74,6 +74,11 @@ func main() {
 			Usage:  "build args",
 			EnvVar: "PLUGIN_BUILD_ARGS",
 		},
+		cli.StringSliceFlag{
+			Name:   "args-from-env",
+			Usage:  "build args",
+			EnvVar: "PLUGIN_BUILD_ARGS_FROM_ENV",
+		},
 		cli.StringFlag{
 			Name:   "target",
 			Usage:  "build target",
@@ -175,6 +180,7 @@ func run(c *cli.Context) error {
 			Tags:          c.StringSlice("tags"),
 			AutoTag:       c.Bool("auto_tag"),
 			Args:          c.StringSlice("args"),
+			ArgsEnv:       c.StringSlice("args-from-env"),
 			Target:        c.String("target"),
 			Repo:          c.String("repo"),
 			Labels:        c.StringSlice("custom-labels"),
