@@ -14,23 +14,24 @@ import (
 type (
 	// Build defines Docker build parameters.
 	Build struct {
-		Dockerfile    string   // Docker build Dockerfile
-		Context       string   // Docker build context
-		Tags          []string // Docker build tags
-		AutoTag       bool     // Set this to create semver-tagged labels
-		Args          []string // Docker build args
-		Target        string   // Docker build target
-		Repo          string   // Docker build repository
-		Labels        []string // Label map
-		SkipTlsVerify bool     // Docker skip tls certificate verify for registry
-		SnapshotMode  string   // Kaniko snapshot mode
-		EnableCache   bool     // Whether to enable kaniko cache
-		CacheRepo     string   // Remote repository that will be used to store cached layers
-		CacheTTL      int      // Cache timeout in hours
-		DigestFile    string   // Digest file location
-		NoPush        bool     // Set this flag if you only want to build the image, without pushing to a registry
-		Verbosity     string   // Log level
-		Platform      string   // Allows to build with another default platform than the host, similarly to docker build --platform
+		Dockerfile     string   // Docker build Dockerfile
+		Context        string   // Docker build context
+		Tags           []string // Docker build tags
+		AutoTag        bool     // Set this to create semver-tagged labels
+		Args           []string // Docker build args
+		Target         string   // Docker build target
+		Repo           string   // Docker build repository
+		Labels         []string // Label map
+		SkipTlsVerify  bool     // Docker skip tls certificate verify for registry
+		SingleSnapshot bool     // Kaniko single snapshot mode
+		SnapshotMode   string   // Kaniko snapshot mode
+		EnableCache    bool     // Whether to enable kaniko cache
+		CacheRepo      string   // Remote repository that will be used to store cached layers
+		CacheTTL       int      // Cache timeout in hours
+		DigestFile     string   // Digest file location
+		NoPush         bool     // Set this flag if you only want to build the image, without pushing to a registry
+		Verbosity      string   // Log level
+		Platform       string   // Allows to build with another default platform than the host, similarly to docker build --platform
 	}
 
 	// Artifact defines content of artifact file
@@ -132,6 +133,10 @@ func (p Plugin) Exec() error {
 
 	if p.Build.SnapshotMode != "" {
 		cmdArgs = append(cmdArgs, fmt.Sprintf("--snapshotMode=%s", p.Build.SnapshotMode))
+	}
+
+	if p.Build.SingleSnapshot {
+		cmdArgs = append(cmdArgs, "--single-snapshot=true")
 	}
 
 	if p.Build.EnableCache {
