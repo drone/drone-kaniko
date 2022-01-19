@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 
 	"github.com/joho/godotenv"
 	"github.com/pkg/errors"
@@ -190,7 +191,7 @@ func run(c *cli.Context) error {
 		},
 		Artifact: kaniko.Artifact{
 			Tags:         c.StringSlice("tags"),
-			Repo:         c.String("repo"),
+			Repo:         buildRepo(c.String("registry"), c.String("repo")),
 			Registry:     c.String("registry"),
 			ArtifactFile: c.String("artifact-file"),
 			RegistryType: artifact.Docker,
@@ -230,4 +231,18 @@ func createDockerCfgFile(username, password, registry string) error {
 		return errors.Wrap(err, "failed to create docker config file")
 	}
 	return nil
+}
+
+func buildRepo(registry, repo string) string {
+	if registry == "" {
+		// No custom registry, just return the repo name
+		return repo
+	}
+	if strings.HasPrefix(repo, registry + "/") {
+		// Repo already includes the registry prefix
+		// For backward compatibility, we won't add the prefix again.
+		return repo
+	}
+	// Prefix the repo with the registry
+	return registry + "/" + repo
 }
