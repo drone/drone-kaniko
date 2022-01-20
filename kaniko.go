@@ -17,7 +17,7 @@ type (
 		Dockerfile    string   // Docker build Dockerfile
 		Context       string   // Docker build context
 		Tags          []string // Docker build tags
-		AutoTag       bool     // Set this to create semver-tagged labels
+		ExpandTag     bool     // Set this to create semver-tagged labels
 		Args          []string // Docker build args
 		Target        string   // Docker build target
 		Repo          string   // Docker build repository
@@ -49,7 +49,7 @@ type (
 	}
 )
 
-// labelsForTag returns the labels to use for the given tag, subject to the value of AutoTag.
+// labelsForTag returns the labels to use for the given tag, subject to the value of ExpandTag.
 //
 // Build information (e.g. +linux_amd64) is carried through to all labels.
 // Pre-release information (e.g. -rc1) suppresses major and major+minor auto-labels.
@@ -67,7 +67,7 @@ func (b Build) labelsForTag(tag string) (labels []string) {
 	}
 
 	// Pass through tags if auto-tag is not set, or if the tag is not a semantic version
-	if !b.AutoTag || !semver.IsValid(semverTag) {
+	if !b.ExpandTag || !semver.IsValid(semverTag) {
 		return []string{tag}
 	}
 	tag = semverTag

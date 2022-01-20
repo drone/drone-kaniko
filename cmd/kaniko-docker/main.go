@@ -14,6 +14,7 @@ import (
 
 	kaniko "github.com/drone/drone-kaniko"
 	"github.com/drone/drone-kaniko/pkg/artifact"
+	"github.com/drone/drone-kaniko/pkg/tagger"
 )
 
 const (
@@ -58,17 +59,37 @@ func main() {
 			Value:  ".",
 			EnvVar: "PLUGIN_CONTEXT",
 		},
+		cli.StringFlag{
+			Name:   "commit.ref",
+			Usage:  "git commit ref",
+			EnvVar: "DRONE_COMMIT_REF",
+		},
+		cli.StringFlag{
+			Name:   "repo.branch",
+			Usage:  "repository default branch",
+			EnvVar: "DRONE_REPO_BRANCH",
+		},
 		cli.StringSliceFlag{
 			Name:     "tags",
 			Usage:    "build tags",
-			Value:    &cli.StringSlice{"latest"},
+			Value:    &cli.StringSlice{},
 			EnvVar:   "PLUGIN_TAGS",
 			FilePath: ".tags",
 		},
 		cli.BoolFlag{
-			Name:   "auto_tag",
+			Name:   "tag.expand",
 			Usage:  "enable for semver tagging",
+			EnvVar: "PLUGIN_EXPAND_TAGS",
+		},
+		cli.BoolFlag{
+			Name:   "tags.auto",
+			Usage:  "enable auto generate build tags",
 			EnvVar: "PLUGIN_AUTO_TAG",
+		},
+		cli.StringFlag{
+			Name:   "tags.auto_suffix",
+			Usage:  "the suffix of auto build tags",
+			EnvVar: "PLUGIN_AUTO_TAG_SUFFIX",
 		},
 		cli.StringSliceFlag{
 			Name:   "args",
@@ -169,12 +190,19 @@ func run(c *cli.Context) error {
 		}
 	}
 
+	enableAutoTag := c.Bool("tags.auto")
+	enableExpandTag := c.Bool("tags.expand")
+	tags, shouldSkipBuild, err := tagger.MaybeAutoTag(c.StringSlice("tags"), c.String("commit.ref"), c.String("tags.auto_suffix"), c.String("repo.branch"), enableAutoTag, enableExpandTag)
+	if shouldSkipBuild {
+		return err
+	}
+
 	plugin := kaniko.Plugin{
 		Build: kaniko.Build{
 			Dockerfile:    c.String("dockerfile"),
 			Context:       c.String("context"),
-			Tags:          c.StringSlice("tags"),
-			AutoTag:       c.Bool("auto_tag"),
+			Tags:          tags,
+			ExpandTag:     !enableAutoTag && enableExpandTag,
 			Args:          c.StringSlice("args"),
 			Target:        c.String("target"),
 			Repo:          c.String("repo"),
@@ -190,7 +218,7 @@ func run(c *cli.Context) error {
 			Platform:      c.String("platform"),
 		},
 		Artifact: kaniko.Artifact{
-			Tags:         c.StringSlice("tags"),
+			Tags:         tags,
 			Repo:         buildRepo(c.String("registry"), c.String("repo")),
 			Registry:     c.String("registry"),
 			ArtifactFile: c.String("artifact-file"),
@@ -238,7 +266,7 @@ func buildRepo(registry, repo string) string {
 		// No custom registry, just return the repo name
 		return repo
 	}
-	if strings.HasPrefix(repo, registry + "/") {
+	if strings.HasPrefix(repo, registry+"/") {
 		// Repo already includes the registry prefix
 		// For backward compatibility, we won't add the prefix again.
 		return repo
