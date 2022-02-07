@@ -143,7 +143,7 @@ func (p Plugin) Exec() error {
 	}
 
 	if p.Build.CacheTTL != 0 {
-		cmdArgs = append(cmdArgs, fmt.Sprintf("--cache-ttl=%d", p.Build.CacheTTL))
+		cmdArgs = append(cmdArgs, fmt.Sprintf("--cache-ttl=%dh", p.Build.CacheTTL))
 	}
 
 	if p.Build.DigestFile != "" {
