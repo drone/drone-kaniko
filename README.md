@@ -53,7 +53,9 @@ docker run --rm \
     plugins/kaniko:linux-amd64
 ```
 
-With expanded tagging enabled, semantic versions can be passed to PLUGIN_TAGS directly for expansion:
+With expanded tagging enabled, semantic versions can be passed to PLUGIN_TAGS directly for expansion.
+
+**Note**: this feature only works for build labels. Artifact labels are not supported.
 
 ```console
 docker run --rm \
@@ -84,9 +86,11 @@ docker run --rm \
 ```
 
 ### Auto Tagging
-The [auto tag feature](https://plugins.drone.io/drone-plugins/drone-docker/) of docker plugin is also supported.
+The [auto tag feature](https://plugins.drone.io/drone-plugins/drone-docker/** of docker plugin is also supported.
 
 When auto tagging is enabled, if any of the case is matched below, a docker build will be pushed with auto generated tags. Otherwise the docker build will be skipped.
+
+**Note**: this feature only works for build labels. Artifact labels are not supported.
 
 #### Git Tag Push:
 
