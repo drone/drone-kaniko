@@ -72,3 +72,70 @@ func TestBuild_labelsForTag(t *testing.T) {
 		})
 	}
 }
+
+func TestBuild_AutoTags(t *testing.T) {
+	tests := []struct {
+		name          string
+		repoBranch    string
+		commitRef     string
+		autoTagSuffix string
+		expectedTags  []string
+	}{
+		{
+			name:          "commit push",
+			repoBranch:    "master",
+			commitRef:     "refs/heads/master",
+			autoTagSuffix: "",
+			expectedTags:  []string{"latest"},
+		},
+		{
+			name:          "tag push",
+			repoBranch:    "master",
+			commitRef:     "refs/tags/v1.0.0",
+			autoTagSuffix: "",
+			expectedTags: []string{
+				"1",
+				"1.0",
+				"1.0.0",
+			},
+		},
+		{
+			name:          "tag push",
+			repoBranch:    "master",
+			commitRef:     "refs/tags/v1.0.0",
+			autoTagSuffix: "linux-amd64",
+			expectedTags: []string{
+				"1-linux-amd64",
+				"1.0-linux-amd64",
+				"1.0.0-linux-amd64",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			b := Build{DroneCommitRef: tt.commitRef, DroneRepoBranch: tt.repoBranch, AutoTag: true}
+			if tt.autoTagSuffix != "" {
+				b.AutoTagSuffix = tt.autoTagSuffix
+			}
+			tags, err := b.AutoTags()
+			if err != nil {
+				t.Errorf("Unexpected err %q", err)
+			}
+			if got, want := tags, tt.expectedTags; !cmp.Equal(got, want) {
+				t.Errorf("auto detected tags = %q, wanted = %q", got, want)
+			}
+		})
+	}
+	t.Run("flag conflict", func(t *testing.T) {
+		b := Build{
+			DroneCommitRef:  "refs/tags/v1.0.0",
+			DroneRepoBranch: "master",
+			AutoTag:         true,
+			Tags:            []string{"v1"},
+		}
+		_, err := b.AutoTags()
+		if err == nil {
+			t.Errorf("Expect flag conflict error")
+		}
+	})
+}

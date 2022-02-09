@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/coreos/go-semver/semver"
-	"github.com/sirupsen/logrus"
 )
 
 // AutoTagsSuffix returns a set of default suggested tags
@@ -74,7 +73,7 @@ func AutoTags(ref string) ([]string, error) {
 	}, nil
 }
 
-// UseAutoTag for keep only default branch for latest tag
+// UseAutoTag for keep only default branch for latest tag.
 func UseAutoTag(ref, defaultBranch string) bool {
 	if strings.HasPrefix(ref, "refs/tags/") {
 		return true
@@ -93,24 +92,4 @@ func stripTagPrefix(ref string) string {
 	ref = strings.TrimPrefix(ref, "refs/tags/")
 	ref = strings.TrimPrefix(ref, "v")
 	return ref
-}
-
-func MaybeAutoTag(tags []string, ref string, autoTagSuffix string, defaultBranch string, enableAutoTag bool, enableExpandTag bool) (resultTags []string, shouldSkipBuild bool, err error) {
-	if enableAutoTag && (len(tags) > 0 || enableExpandTag) {
-		err = fmt.Errorf("auto_tag cannot be enabled along with tags or expand_tags")
-	} else if enableAutoTag {
-		if !UseAutoTag(ref, defaultBranch) {
-			logrus.Infof("skipping automated docker build for %s", ref)
-			err = nil
-		} else {
-			tmp_tags, err := AutoTagsSuffix(ref, autoTagSuffix)
-			if err == nil {
-				resultTags = tmp_tags
-			} else {
-				logrus.Errorf("cannot build docker image for %s, invalid semantic version", ref)
-			}
-		}
-	}
-	shouldSkipBuild = len(resultTags) == 0
-	return
 }

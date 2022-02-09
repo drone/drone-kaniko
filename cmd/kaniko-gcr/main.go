@@ -12,7 +12,6 @@ import (
 
 	kaniko "github.com/drone/drone-kaniko"
 	"github.com/drone/drone-kaniko/pkg/artifact"
-	"github.com/drone/drone-kaniko/pkg/tagger"
 )
 
 const (
@@ -54,34 +53,34 @@ func main() {
 			EnvVar: "PLUGIN_CONTEXT",
 		},
 		cli.StringFlag{
-			Name:   "commit.ref",
-			Usage:  "git commit ref",
+			Name:   "drone-commit-ref",
+			Usage:  "git commit ref passed by Drone",
 			EnvVar: "DRONE_COMMIT_REF",
 		},
 		cli.StringFlag{
-			Name:   "repo.branch",
-			Usage:  "repository default branch",
+			Name:   "drone-repo-branch",
+			Usage:  "git repository default branch passed by Drone",
 			EnvVar: "DRONE_REPO_BRANCH",
 		},
 		cli.StringSliceFlag{
 			Name:     "tags",
 			Usage:    "build tags",
-			Value:    &cli.StringSlice{},
+			Value:    &cli.StringSlice{"latest"},
 			EnvVar:   "PLUGIN_TAGS",
 			FilePath: ".tags",
 		},
 		cli.BoolFlag{
-			Name:   "expand_tags",
+			Name:   "expand-tag",
 			Usage:  "enable for semver tagging",
-			EnvVar: "PLUGIN_EXPAND_TAGS",
+			EnvVar: "PLUGIN_EXPAND_TAG",
 		},
 		cli.BoolFlag{
-			Name:   "tags.auto",
-			Usage:  "enable auto generate build tags",
+			Name:   "auto-tag",
+			Usage:  "enable auto generation of build tags",
 			EnvVar: "PLUGIN_AUTO_TAG",
 		},
 		cli.StringFlag{
-			Name:   "tags.auto_suffix",
+			Name:   "auto-tag-suffix",
 			Usage:  "the suffix of auto build tags",
 			EnvVar: "PLUGIN_AUTO_TAG_SUFFIX",
 		},
@@ -176,34 +175,31 @@ func run(c *cli.Context) error {
 		}
 	}
 
-	enableAutoTag := c.Bool("tags.auto")
-	enableExpandTag := c.Bool("tags.expand")
-	tags, shouldSkipBuild, err := tagger.MaybeAutoTag(c.StringSlice("tags"), c.String("commit.ref"), c.String("tags.auto_suffix"), c.String("repo.branch"), enableAutoTag, enableExpandTag)
-	if shouldSkipBuild {
-		return err
-	}
-
 	plugin := kaniko.Plugin{
 		Build: kaniko.Build{
-			Dockerfile:   c.String("dockerfile"),
-			Context:      c.String("context"),
-			Tags:         tags,
-			ExpandTag:    !enableAutoTag && enableExpandTag,
-			Args:         c.StringSlice("args"),
-			Target:       c.String("target"),
-			Repo:         fmt.Sprintf("%s/%s", c.String("registry"), c.String("repo")),
-			Labels:       c.StringSlice("custom-labels"),
-			SnapshotMode: c.String("snapshot-mode"),
-			EnableCache:  c.Bool("enable-cache"),
-			CacheRepo:    fmt.Sprintf("%s/%s", c.String("registry"), c.String("cache-repo")),
-			CacheTTL:     c.Int("cache-ttl"),
-			DigestFile:   defaultDigestFile,
-			NoPush:       noPush,
-			Verbosity:    c.String("verbosity"),
-			Platform:     c.String("platform"),
+			DroneCommitRef:  c.String("drone-commit-ref"),
+			DroneRepoBranch: c.String("drone-repo-branch"),
+			Dockerfile:      c.String("dockerfile"),
+			Context:         c.String("context"),
+			Tags:            c.StringSlice("tags"),
+			AutoTag:         c.Bool("auto-tag"),
+			AutoTagSuffix:   c.String("auto-tag-suffix"),
+			ExpandTag:       c.Bool("expand-tag"),
+			Args:            c.StringSlice("args"),
+			Target:          c.String("target"),
+			Repo:            fmt.Sprintf("%s/%s", c.String("registry"), c.String("repo")),
+			Labels:          c.StringSlice("custom-labels"),
+			SnapshotMode:    c.String("snapshot-mode"),
+			EnableCache:     c.Bool("enable-cache"),
+			CacheRepo:       fmt.Sprintf("%s/%s", c.String("registry"), c.String("cache-repo")),
+			CacheTTL:        c.Int("cache-ttl"),
+			DigestFile:      defaultDigestFile,
+			NoPush:          noPush,
+			Verbosity:       c.String("verbosity"),
+			Platform:        c.String("platform"),
 		},
 		Artifact: kaniko.Artifact{
-			Tags:         tags,
+			Tags:         c.StringSlice("tags"),
 			Repo:         c.String("repo"),
 			Registry:     c.String("registry"),
 			ArtifactFile: c.String("artifact-file"),
