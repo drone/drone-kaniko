@@ -126,7 +126,7 @@ func TestBuild_AutoTags(t *testing.T) {
 			}
 		})
 	}
-	t.Run("flag conflict", func(t *testing.T) {
+	t.Run("auto-tag cannot be enabled with user provided tags", func(t *testing.T) {
 		b := Build{
 			DroneCommitRef:  "refs/tags/v1.0.0",
 			DroneRepoBranch: "master",
@@ -135,7 +135,7 @@ func TestBuild_AutoTags(t *testing.T) {
 		}
 		_, err := b.AutoTags()
 		if err == nil {
-			t.Errorf("Expect flag conflict error")
+			t.Errorf("Expect error for invalid flags")
 		}
 	})
 }

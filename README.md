@@ -86,7 +86,7 @@ docker run --rm \
 ```
 
 ### Auto Tagging
-The [auto tag feature](https://plugins.drone.io/drone-plugins/drone-docker/** of docker plugin is also supported.
+The [auto tag feature](https://plugins.drone.io/drone-plugins/drone-docker) of docker plugin is also supported.
 
 When auto tagging is enabled, if any of the case is matched below, a docker build will be pushed with auto generated tags. Otherwise the docker build will be skipped.
 
