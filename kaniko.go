@@ -106,7 +106,7 @@ func (b Build) AutoTags() (tags []string, err error) {
 	// user specified at the same time. Starts to auto detect tags.
 	// Note: passing in a "latest" tag with auto-tag enabled won't trigger the
 	// early returns above, because we cannot tell if the tag is provided by
-	// the default value of by the users.
+	// the default value or by the users.
 	commitRef := b.DroneCommitRef
 	if !tagger.UseAutoTag(commitRef, b.DroneRepoBranch) {
 		err = fmt.Errorf("Could not auto detect the tag. Skipping automated docker build for commit %s", commitRef)
