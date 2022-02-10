@@ -8,29 +8,34 @@ import (
 	"strings"
 
 	"github.com/drone/drone-kaniko/pkg/artifact"
+	"github.com/drone/drone-kaniko/pkg/tagger"
 	"golang.org/x/mod/semver"
 )
 
 type (
 	// Build defines Docker build parameters.
 	Build struct {
-		Dockerfile    string   // Docker build Dockerfile
-		Context       string   // Docker build context
-		Tags          []string // Docker build tags
-		AutoTag       bool     // Set this to create semver-tagged labels
-		Args          []string // Docker build args
-		Target        string   // Docker build target
-		Repo          string   // Docker build repository
-		Labels        []string // Label map
-		SkipTlsVerify bool     // Docker skip tls certificate verify for registry
-		SnapshotMode  string   // Kaniko snapshot mode
-		EnableCache   bool     // Whether to enable kaniko cache
-		CacheRepo     string   // Remote repository that will be used to store cached layers
-		CacheTTL      int      // Cache timeout in hours
-		DigestFile    string   // Digest file location
-		NoPush        bool     // Set this flag if you only want to build the image, without pushing to a registry
-		Verbosity     string   // Log level
-		Platform      string   // Allows to build with another default platform than the host, similarly to docker build --platform
+		DroneCommitRef  string   // Drone git commit reference
+		DroneRepoBranch string   // Drone repo branch
+		Dockerfile      string   // Docker build Dockerfile
+		Context         string   // Docker build context
+		Tags            []string // Docker build tags
+		AutoTag         bool     // Set this to auto detect tags from git commits and semver-tagged labels
+		AutoTagSuffix   string   // Suffix to append to the auto detect tags
+		ExpandTag       bool     // Set this to expand the `Tags` into semver-tagged labels
+		Args            []string // Docker build args
+		Target          string   // Docker build target
+		Repo            string   // Docker build repository
+		Labels          []string // Label map
+		SkipTlsVerify   bool     // Docker skip tls certificate verify for registry
+		SnapshotMode    string   // Kaniko snapshot mode
+		EnableCache     bool     // Whether to enable kaniko cache
+		CacheRepo       string   // Remote repository that will be used to store cached layers
+		CacheTTL        int      // Cache timeout in hours
+		DigestFile      string   // Digest file location
+		NoPush          bool     // Set this flag if you only want to build the image, without pushing to a registry
+		Verbosity       string   // Log level
+		Platform        string   // Allows to build with another default platform than the host, similarly to docker build --platform
 	}
 
 	// Artifact defines content of artifact file
@@ -49,7 +54,7 @@ type (
 	}
 )
 
-// labelsForTag returns the labels to use for the given tag, subject to the value of AutoTag.
+// labelsForTag returns the labels to use for the given tag, subject to the value of ExpandTag.
 //
 // Build information (e.g. +linux_amd64) is carried through to all labels.
 // Pre-release information (e.g. -rc1) suppresses major and major+minor auto-labels.
@@ -66,8 +71,8 @@ func (b Build) labelsForTag(tag string) (labels []string) {
 		semverTag = withV
 	}
 
-	// Pass through tags if auto-tag is not set, or if the tag is not a semantic version
-	if !b.AutoTag || !semver.IsValid(semverTag) {
+	// Pass through tags if expand-tag is not set, or if the tag is not a semantic version
+	if !b.ExpandTag || !semver.IsValid(semverTag) {
 		return []string{tag}
 	}
 	tag = semverTag
@@ -90,6 +95,30 @@ func (b Build) labelsForTag(tag string) (labels []string) {
 	}
 }
 
+// Returns the auto detected tags. See the AutoTag section of
+// https://plugins.drone.io/drone-plugins/drone-docker/ for more info.
+func (b Build) AutoTags() (tags []string, err error) {
+	if len(b.Tags) > 1 || len(b.Tags) == 1 && b.Tags[0] != "latest" {
+		err = fmt.Errorf("The auto-tag flag does not work with user provided tags %s", b.Tags)
+		return
+	}
+	// We have tried the best to prevent enabling auto-tag and passing in
+	// user specified at the same time. Starts to auto detect tags.
+	// Note: passing in a "latest" tag with auto-tag enabled won't trigger the
+	// early returns above, because we cannot tell if the tag is provided by
+	// the default value of by the users.
+	commitRef := b.DroneCommitRef
+	if !tagger.UseAutoTag(commitRef, b.DroneRepoBranch) {
+		err = fmt.Errorf("Could not auto detect the tag. Skipping automated docker build for commit %s", commitRef)
+		return
+	}
+	tags, err = tagger.AutoTagsSuffix(commitRef, b.AutoTagSuffix)
+	if err != nil {
+		err = fmt.Errorf("Invalid semantic version when auto detecting the tag. Skipping automated docker build for %s.", commitRef)
+	}
+	return
+}
+
 // Exec executes the plugin step
 func (p Plugin) Exec() error {
 	if !p.Build.NoPush && p.Build.Repo == "" {
@@ -100,6 +129,18 @@ func (p Plugin) Exec() error {
 		return fmt.Errorf("dockerfile does not exist at path: %s", p.Build.Dockerfile)
 	}
 
+	var tags = p.Build.Tags
+	if p.Build.AutoTag && p.Build.ExpandTag {
+		return fmt.Errorf("The auto-tag flag conflicts with the expand-tag flag")
+	}
+	if p.Build.AutoTag {
+		var err error
+		tags, err = p.Build.AutoTags()
+		if err != nil {
+			return err
+		}
+	}
+
 	cmdArgs := []string{
 		fmt.Sprintf("--dockerfile=%s", p.Build.Dockerfile),
 		fmt.Sprintf("--context=dir://%s", p.Build.Context),
@@ -107,7 +148,7 @@ func (p Plugin) Exec() error {
 
 	// Set the destination repository
 	if !p.Build.NoPush {
-		for _, tag := range p.Build.Tags {
+		for _, tag := range tags {
 			for _, label := range p.Build.labelsForTag(tag) {
 				cmdArgs = append(cmdArgs, fmt.Sprintf("--destination=%s:%s", p.Build.Repo, label))
 			}

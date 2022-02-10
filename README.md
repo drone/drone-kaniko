@@ -39,6 +39,7 @@ docker build \
 ```
 
 ## Usage
+### Manual Tagging
 
 ```console
 docker run --rm \
@@ -52,14 +53,14 @@ docker run --rm \
     plugins/kaniko:linux-amd64
 ```
 
-### Automatic Tagging
+With expanded tagging enabled, semantic versions can be passed to PLUGIN_TAGS directly for expansion.
 
-With auto tagging enabled, semantic versions can be passed to PLUGIN_TAGS directly for expansion:
+**Note**: this feature only works for build labels. Artifact labels are not supported.
 
 ```console
 docker run --rm \
     -e PLUGIN_TAGS=v1.2.3,latest \
-    -e PLUGIN_AUTO_TAG=true \
+    -e PLUGIN_EXPAND_TAGS=true \
     -v $(pwd):/drone \
     -w /drone \
     plugins/kaniko:linux-amd64
@@ -72,14 +73,58 @@ PLUGIN_TAGS=1,1.2,1.2.3,latest
 
 This allows for passing `$DRONE_TAG` directly as a tag for repos that use [semver](https://semver.org) tags.
 
-To avoid confusion between repo tags and image tags, `PLUGIN_AUTO_TAG` also recognizes a semantic version
+To avoid confusion between repo tags and image tags, `PLUGIN_EXPAND_TAGS` also recognizes a semantic version
 without the `v` prefix.  As such, the following is also equivalent to the above:
 
 ```console
 docker run --rm \
     -e PLUGIN_TAGS=1.2.3,latest \
+    -e PLUGIN_EXPAND_TAGS=true \
+    -v $(pwd):/drone \
+    -w /drone \
+    plugins/kaniko:linux-amd64
+```
+
+### Auto Tagging
+The [auto tag feature](https://plugins.drone.io/drone-plugins/drone-docker/** of docker plugin is also supported.
+
+When auto tagging is enabled, if any of the case is matched below, a docker build will be pushed with auto generated tags. Otherwise the docker build will be skipped.
+
+**Note**: this feature only works for build labels. Artifact labels are not supported.
+
+#### Git Tag Push:
+
+```console
+docker run --rm \
+    -e DRONE_COMMIT_REF=refs/tags/v1.2.3 \
+    -e PLUGIN_REPO=foo/bar \
+    -e PLUGIN_USERNAME=foo \
+    -e PLUGIN_PASSWORD=bar \
     -e PLUGIN_AUTO_TAG=true \
     -v $(pwd):/drone \
     -w /drone \
     plugins/kaniko:linux-amd64
 ```
+
+Tags to push:
+- 1.2.3
+- 1.2
+- 1
+
+#### Git Commit Push in default branch:
+
+```console
+docker run --rm \
+    -e DRONE_COMMIT_REF=refs/heads/master \
+    -e DRONE_REPO_BRANCH=main \
+    -e PLUGIN_REPO=foo/bar \
+    -e PLUGIN_USERNAME=foo \
+    -e PLUGIN_PASSWORD=bar \
+    -e PLUGIN_AUTO_TAG=true \
+    -v $(pwd):/drone \
+    -w /drone \
+    plugins/kaniko:linux-amd64
+```
+
+Tags to push:
+- latest
