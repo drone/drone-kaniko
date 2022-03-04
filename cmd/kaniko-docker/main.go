@@ -201,7 +201,7 @@ func run(c *cli.Context) error {
 			ExpandTag:       c.Bool("expand-tag"),
 			Args:            c.StringSlice("args"),
 			Target:          c.String("target"),
-			Repo:            c.String("repo"),
+			Repo:            buildRepo(c.String("registry"), c.String("repo")),
 			Labels:          c.StringSlice("custom-labels"),
 			SkipTlsVerify:   c.Bool("skip-tls-verify"),
 			SnapshotMode:    c.String("snapshot-mode"),
