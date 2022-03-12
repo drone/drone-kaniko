@@ -206,7 +206,7 @@ func run(c *cli.Context) error {
 			SkipTlsVerify:   c.Bool("skip-tls-verify"),
 			SnapshotMode:    c.String("snapshot-mode"),
 			EnableCache:     c.Bool("enable-cache"),
-			CacheRepo:       c.String("cache-repo"),
+			CacheRepo:       buildRepo(c.String("registry"), c.String("cache-repo")),
 			CacheTTL:        c.Int("cache-ttl"),
 			DigestFile:      defaultDigestFile,
 			NoPush:          noPush,
