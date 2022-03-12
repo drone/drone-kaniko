@@ -262,6 +262,8 @@ func buildRepo(registry, repo string) string {
 		// No custom registry, just return the repo name
 		return repo
 	}
+	// Trim off trailing slash to prevent double slash when combining with repo
+	registry = strings.TrimSuffix(registry, "/")
 	if strings.HasPrefix(repo, registry+"/") {
 		// Repo already includes the registry prefix
 		// For backward compatibility, we won't add the prefix again.
