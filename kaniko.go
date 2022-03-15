@@ -26,6 +26,7 @@ type (
 		Args            []string // Docker build args
 		Target          string   // Docker build target
 		Repo            string   // Docker build repository
+		Mirrors         []string // Docker repository mirrors
 		Labels          []string // Label map
 		SkipTlsVerify   bool     // Docker skip tls certificate verify for registry
 		SnapshotMode    string   // Kaniko snapshot mode
@@ -162,7 +163,10 @@ func (p Plugin) Exec() error {
 	for _, label := range p.Build.Labels {
 		cmdArgs = append(cmdArgs, fmt.Sprintf("--label=%s", label))
 	}
-
+	// Set repository mirrors
+	for _, mirror := range p.Build.Mirrors {
+		cmdArgs = append(cmdArgs, fmt.Sprintf("--registry-mirror=%s", mirror))
+	}
 	if p.Build.Target != "" {
 		cmdArgs = append(cmdArgs, fmt.Sprintf("--target=%s", p.Build.Target))
 	}
