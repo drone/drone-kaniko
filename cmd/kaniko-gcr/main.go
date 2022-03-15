@@ -110,6 +110,11 @@ func main() {
 			Value:  "gcr.io",
 			EnvVar: "PLUGIN_REGISTRY",
 		},
+		cli.StringSliceFlag{
+			Name:   "registry-mirrors",
+			Usage:  "docker registry mirrors",
+			EnvVar: "PLUGIN_REGISTRY_MIRRORS",
+		},
 		cli.StringFlag{
 			Name:   "json-key",
 			Usage:  "docker username",
@@ -188,6 +193,7 @@ func run(c *cli.Context) error {
 			Args:            c.StringSlice("args"),
 			Target:          c.String("target"),
 			Repo:            fmt.Sprintf("%s/%s", c.String("registry"), c.String("repo")),
+			Mirrors:         c.StringSlice("registry-mirrors"),
 			Labels:          c.StringSlice("custom-labels"),
 			SnapshotMode:    c.String("snapshot-mode"),
 			EnableCache:     c.Bool("enable-cache"),
