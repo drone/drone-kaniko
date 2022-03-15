@@ -116,6 +116,11 @@ func main() {
 			Value:  v1RegistryURL,
 			EnvVar: "PLUGIN_REGISTRY",
 		},
+		cli.StringSliceFlag{
+			Name:   "registry-mirrors",
+			Usage:  "docker registry mirrors",
+			EnvVar: "PLUGIN_REGISTRY_MIRRORS",
+		},
 		cli.StringFlag{
 			Name:   "username",
 			Usage:  "docker username",
@@ -202,6 +207,7 @@ func run(c *cli.Context) error {
 			Args:            c.StringSlice("args"),
 			Target:          c.String("target"),
 			Repo:            buildRepo(c.String("registry"), c.String("repo")),
+			Mirrors:         c.StringSlice("registry-mirrors"),
 			Labels:          c.StringSlice("custom-labels"),
 			SkipTlsVerify:   c.Bool("skip-tls-verify"),
 			SnapshotMode:    c.String("snapshot-mode"),
