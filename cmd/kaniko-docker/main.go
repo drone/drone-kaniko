@@ -206,13 +206,13 @@ func run(c *cli.Context) error {
 			ExpandTag:       c.Bool("expand-tag"),
 			Args:            c.StringSlice("args"),
 			Target:          c.String("target"),
-			Repo:            c.String("repo"),
+			Repo:            buildRepo(c.String("registry"), c.String("repo")),
 			Mirrors:         c.StringSlice("registry-mirrors"),
 			Labels:          c.StringSlice("custom-labels"),
 			SkipTlsVerify:   c.Bool("skip-tls-verify"),
 			SnapshotMode:    c.String("snapshot-mode"),
 			EnableCache:     c.Bool("enable-cache"),
-			CacheRepo:       c.String("cache-repo"),
+			CacheRepo:       buildRepo(c.String("registry"), c.String("cache-repo")),
 			CacheTTL:        c.Int("cache-ttl"),
 			DigestFile:      defaultDigestFile,
 			NoPush:          noPush,
@@ -268,6 +268,8 @@ func buildRepo(registry, repo string) string {
 		// No custom registry, just return the repo name
 		return repo
 	}
+	// Trim off trailing slash to prevent double slash when combining with repo
+	registry = strings.TrimSuffix(registry, "/")
 	if strings.HasPrefix(repo, registry+"/") {
 		// Repo already includes the registry prefix
 		// For backward compatibility, we won't add the prefix again.
