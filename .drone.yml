@@ -178,7 +178,7 @@ steps:
   pull: always
   image: plugins/manifest
   settings:
-    auto_tag: true
+    auto_tag: false
     ignore_missing: true
     password:
       from_secret: docker_password
@@ -190,7 +190,7 @@ steps:
   pull: always
   image: plugins/manifest
   settings:
-    auto_tag: true
+    auto_tag: false
     ignore_missing: true
     password:
       from_secret: docker_password
@@ -202,7 +202,7 @@ steps:
   pull: always
   image: plugins/manifest
   settings:
-    auto_tag: true
+    auto_tag: false
     ignore_missing: true
     password:
       from_secret: docker_password
