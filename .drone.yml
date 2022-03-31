@@ -60,6 +60,56 @@ steps:
       exclude:
       - pull_request
 
+- name: docker-kaniko-v1-8
+  image: plugins/docker
+  settings:
+    repo: plugins/kaniko
+    auto_tag: true
+    auto_tag_suffix: linux-amd64-kaniko1.8.0
+    daemon_off: false
+    dockerfile: docker/docker/Dockerfile.linux.amd64.kaniko1.8.0
+    username:
+      from_secret: docker_username
+    password:
+      from_secret: docker_password
+  when:
+    event:
+      exclude:
+      - pull_request
+
+- name: gcr-kaniko-v1-8
+  image: plugins/docker
+  settings:
+    repo: plugins/kaniko-gcr
+    auto_tag: true
+    auto_tag_suffix: linux-amd64-kaniko1.8.0
+    daemon_off: false
+    dockerfile: docker/gcr/Dockerfile.linux.amd64.kaniko1.8.0
+    username:
+      from_secret: docker_username
+    password:
+      from_secret: docker_password
+  when:
+    event:
+      exclude:
+      - pull_request
+
+- name: ecr-kaniko-v1-8
+  image: plugins/docker
+  settings:
+    repo: plugins/kaniko-ecr
+    auto_tag: true
+    auto_tag_suffix: linux-amd64-kaniko1.8.0
+    daemon_off: false
+    dockerfile: docker/ecr/Dockerfile.linux.amd64.kaniko1.8.0
+    username:
+      from_secret: docker_username
+    password:
+      from_secret: docker_password
+  when:
+    event:
+      exclude:
+      - pull_request
 ---
 kind: pipeline
 type: docker
@@ -103,6 +153,60 @@ steps:
     password:
       from_secret: docker_password
     spec: docker/ecr/manifest.tmpl
+    username:
+      from_secret: docker_username
+
+trigger:
+  ref:
+  - refs/heads/main
+  - "refs/tags/**"
+
+depends_on:
+- default
+
+---
+kind: pipeline
+type: docker
+name: notifications-docker-kaniko1-8
+
+platform:
+  os: linux
+  arch: amd64
+
+steps:
+- name: manifest-docker
+  pull: always
+  image: plugins/manifest
+  settings:
+    auto_tag: true
+    ignore_missing: true
+    password:
+      from_secret: docker_password
+    spec: docker/docker/manifest-kaniko1.8.0.tmpl
+    username:
+      from_secret: docker_username
+
+- name: manifest-gcr
+  pull: always
+  image: plugins/manifest
+  settings:
+    auto_tag: true
+    ignore_missing: true
+    password:
+      from_secret: docker_password
+    spec: docker/gcr/manifest-kaniko1.8.0.tmpl
+    username:
+      from_secret: docker_username
+
+- name: manifest-ecr
+  pull: always
+  image: plugins/manifest
+  settings:
+    auto_tag: true
+    ignore_missing: true
+    password:
+      from_secret: docker_password
+    spec: docker/ecr/manifest-kaniko1.8.0.tmpl
     username:
       from_secret: docker_username
 
