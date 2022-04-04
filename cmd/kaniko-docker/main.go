@@ -264,7 +264,7 @@ func createDockerCfgFile(username, password, registry string) error {
 }
 
 func buildRepo(registry, repo string) string {
-	if registry == "" {
+	if registry == "" || registry == v1RegistryURL {
 		// No custom registry, just return the repo name
 		return repo
 	}
