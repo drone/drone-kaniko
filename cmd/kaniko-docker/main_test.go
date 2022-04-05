@@ -29,7 +29,7 @@ func Test_buildRepo(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := buildRepo(tt.registry, tt.repo); got != tt.want {
+			if got := buildRepo(tt.registry, tt.repo, true); got != tt.want {
 				t.Errorf("buildRepo(%q, %q) = %v, want %v", tt.registry, tt.repo, got, tt.want)
 			}
 		})
