@@ -76,6 +76,11 @@ func main() {
 			FilePath: ".tags",
 		},
 		cli.BoolFlag{
+			Name:   "expand-repo",
+			Usage:  "Prepends the registry url to the repo if registry url is not specified in repo name",
+			EnvVar: "PLUGIN_EXPAND_REPO",
+		},
+		cli.BoolFlag{
 			Name:   "expand-tag",
 			Usage:  "enable for semver tagging",
 			EnvVar: "PLUGIN_EXPAND_TAG",
@@ -206,13 +211,13 @@ func run(c *cli.Context) error {
 			ExpandTag:       c.Bool("expand-tag"),
 			Args:            c.StringSlice("args"),
 			Target:          c.String("target"),
-			Repo:            buildRepo(c.String("registry"), c.String("repo")),
+			Repo:            buildRepo(c.String("registry"), c.String("repo"), c.Bool("expand-repo")),
 			Mirrors:         c.StringSlice("registry-mirrors"),
 			Labels:          c.StringSlice("custom-labels"),
 			SkipTlsVerify:   c.Bool("skip-tls-verify"),
 			SnapshotMode:    c.String("snapshot-mode"),
 			EnableCache:     c.Bool("enable-cache"),
-			CacheRepo:       buildRepo(c.String("registry"), c.String("cache-repo")),
+			CacheRepo:       buildRepo(c.String("registry"), c.String("cache-repo"), c.Bool("expand-repo")),
 			CacheTTL:        c.Int("cache-ttl"),
 			DigestFile:      defaultDigestFile,
 			NoPush:          noPush,
@@ -221,7 +226,7 @@ func run(c *cli.Context) error {
 		},
 		Artifact: kaniko.Artifact{
 			Tags:         c.StringSlice("tags"),
-			Repo:         buildRepo(c.String("registry"), c.String("repo")),
+			Repo:         buildRepo(c.String("registry"), c.String("repo"), c.Bool("expand-repo")),
 			Registry:     c.String("registry"),
 			ArtifactFile: c.String("artifact-file"),
 			RegistryType: artifact.Docker,
@@ -263,8 +268,8 @@ func createDockerCfgFile(username, password, registry string) error {
 	return nil
 }
 
-func buildRepo(registry, repo string) string {
-	if registry == "" || registry == v1RegistryURL {
+func buildRepo(registry, repo string, expandRepo bool) string {
+	if !expandRepo || registry == "" || registry == v1RegistryURL {
 		// No custom registry, just return the repo name
 		return repo
 	}
