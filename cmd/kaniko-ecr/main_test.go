@@ -13,7 +13,6 @@ func TestCreateDockerConfig(t *testing.T) {
 		"docker-password",
 		"access-key",
 		"secret-key",
-		"ecr-registry",
 		false,
 	)
 	if err != nil {
@@ -22,8 +21,6 @@ func TestCreateDockerConfig(t *testing.T) {
 
 	want := docker.NewConfig()
 	want.SetAuth(docker.RegistryV1, "docker-username", "docker-password")
-	want.SetCredHelper(docker.RegistryECRPublic, "ecr-login")
-	want.SetCredHelper("ecr-registry", "ecr-login")
 
 	if !reflect.DeepEqual(want, got) {
 		t.Errorf("not equal:\n  want: %#v\n   got: %#v", want, got)

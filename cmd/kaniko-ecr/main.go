@@ -227,7 +227,6 @@ func run(c *cli.Context) error {
 		c.String("docker-password"),
 		c.String("access-key"),
 		c.String("secret-key"),
-		registry,
 		noPush,
 	)
 	if err != nil {
@@ -306,7 +305,7 @@ func run(c *cli.Context) error {
 	return plugin.Exec()
 }
 
-func createDockerConfig(dockerUsername, dockerPassword, accessKey, secretKey, registry string, noPush bool) (*docker.Config, error) {
+func createDockerConfig(dockerUsername, dockerPassword, accessKey, secretKey string, noPush bool) (*docker.Config, error) {
 	dockerConfig := docker.NewConfig()
 
 	if dockerUsername != "" {
@@ -315,11 +314,12 @@ func createDockerConfig(dockerUsername, dockerPassword, accessKey, secretKey, re
 
 	// only setup auth when pushing or credentials are defined
 	if !noPush || accessKey != "" {
-		if registry == "" {
-			return nil, fmt.Errorf("registry must be specified")
-		}
-
-		// If IAM role is used, access key & secret key are not required
+		// kaniko-executor >=1.8.0 internalizes the amazon-ecr-credential-helper
+		// If the AWS_ROLE_ARN and/or AWS_WEB_IDENTITY_TOKEN_FILE environment variables are set by an instance
+		// or federation service, no access key and secret are needed.
+		// If an access key and secret are set, they override Role Identity for all ecr registries.
+		// see https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html#cli-configure-quickstart-precedence
+		// for detailed precedence
 		if accessKey != "" && secretKey != "" {
 			err := os.Setenv(accessKeyEnv, accessKey)
 			if err != nil {
@@ -331,9 +331,6 @@ func createDockerConfig(dockerUsername, dockerPassword, accessKey, secretKey, re
 				return nil, errors.Wrap(err, fmt.Sprintf("failed to set %s environment variable", secretKeyEnv))
 			}
 		}
-
-		dockerConfig.SetCredHelper(ecrPublicDomain, "ecr-login")
-		dockerConfig.SetCredHelper(registry, "ecr-login")
 	}
 
 	return dockerConfig, nil
