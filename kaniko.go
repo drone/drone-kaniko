@@ -15,28 +15,29 @@ import (
 type (
 	// Build defines Docker build parameters.
 	Build struct {
-		DroneCommitRef  string   // Drone git commit reference
-		DroneRepoBranch string   // Drone repo branch
-		Dockerfile      string   // Docker build Dockerfile
-		Context         string   // Docker build context
-		Tags            []string // Docker build tags
-		AutoTag         bool     // Set this to auto detect tags from git commits and semver-tagged labels
-		AutoTagSuffix   string   // Suffix to append to the auto detect tags
-		ExpandTag       bool     // Set this to expand the `Tags` into semver-tagged labels
-		Args            []string // Docker build args
-		Target          string   // Docker build target
-		Repo            string   // Docker build repository
-		Mirrors         []string // Docker repository mirrors
-		Labels          []string // Label map
-		SkipTlsVerify   bool     // Docker skip tls certificate verify for registry
-		SnapshotMode    string   // Kaniko snapshot mode
-		EnableCache     bool     // Whether to enable kaniko cache
-		CacheRepo       string   // Remote repository that will be used to store cached layers
-		CacheTTL        int      // Cache timeout in hours
-		DigestFile      string   // Digest file location
-		NoPush          bool     // Set this flag if you only want to build the image, without pushing to a registry
-		Verbosity       string   // Log level
-		Platform        string   // Allows to build with another default platform than the host, similarly to docker build --platform
+		DroneCommitRef   string   // Drone git commit reference
+		DroneRepoBranch  string   // Drone repo branch
+		Dockerfile       string   // Docker build Dockerfile
+		Context          string   // Docker build context
+		Tags             []string // Docker build tags
+		AutoTag          bool     // Set this to auto detect tags from git commits and semver-tagged labels
+		AutoTagSuffix    string   // Suffix to append to the auto detect tags
+		ExpandTag        bool     // Set this to expand the `Tags` into semver-tagged labels
+		Args             []string // Docker build args
+		Target           string   // Docker build target
+		Repo             string   // Docker build repository
+		Mirrors          []string // Docker repository mirrors
+		Labels           []string // Label map
+		SkipTlsVerify    bool     // Docker skip tls certificate verify for registry
+		SnapshotMode     string   // Kaniko snapshot mode
+		EnableCache      bool     // Whether to enable kaniko cache
+		CacheRepo        string   // Remote repository that will be used to store cached layers
+		CacheTTL         int      // Cache timeout in hours
+		DigestFile       string   // Digest file location
+		NoPush           bool     // Set this flag if you only want to build the image, without pushing to a registry
+		Verbosity        string   // Log level
+		Platform         string   // Allows to build with another default platform than the host, similarly to docker build --platform
+		SkipUnusedStages bool     // Build only used stages
 	}
 
 	// Artifact defines content of artifact file
@@ -205,6 +206,10 @@ func (p Plugin) Exec() error {
 
 	if p.Build.Platform != "" {
 		cmdArgs = append(cmdArgs, fmt.Sprintf("--customPlatform=%s", p.Build.Platform))
+	}
+
+	if p.Build.SkipUnusedStages {
+		cmdArgs = append(cmdArgs, "--skip-unused-stages")
 	}
 
 	cmd := exec.Command("/kaniko/executor", cmdArgs...)
