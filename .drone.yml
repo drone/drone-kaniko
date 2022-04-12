@@ -4,7 +4,7 @@ name: default
 
 steps:
 - name: build
-  image: golang:1.17.7
+  image: golang:1.17.8
   commands:
   - go test ./...
   - sh scripts/build.sh
