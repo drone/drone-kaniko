@@ -1,4 +1,4 @@
-FROM gcr.io/kaniko-project/executor:v1.8.0
+FROM gcr.io/kaniko-project/executor:v1.8.1
 
 ADD release/linux/amd64/kaniko-docker /kaniko/
 ENTRYPOINT ["/kaniko/kaniko-docker"]

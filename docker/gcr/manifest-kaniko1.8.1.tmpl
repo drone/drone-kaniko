@@ -1,0 +1,13 @@
+image: plugins/kaniko-gcr:{{#if build.tag}}{{trimPrefix "v" build.tag}}-kaniko1.8.1{{else}}latest-kaniko1.8.1{{/if}}
+{{#if build.tags}}
+tags:
+{{#each build.tags}}
+  - {{this}}
+{{/each}}
+{{/if}}
+manifests:
+  -
+    image: plugins/kaniko-gcr:{{#if build.tag}}{{trimPrefix "v" build.tag}}-{{/if}}linux-amd64-kaniko1.8.1
+    platform:
+      architecture: amd64
+      os: linux
