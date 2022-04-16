@@ -362,12 +362,8 @@ func createDockerConfig(dockerUsername, dockerPassword, accessKey, secretKey,
 			}
 		}
 
-		// kaniko-executor >=1.8.0 internalizes the amazon-ecr-credential-helper
-		// If the AWS_ROLE_ARN and/or AWS_WEB_IDENTITY_TOKEN_FILE environment variables are set by an instance
-		// or federation service, no access key and secret are needed.
-		// If an access key and secret are set, they override Role Identity for all ecr registries.
-		// see https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html#cli-configure-quickstart-precedence
-		// for detailed precedence
+		// kaniko-executor >=1.8.0 does not require additional cred helper logic for ECR,
+		// as it discovers ECR repositories automatically and acts accordingly.
 		if isKanikoVersionBelowOneDotEight(os.Getenv(kanikoVersionEnv)) {
 			dockerConfig.SetCredHelper(ecrPublicDomain, "ecr-login")
 			dockerConfig.SetCredHelper(registry, "ecr-login")
