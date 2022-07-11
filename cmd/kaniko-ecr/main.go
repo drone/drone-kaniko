@@ -2,24 +2,33 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ecr"
 	"github.com/aws/aws-sdk-go-v2/service/ecrpublic"
-  "github.com/aws/smithy-go"
-	kaniko "github.com/drone/drone-kaniko"
-	"github.com/drone/drone-kaniko/pkg/artifact"
-	"github.com/drone/drone-kaniko/pkg/docker"
+	awsv1 "github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
+	"github.com/aws/aws-sdk-go/aws/session"
+	ecrv1 "github.com/aws/aws-sdk-go/service/ecr"
+	"github.com/aws/aws-sdk-go/service/sts"
+	"github.com/aws/smithy-go"
 	"github.com/joho/godotenv"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
+
+	kaniko "github.com/drone/drone-kaniko"
+	"github.com/drone/drone-kaniko/pkg/artifact"
+	"github.com/drone/drone-kaniko/pkg/docker"
 )
 
 const (
@@ -155,6 +164,16 @@ func main() {
 			EnvVar: "PLUGIN_SECRET_KEY",
 		},
 		cli.StringFlag{
+			Name:   "assume-role",
+			Usage:  "Assume a role",
+			EnvVar: "PLUGIN_ASSUME_ROLE",
+		},
+		cli.StringFlag{
+			Name:   "secret-key",
+			Usage:  "Used along with assume role to assume a role",
+			EnvVar: "PLUGIN_EXTERNAL_ID",
+		},
+		cli.StringFlag{
 			Name:   "snapshot-mode",
 			Usage:  "Specify one of full, redo or time as snapshot mode",
 			EnvVar: "PLUGIN_SNAPSHOT_MODE",
@@ -228,6 +247,9 @@ func run(c *cli.Context) error {
 		c.String("access-key"),
 		c.String("secret-key"),
 		registry,
+		c.String("assume-role"),
+		c.String("external-id"),
+		region,
 		noPush,
 	)
 	if err != nil {
@@ -306,11 +328,21 @@ func run(c *cli.Context) error {
 	return plugin.Exec()
 }
 
-func createDockerConfig(dockerUsername, dockerPassword, accessKey, secretKey, registry string, noPush bool) (*docker.Config, error) {
+func createDockerConfig(dockerUsername, dockerPassword, accessKey, secretKey,
+	registry, assumeRole, externalId, region string, noPush bool) (*docker.Config, error) {
 	dockerConfig := docker.NewConfig()
 
 	if dockerUsername != "" {
 		dockerConfig.SetAuth(docker.RegistryV1, dockerUsername, dockerPassword)
+	}
+
+	if accessKey == "" && assumeRole != "" {
+
+		var err error
+		accessKey, secretKey, err = getAssumeRoleCreds(region, assumeRole, externalId, "")
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// only setup auth when pushing or credentials are defined
@@ -417,6 +449,62 @@ func uploadRepositoryPolicy(region, repo, registry, repositoryPolicy string) (er
 	}
 
 	return err
+}
+
+func getAssumeRoleCreds(region, roleArn, externalId, roleSessionName string) (string, string, error) {
+	sess, err := session.NewSession(&awsv1.Config{Region: &region})
+	if err != nil {
+		return "", "", errors.Wrap(err, "failed to create aws session")
+	}
+
+	svc := ecrv1.New(sess, &awsv1.Config{
+		Credentials: stscreds.NewCredentials(sess, roleArn, func(p *stscreds.AssumeRoleProvider) {
+			p.ExternalID = &externalId
+		}),
+	})
+
+	username, password, _, err := getAuthInfo(svc)
+	if err != nil {
+		return "", "", errors.Wrap(err, "failed to get ECR auth")
+	}
+	return username, password, nil
+}
+
+func getAuthInfo(svc *ecrv1.ECR) (username, password, registry string, err error) {
+	var result *ecrv1.GetAuthorizationTokenOutput
+	var decoded []byte
+
+	result, err = svc.GetAuthorizationToken(&ecrv1.GetAuthorizationTokenInput{})
+	if err != nil {
+		return
+	}
+
+	auth := result.AuthorizationData[0]
+	token := *auth.AuthorizationToken
+	decoded, err = base64.StdEncoding.DecodeString(token)
+	if err != nil {
+		return
+	}
+
+	registry = strings.TrimPrefix(*auth.ProxyEndpoint, "https://")
+	creds := strings.Split(string(decoded), ":")
+	username = creds[0]
+	password = creds[1]
+	return
+}
+
+func assumeRole(roleArn, externalID, roleSessionName string) *credentials.Credentials {
+	client := sts.New(session.New())
+	duration := time.Hour * 2
+	stsProvider := &stscreds.AssumeRoleProvider{
+		Client:          client,
+		Duration:        duration,
+		RoleARN:         roleArn,
+		RoleSessionName: roleSessionName,
+		ExternalID:      &externalID,
+	}
+
+	return credentials.NewCredentials(stsProvider)
 }
 
 func isRegistryPublic(registry string) bool {
