@@ -15,11 +15,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ecr"
 	"github.com/aws/aws-sdk-go-v2/service/ecrpublic"
 	awsv1 "github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/aws/session"
 	ecrv1 "github.com/aws/aws-sdk-go/service/ecr"
-	"github.com/aws/aws-sdk-go/service/sts"
 	"github.com/aws/smithy-go"
 	"github.com/joho/godotenv"
 	"github.com/pkg/errors"
@@ -169,7 +167,7 @@ func main() {
 			EnvVar: "PLUGIN_ASSUME_ROLE",
 		},
 		cli.StringFlag{
-			Name:   "secret-key",
+			Name:   "external-id",
 			Usage:  "Used along with assume role to assume a role",
 			EnvVar: "PLUGIN_EXTERNAL_ID",
 		},
@@ -459,7 +457,10 @@ func getAssumeRoleCreds(region, roleArn, externalId, roleSessionName string) (st
 
 	svc := ecrv1.New(sess, &awsv1.Config{
 		Credentials: stscreds.NewCredentials(sess, roleArn, func(p *stscreds.AssumeRoleProvider) {
-			p.ExternalID = &externalId
+			if externalId != "" {
+				p.ExternalID = &externalId
+			}
+			p.Duration = time.Hour * 2
 		}),
 	})
 
@@ -491,20 +492,6 @@ func getAuthInfo(svc *ecrv1.ECR) (username, password, registry string, err error
 	username = creds[0]
 	password = creds[1]
 	return
-}
-
-func assumeRole(roleArn, externalID, roleSessionName string) *credentials.Credentials {
-	client := sts.New(session.New())
-	duration := time.Hour * 2
-	stsProvider := &stscreds.AssumeRoleProvider{
-		Client:          client,
-		Duration:        duration,
-		RoleARN:         roleArn,
-		RoleSessionName: roleSessionName,
-		ExternalID:      &externalID,
-	}
-
-	return credentials.NewCredentials(stsProvider)
 }
 
 func isRegistryPublic(registry string) bool {
