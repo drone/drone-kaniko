@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -460,7 +459,6 @@ func getAssumeRoleCreds(region, roleArn, externalId, roleSessionName string) (st
 			if externalId != "" {
 				p.ExternalID = &externalId
 			}
-			p.Duration = time.Hour * 2
 		}),
 	})
 
