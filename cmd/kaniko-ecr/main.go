@@ -333,16 +333,15 @@ func createDockerConfig(dockerUsername, dockerPassword, accessKey, secretKey,
 		dockerConfig.SetAuth(docker.RegistryV1, dockerUsername, dockerPassword)
 	}
 
-	if accessKey == "" && assumeRole != "" {
+	if assumeRole != "" {
 		var err error
-		accessKey, secretKey, err = getAssumeRoleCreds(region, assumeRole, externalId, "")
+		username, password, registry, err := getAssumeRoleCreds(region, assumeRole, externalId, "")
 		if err != nil {
 			return nil, err
 		}
-	}
-
-	// only setup auth when pushing or credentials are defined
-	if !noPush || accessKey != "" {
+		dockerConfig.SetAuth(registry, username, password)
+	} else if !noPush || accessKey != "" {
+		// only setup auth when pushing or credentials are defined
 		if registry == "" {
 			return nil, fmt.Errorf("registry must be specified")
 		}
@@ -447,10 +446,10 @@ func uploadRepositoryPolicy(region, repo, registry, repositoryPolicy string) (er
 	return err
 }
 
-func getAssumeRoleCreds(region, roleArn, externalId, roleSessionName string) (string, string, error) {
+func getAssumeRoleCreds(region, roleArn, externalId, roleSessionName string) (string, string, string, error) {
 	sess, err := session.NewSession(&awsv1.Config{Region: &region})
 	if err != nil {
-		return "", "", errors.Wrap(err, "failed to create aws session")
+		return "", "", "", errors.Wrap(err, "failed to create aws session")
 	}
 
 	svc := ecrv1.New(sess, &awsv1.Config{
@@ -461,11 +460,11 @@ func getAssumeRoleCreds(region, roleArn, externalId, roleSessionName string) (st
 		}),
 	})
 
-	username, password, _, err := getAuthInfo(svc)
+	username, password, registry, err := getAuthInfo(svc)
 	if err != nil {
-		return "", "", errors.Wrap(err, "failed to get ECR auth")
+		return "", "", "", errors.Wrap(err, "failed to get ECR auth")
 	}
-	return username, password, nil
+	return username, password, registry, nil
 }
 
 func getAuthInfo(svc *ecrv1.ECR) (username, password, registry string, err error) {
