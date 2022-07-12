@@ -43,6 +43,9 @@ func TestCreateDockerConfigKanikoOneDotEight(t *testing.T) {
 		"access-key",
 		"secret-key",
 		"ecr-registry",
+		"",
+		"",
+		"",
 		false,
 	)
 	if err != nil {
