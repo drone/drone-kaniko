@@ -334,7 +334,6 @@ func createDockerConfig(dockerUsername, dockerPassword, accessKey, secretKey,
 	}
 
 	if accessKey == "" && assumeRole != "" {
-
 		var err error
 		accessKey, secretKey, err = getAssumeRoleCreds(region, assumeRole, externalId, "")
 		if err != nil {
