@@ -18,6 +18,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	ecrv1 "github.com/aws/aws-sdk-go/service/ecr"
 	"github.com/aws/smithy-go"
+	"github.com/hashicorp/go-version"
 	"github.com/joho/godotenv"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -33,12 +34,14 @@ const (
 	secretKeyEnv     string = "AWS_SECRET_ACCESS_KEY"
 	dockerConfigPath string = "/kaniko/.docker/config.json"
 	ecrPublicDomain  string = "public.ecr.aws"
+	kanikoVersionEnv string = "KANIKO_VERSION"
 
-	defaultDigestFile string = "/kaniko/digest-file"
+	oneDotEightVersion string = "1.8.0"
+	defaultDigestFile  string = "/kaniko/digest-file"
 )
 
 var (
-	version = "unknown"
+	pluginVersion = "unknown"
 )
 
 func main() {
@@ -53,7 +56,7 @@ func main() {
 	app.Name = "kaniko docker plugin"
 	app.Usage = "kaniko docker plugin"
 	app.Action = run
-	app.Version = version
+	app.Version = pluginVersion
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
 			Name:   "dockerfile",
@@ -359,8 +362,12 @@ func createDockerConfig(dockerUsername, dockerPassword, accessKey, secretKey,
 			}
 		}
 
-		dockerConfig.SetCredHelper(ecrPublicDomain, "ecr-login")
-		dockerConfig.SetCredHelper(registry, "ecr-login")
+		// kaniko-executor >=1.8.0 does not require additional cred helper logic for ECR,
+		// as it discovers ECR repositories automatically and acts accordingly.
+		if isKanikoVersionBelowOneDotEight(os.Getenv(kanikoVersionEnv)) {
+			dockerConfig.SetCredHelper(ecrPublicDomain, "ecr-login")
+			dockerConfig.SetCredHelper(registry, "ecr-login")
+		}
 	}
 
 	return dockerConfig, nil
@@ -492,4 +499,17 @@ func getAuthInfo(svc *ecrv1.ECR) (username, password, registry string, err error
 
 func isRegistryPublic(registry string) bool {
 	return strings.HasPrefix(registry, ecrPublicDomain)
+}
+
+func isKanikoVersionBelowOneDotEight(v string) bool {
+	currVer, err := version.NewVersion(v)
+	if err != nil {
+		return true
+	}
+	oneEightVer, err := version.NewVersion(oneDotEightVersion)
+	if err != nil {
+		return true
+	}
+
+	return currVer.LessThan(oneEightVer)
 }
