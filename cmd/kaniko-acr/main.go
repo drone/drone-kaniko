@@ -354,10 +354,16 @@ func fetchACRToken(tenantId, token, registry string) (string, error) {
 	}
 
 	if x, found := response["refresh_token"]; found {
-		return x.(string), nil
+		s, ok := x.(string)
+		if !ok {
+			errors.New("failed to cast refresh token from acr")
+		} else {
+			return s, nil
+		}
 	} else {
-		return "", errors.Wrap(err, "refresh_token not found in response of oauth exchange call")
+		return "", errors.Wrap(err, "refresh token not found in response of oauth exchange call")
 	}
+	return "", errors.New("failed to get refresh token from acr")
 }
 
 func setupACRCert(jsonKey string) error {
