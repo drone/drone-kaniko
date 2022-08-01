@@ -32,7 +32,7 @@ const (
 )
 
 var (
-	acrCertPath   = "/kaniko/acr-cert.pem"
+	ACRCertPath   = "/kaniko/acr-cert.pem"
 	pluginVersion = "unknown"
 	username      = "00000000-0000-0000-0000-000000000000"
 )
@@ -274,7 +274,7 @@ func createDockerConfig(tenantId, clientId, cert,
 
 		token, err := getACRToken(tenantId, clientId, clientSecret, cert, registry)
 		if err != nil {
-			return errors.Wrap(err, "failed to fetch acrToken")
+			return errors.Wrap(err, "failed to fetch ACR Token")
 		}
 		err = createDockerCfgFile(username, token, registry)
 		if err != nil {
@@ -386,11 +386,11 @@ func createDockerCfgFile(username, password, registry string) error {
 }
 
 func setupACRCert(jsonKey string) error {
-	err := ioutil.WriteFile(acrCertPath, []byte(jsonKey), 0644)
+	err := ioutil.WriteFile(ACRCertPath, []byte(jsonKey), 0644)
 	if err != nil {
 		return errors.Wrap(err, "failed to write ACR certificate")
 	}
-	err = os.Setenv(certPathEnv, acrCertPath)
+	err = os.Setenv(certPathEnv, ACRCertPath)
 	if err != nil {
 		return errors.Wrap(err, fmt.Sprintf("failed to set %s environment variable", certPathEnv))
 	}
