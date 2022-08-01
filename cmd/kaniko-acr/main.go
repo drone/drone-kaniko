@@ -18,18 +18,17 @@ import (
 
 	kaniko "github.com/drone/drone-kaniko"
 	"github.com/drone/drone-kaniko/pkg/artifact"
-	"github.com/drone/drone-kaniko/pkg/docker"
 )
 
 const (
-	dockerPath        string = "/kaniko/.docker"
-	accessKeyEnv      string = "AZURE_CLIENT_ID"
-	secretKeyEnv      string = "AZURE_CLIENT_SECRET"
-	tenantKeyEnv      string = "AZURE_TENANT_ID"
-	certPathEnv       string = "AZURE_CLIENT_CERTIFICATE_PATH"
-	dockerConfigPath  string = "/kaniko/.docker/acr/config-acr.json"
-	kanikoVersionEnv  string = "KANIKO_VERSION"
-	defaultDigestFile string = "/kaniko/digest-file"
+	dockerPath         string = "/kaniko/.docker"
+	clientIdEnv        string = "AZURE_CLIENT_ID"
+	clientSecretKeyEnv string = "AZURE_CLIENT_SECRET"
+	tenantKeyEnv       string = "AZURE_TENANT_ID"
+	certPathEnv        string = "AZURE_CLIENT_CERTIFICATE_PATH"
+	dockerConfigPath   string = "/kaniko/.docker/acr/config-acr.json"
+	kanikoVersionEnv   string = "KANIKO_VERSION"
+	defaultDigestFile  string = "/kaniko/digest-file"
 )
 
 var (
@@ -51,16 +50,6 @@ func main() {
 			Usage:  "build dockerfile",
 			Value:  "Dockerfile",
 			EnvVar: "PLUGIN_DOCKERFILE",
-		},
-		cli.StringFlag{
-			Name:   "docker-username",
-			Usage:  "docker username",
-			EnvVar: "PLUGIN_USERNAME,DOCKER_USERNAME",
-		},
-		cli.StringFlag{
-			Name:   "docker-password",
-			Usage:  "docker password",
-			EnvVar: "PLUGIN_PASSWORD,DOCKER_PASSWORD",
 		},
 		cli.StringFlag{
 			Name:   "context",
@@ -156,16 +145,6 @@ func main() {
 			EnvVar: "CLIENT_ID",
 		},
 		cli.StringFlag{
-			Name:   "assume-role",
-			Usage:  "Assume a role",
-			EnvVar: "PLUGIN_ASSUME_ROLE",
-		},
-		cli.StringFlag{
-			Name:   "external-id",
-			Usage:  "Used along with assume role to assume a role",
-			EnvVar: "PLUGIN_EXTERNAL_ID",
-		},
-		cli.StringFlag{
 			Name:   "snapshot-mode",
 			Usage:  "Specify one of full, redo or time as snapshot mode",
 			EnvVar: "PLUGIN_SNAPSHOT_MODE",
@@ -231,7 +210,7 @@ func run(c *cli.Context) error {
 	registry := c.String("registry")
 	noPush := c.Bool("no-push")
 
-	dockerConfig, err := createDockerConfig(
+	err := createDockerConfig(
 		c.String("tenant-id"),
 		c.String("client-id"),
 		c.String("client-cert"),
@@ -240,15 +219,6 @@ func run(c *cli.Context) error {
 		noPush,
 	)
 	if err != nil {
-		return err
-	}
-
-	jsonBytes, err := json.Marshal(dockerConfig)
-	if err != nil {
-		return err
-	}
-
-	if err := ioutil.WriteFile(dockerConfigPath, jsonBytes, 0644); err != nil {
 		return err
 	}
 
@@ -289,46 +259,45 @@ func run(c *cli.Context) error {
 }
 
 func createDockerConfig(tenantId, clientId, cert,
-	clientSecret, registry string, noPush bool) (*docker.Config, error) {
-	dockerConfig := docker.NewConfig()
+	clientSecret, registry string, noPush bool) error {
 	if registry == "" {
-		return nil, fmt.Errorf("registry must be specified")
+		return fmt.Errorf("registry must be specified")
 	}
 
 	if noPush {
-		return dockerConfig, nil
+		return nil
 	}
 
 	// case of client secret or cert based auth
 	if clientId != "" {
 		// only setup auth when pushing or credentials are defined
 
-		token, err := getAcrToken(tenantId, clientId, clientSecret, cert, registry)
+		token, err := getACRToken(tenantId, clientId, clientSecret, cert, registry)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to fetch acrToken")
+			return errors.Wrap(err, "failed to fetch acrToken")
 		}
 		err = createDockerCfgFile(username, token, registry)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to create docker config")
+			return errors.Wrap(err, "failed to create docker config")
 		}
 	} else {
-		return nil, fmt.Errorf("managed authentication is not supported")
+		return fmt.Errorf("managed authentication is not supported")
 	}
 
-	return dockerConfig, nil
+	return nil
 }
 
-func getAcrToken(tenantId, clientId, clientSecret, cert, registry string) (string, error) {
+func getACRToken(tenantId, clientId, clientSecret, cert, registry string) (string, error) {
 	if tenantId == "" {
-		return "", fmt.Errorf("tenantId can't be empty foe AAD authentication")
+		return "", fmt.Errorf("tenantId can't be empty for AAD authentication")
 	}
 
 	if clientId == "" {
-		return "", fmt.Errorf("clientId can't be empty foe AAD authentication")
+		return "", fmt.Errorf("clientId can't be empty for AAD authentication")
 	}
 
 	if clientSecret == "" && cert == "" {
-		return "", fmt.Errorf("one of accessKey or secretKey should be defined")
+		return "", fmt.Errorf("one of clientSecret or cert should be defined")
 	}
 
 	// in case of authentication via cert
@@ -340,17 +309,16 @@ func getAcrToken(tenantId, clientId, clientSecret, cert, registry string) (strin
 	}
 
 	// TODO check for presence of file as well.
-	os.Setenv(accessKeyEnv, clientId)
-	os.Setenv(secretKeyEnv, clientSecret)
+	os.Setenv(clientIdEnv, clientId)
+	os.Setenv(clientSecretKeyEnv, clientSecret)
 	os.Setenv(tenantKeyEnv, tenantId)
 	env, err := azidentity.NewEnvironmentCredential(nil)
-	context.Background()
 	policy := policy.TokenRequestOptions{
 		Scopes: []string{"https://management.azure.com/.default"},
 	}
 
-	os.Unsetenv(accessKeyEnv)
-	os.Unsetenv(secretKeyEnv)
+	os.Unsetenv(clientIdEnv)
+	os.Unsetenv(clientSecretKeyEnv)
 	os.Unsetenv(tenantKeyEnv)
 	os.Unsetenv(certPathEnv)
 
@@ -359,14 +327,14 @@ func getAcrToken(tenantId, clientId, clientSecret, cert, registry string) (strin
 		return "", errors.Wrap(err, "failed to fetch access token")
 	}
 
-	acrToken, err := fetchAcrToken(tenantId, azToken.Token, registry)
+	ACRToken, err := fetchACRToken(tenantId, azToken.Token, registry)
 	if err != nil {
-		return "", errors.Wrap(err, "failed to fetch acr token")
+		return "", errors.Wrap(err, "failed to fetch ACR token")
 	}
-	return acrToken, nil
+	return ACRToken, nil
 }
 
-func fetchAcrToken(tenantId, token, registry string) (string, error) {
+func fetchACRToken(tenantId, token, registry string) (string, error) {
 	formData := url.Values{
 		"grant_type":   {"access_token"},
 		"service":      {registry},
@@ -375,11 +343,22 @@ func fetchAcrToken(tenantId, token, registry string) (string, error) {
 	}
 	jsonResponse, err := http.PostForm(fmt.Sprintf("https://%s/oauth2/exchange", registry), formData)
 	if err != nil {
-		return "", errors.Wrap(err, "failed to fetch acr token")
+		return "", errors.Wrap(err, "failed to fetch ACR token")
 	}
 	var response map[string]interface{}
-	json.NewDecoder(jsonResponse.Body).Decode(&response)
-	return response["refresh_token"].(string), nil
+	err = json.NewDecoder(jsonResponse.Body).Decode(&response)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to decode oauth exchange response")
+	}
+
+	if x, found := response["refresh_token"]; found {
+		if token, ok := x.(string); !ok {
+			return token, nil
+		}
+	} else {
+		return "", errors.Wrap(err, "refresh_token not found in response of oauth exchange call")
+	}
+	return "", errors.New("failed to fetch ACR token")
 }
 
 // Create the docker config file for authentication
