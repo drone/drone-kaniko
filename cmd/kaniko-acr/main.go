@@ -26,12 +26,14 @@ const (
 	accessKeyEnv      string = "AZURE_CLIENT_ID"
 	secretKeyEnv      string = "AZURE_CLIENT_SECRET"
 	tenantKeyEnv      string = "AZURE_TENANT_ID"
+	certPathEnv       string = "AZURE_CLIENT_CERTIFICATE_PATH"
 	dockerConfigPath  string = "/kaniko/.docker/acr/config-acr.json"
 	kanikoVersionEnv  string = "KANIKO_VERSION"
 	defaultDigestFile string = "/kaniko/digest-file"
 )
 
 var (
+	acrCertPath   = "/kaniko/acr-cert.pem"
 	pluginVersion = "unknown"
 	username      = "00000000-0000-0000-0000-000000000000"
 )
@@ -139,9 +141,9 @@ func main() {
 			EnvVar: "CLIENT_SECRET",
 		},
 		cli.StringFlag{
-			Name:   "client-cert-path",
-			Usage:  "Azure client certificate path",
-			EnvVar: "CLIENT_CERTIFICATE_PATH",
+			Name:   "client-cert",
+			Usage:  "Azure client certificate",
+			EnvVar: "CLIENT_CERTIFICATE",
 		},
 		cli.StringFlag{
 			Name:   "tenant-id",
@@ -232,7 +234,7 @@ func run(c *cli.Context) error {
 	dockerConfig, err := createDockerConfig(
 		c.String("tenant-id"),
 		c.String("client-id"),
-		c.String("client-cert-path"),
+		c.String("client-cert"),
 		c.String("client-secret"),
 		registry,
 		noPush,
@@ -286,28 +288,37 @@ func run(c *cli.Context) error {
 	return plugin.Exec()
 }
 
-func createDockerConfig(tenantId, clientId, certPath,
+func createDockerConfig(tenantId, clientId, cert,
 	clientSecret, registry string, noPush bool) (*docker.Config, error) {
 	dockerConfig := docker.NewConfig()
+	if registry == "" {
+		return nil, fmt.Errorf("registry must be specified")
+	}
 
-	if !noPush || clientId != "" {
+	if noPush {
+		return dockerConfig, nil
+	}
+
+	// case of client secret or cert based auth
+	if clientId != "" {
 		// only setup auth when pushing or credentials are defined
-		if registry == "" {
-			return nil, fmt.Errorf("registry must be specified")
-		}
 
-		token, err := getAcrToken(tenantId, clientId, clientSecret, certPath, registry)
+		token, err := getAcrToken(tenantId, clientId, clientSecret, cert, registry)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to fetch acrToken")
 		}
-		fmt.Printf("acr token " + token)
 		err = createDockerCfgFile(username, token, registry)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to create docker config")
+		}
+	} else {
+		return nil, fmt.Errorf("managed authentication is not supported")
 	}
 
 	return dockerConfig, nil
 }
 
-func getAcrToken(tenantId, clientId, clientSecret, certPath, registry string) (string, error) {
+func getAcrToken(tenantId, clientId, clientSecret, cert, registry string) (string, error) {
 	if tenantId == "" {
 		return "", fmt.Errorf("tenantId can't be empty foe AAD authentication")
 	}
@@ -316,8 +327,16 @@ func getAcrToken(tenantId, clientId, clientSecret, certPath, registry string) (s
 		return "", fmt.Errorf("clientId can't be empty foe AAD authentication")
 	}
 
-	if clientSecret == "" && certPath == "" {
+	if clientSecret == "" && cert == "" {
 		return "", fmt.Errorf("one of accessKey or secretKey should be defined")
+	}
+
+	// in case of authentication via cert
+	if cert != "" {
+		err := setupACRCert(cert)
+		if err != nil {
+			errors.Wrap(err, "failed to push setup cert file")
+		}
 	}
 
 	// TODO check for presence of file as well.
@@ -333,6 +352,7 @@ func getAcrToken(tenantId, clientId, clientSecret, certPath, registry string) (s
 	os.Unsetenv(accessKeyEnv)
 	os.Unsetenv(secretKeyEnv)
 	os.Unsetenv(tenantKeyEnv)
+	os.Unsetenv(certPathEnv)
 
 	azToken, err := env.GetToken(context.Background(), policy)
 	if err != nil {
@@ -379,10 +399,21 @@ func createDockerCfgFile(username, password, registry string) error {
 	authBytes := []byte(fmt.Sprintf("%s:%s", username, password))
 	encodedString := base64.StdEncoding.EncodeToString(authBytes)
 	jsonBytes := []byte(fmt.Sprintf(`{"auths": {"%s": {"auth": "%s"}}}`, "https://"+registry, encodedString))
-	fmt.Print("-- " + username + " -- " + string(jsonBytes))
 	err = ioutil.WriteFile(dockerConfigPath, jsonBytes, 0644)
 	if err != nil {
 		return errors.Wrap(err, "failed to create docker config file")
+	}
+	return nil
+}
+
+func setupACRCert(jsonKey string) error {
+	err := ioutil.WriteFile(acrCertPath, []byte(jsonKey), 0644)
+	if err != nil {
+		return errors.Wrap(err, "failed to write ACR certificate")
+	}
+	err = os.Setenv(certPathEnv, acrCertPath)
+	if err != nil {
+		return errors.Wrap(err, fmt.Sprintf("failed to set %s environment variable", certPathEnv))
 	}
 	return nil
 }
