@@ -296,7 +296,7 @@ func getACRToken(tenantId, clientId, clientSecret, cert, registry string) (strin
 	}
 
 	if clientSecret == "" && cert == "" {
-		return "", fmt.Errorf("one of clientSecret or cert should be defined")
+		return "", fmt.Errorf("one of client secert or cert should be defined")
 	}
 
 	// in case of authentication via cert
@@ -353,7 +353,6 @@ func fetchACRToken(tenantId, token, registry string) (string, error) {
 		return "", errors.Wrap(err, "failed to decode oauth exchange response")
 	}
 
-	fmt.Printf("refrsh token " + response["refresh_token"].(string))
 	if x, found := response["refresh_token"]; found {
 		return x.(string), nil
 	} else {

@@ -30,6 +30,5 @@ func CreateDockerCfgFile(username, password, registry, path string) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to create docker config file")
 	}
-	fmt.Print("crated docker file at " + path)
 	return nil
 }
