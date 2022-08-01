@@ -1,5 +1,0 @@
-FROM gcr.io/kaniko-project/executor
-
-ENV KANIKO_VERSION=1.8.1
-ADD release/linux/amd64/kaniko-acr /kaniko/
-ENTRYPOINT ["/kaniko/kaniko-acr"]
