@@ -60,6 +60,23 @@ steps:
       exclude:
       - pull_request
 
+- name: acr
+  image: plugins/docker
+  settings:
+    repo: plugins/kaniko-acr
+    auto_tag: true
+    auto_tag_suffix: linux-amd64
+    daemon_off: false
+    dockerfile: docker/acr/Dockerfile.linux.amd64
+    username:
+      from_secret: docker_username
+    password:
+      from_secret: docker_password
+  when:
+    event:
+      exclude:
+      - pull_request
+
 - name: docker-kaniko-v1-8
   image: plugins/docker
   settings:
