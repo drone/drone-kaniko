@@ -1,4 +1,3 @@
-image: plugins/kaniko:{{#if build.tag}}{{trimPrefix "v" build.tag}}-kaniko1.8.1{{else}}latest-kaniko1.8.1{{/if}}
 {{#if build.tags}}
 tags:
 {{#each build.tags}}

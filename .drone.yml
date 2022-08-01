@@ -244,18 +244,6 @@ steps:
     username:
       from_secret: docker_username
 
-- name: manifest-acr
-  pull: always
-  image: plugins/manifest
-  settings:
-    auto_tag: false
-    ignore_missing: true
-    password:
-      from_secret: docker_password
-    spec: docker/acr/manifest-kaniko1.8.1.tmpl
-    username:
-      from_secret: docker_username
-
 - name: manifest-ecr
   pull: always
   image: plugins/manifest
