@@ -26,7 +26,7 @@ const (
 	clientSecretKeyEnv string = "AZURE_CLIENT_SECRET"
 	tenantKeyEnv       string = "AZURE_TENANT_ID"
 	certPathEnv        string = "AZURE_CLIENT_CERTIFICATE_PATH"
-	dockerConfigPath   string = "/kaniko/.docker/acr/config-acr.json"
+	dockerConfigPath   string = "/kaniko/.docker/config.json"
 	kanikoVersionEnv   string = "KANIKO_VERSION"
 	defaultDigestFile  string = "/kaniko/digest-file"
 )
@@ -234,7 +234,7 @@ func run(c *cli.Context) error {
 			ExpandTag:        c.Bool("expand-tag"),
 			Args:             c.StringSlice("args"),
 			Target:           c.String("target"),
-			Repo:             fmt.Sprintf("%s/%s", c.String("registry"), c.String("repo")),
+			Repo:             c.String("repo"),
 			Mirrors:          c.StringSlice("registry-mirrors"),
 			Labels:           c.StringSlice("custom-labels"),
 			SnapshotMode:     c.String("snapshot-mode"),
@@ -313,10 +313,13 @@ func getACRToken(tenantId, clientId, clientSecret, cert, registry string) (strin
 	os.Setenv(clientSecretKeyEnv, clientSecret)
 	os.Setenv(tenantKeyEnv, tenantId)
 	env, err := azidentity.NewEnvironmentCredential(nil)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to get env credentials from azure")
+	}
+
 	policy := policy.TokenRequestOptions{
 		Scopes: []string{"https://management.azure.com/.default"},
 	}
-
 	os.Unsetenv(clientIdEnv)
 	os.Unsetenv(clientSecretKeyEnv)
 	os.Unsetenv(tenantKeyEnv)
@@ -351,14 +354,12 @@ func fetchACRToken(tenantId, token, registry string) (string, error) {
 		return "", errors.Wrap(err, "failed to decode oauth exchange response")
 	}
 
+	fmt.Printf("refrsh token " + response["refresh_token"].(string))
 	if x, found := response["refresh_token"]; found {
-		if token, ok := x.(string); !ok {
-			return token, nil
-		}
+		return x.(string), nil
 	} else {
 		return "", errors.Wrap(err, "refresh_token not found in response of oauth exchange call")
 	}
-	return "", errors.New("failed to fetch ACR token")
 }
 
 // Create the docker config file for authentication
@@ -382,6 +383,7 @@ func createDockerCfgFile(username, password, registry string) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to create docker config file")
 	}
+	fmt.Print("crated docker file at " + dockerConfigPath)
 	return nil
 }
 
