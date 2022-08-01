@@ -111,6 +111,23 @@ steps:
       exclude:
       - pull_request
 
+- name: acr-kaniko-v1-8
+  image: plugins/docker
+  settings:
+    repo: plugins/kaniko-acr
+    auto_tag: true
+    auto_tag_suffix: linux-amd64-kaniko1.8.1
+    daemon_off: false
+    dockerfile: docker/acr/Dockerfile.linux.amd64.kaniko1.8.1
+    username:
+      from_secret: docker_username
+    password:
+      from_secret: docker_password
+  when:
+    event:
+      exclude:
+      - pull_request
+
 - name: ecr-kaniko-v1-8
   image: plugins/docker
   settings:
@@ -158,6 +175,18 @@ steps:
     password:
       from_secret: docker_password
     spec: docker/gcr/manifest.tmpl
+    username:
+      from_secret: docker_username
+
+- name: manifest-acr
+  pull: always
+  image: plugins/manifest
+  settings:
+    auto_tag: true
+    ignore_missing: true
+    password:
+      from_secret: docker_password
+    spec: docker/acr/manifest.tmpl
     username:
       from_secret: docker_username
 
@@ -212,6 +241,18 @@ steps:
     password:
       from_secret: docker_password
     spec: docker/gcr/manifest-kaniko1.8.1.tmpl
+    username:
+      from_secret: docker_username
+
+- name: manifest-acr
+  pull: always
+  image: plugins/manifest
+  settings:
+    auto_tag: false
+    ignore_missing: true
+    password:
+      from_secret: docker_password
+    spec: docker/acr/manifest-kaniko1.8.1.tmpl
     username:
       from_secret: docker_username
 
