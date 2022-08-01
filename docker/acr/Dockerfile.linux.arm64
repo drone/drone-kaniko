@@ -1,0 +1,8 @@
+FROM gcr.io/kaniko-project/executor:arm64-v1.8.1
+
+ENV HOME /root
+ENV USER root
+
+ENV KANIKO_VERSION=1.8.1
+ADD release/linux/arm64/kaniko-acr /kaniko/
+ENTRYPOINT ["/kaniko/kaniko-acr"]
