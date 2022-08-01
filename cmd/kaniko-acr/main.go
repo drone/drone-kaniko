@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -18,6 +17,7 @@ import (
 
 	kaniko "github.com/drone/drone-kaniko"
 	"github.com/drone/drone-kaniko/pkg/artifact"
+	"github.com/drone/drone-kaniko/pkg/docker"
 )
 
 const (
@@ -27,7 +27,6 @@ const (
 	tenantKeyEnv       string = "AZURE_TENANT_ID"
 	certPathEnv        string = "AZURE_CLIENT_CERTIFICATE_PATH"
 	dockerConfigPath   string = "/kaniko/.docker/config.json"
-	kanikoVersionEnv   string = "KANIKO_VERSION"
 	defaultDigestFile  string = "/kaniko/digest-file"
 )
 
@@ -276,7 +275,7 @@ func createDockerConfig(tenantId, clientId, cert,
 		if err != nil {
 			return errors.Wrap(err, "failed to fetch ACR Token")
 		}
-		err = createDockerCfgFile(username, token, registry)
+		err = docker.CreateDockerCfgFile(username, token, registry, dockerConfigPath)
 		if err != nil {
 			return errors.Wrap(err, "failed to create docker config")
 		}
@@ -360,31 +359,6 @@ func fetchACRToken(tenantId, token, registry string) (string, error) {
 	} else {
 		return "", errors.Wrap(err, "refresh_token not found in response of oauth exchange call")
 	}
-}
-
-// Create the docker config file for authentication
-func createDockerCfgFile(username, password, registry string) error {
-	if username == "" {
-		return fmt.Errorf("Username must be specified")
-	}
-	if password == "" {
-		return fmt.Errorf("Password must be specified")
-	}
-
-	err := os.MkdirAll(dockerPath, 0600)
-	if err != nil {
-		return errors.Wrap(err, fmt.Sprintf("failed to create %s directory", dockerPath))
-	}
-
-	authBytes := []byte(fmt.Sprintf("%s:%s", username, password))
-	encodedString := base64.StdEncoding.EncodeToString(authBytes)
-	jsonBytes := []byte(fmt.Sprintf(`{"auths": {"%s": {"auth": "%s"}}}`, "https://"+registry, encodedString))
-	err = ioutil.WriteFile(dockerConfigPath, jsonBytes, 0644)
-	if err != nil {
-		return errors.Wrap(err, "failed to create docker config file")
-	}
-	fmt.Print("crated docker file at " + dockerConfigPath)
-	return nil
 }
 
 func setupACRCert(jsonKey string) error {
