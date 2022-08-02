@@ -26,7 +26,8 @@ func CreateDockerCfgFile(username, password, registry, path string) error {
 	authBytes := []byte(fmt.Sprintf("%s:%s", username, password))
 	encodedString := base64.StdEncoding.EncodeToString(authBytes)
 	jsonBytes := []byte(fmt.Sprintf(`{"auths": {"%s": {"auth": "%s"}}}`, "https://"+registry, encodedString))
-	err = ioutil.WriteFile(path, jsonBytes, 0644)
+	filePath := path + "/config.json"
+	err = ioutil.WriteFile(filePath, jsonBytes, 0644)
 	if err != nil {
 		return errors.Wrap(err, "failed to create docker config file")
 	}

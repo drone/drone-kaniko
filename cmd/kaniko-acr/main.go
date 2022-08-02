@@ -26,7 +26,7 @@ const (
 	clientSecretKeyEnv string = "AZURE_CLIENT_SECRET"
 	tenantKeyEnv       string = "AZURE_TENANT_ID"
 	certPathEnv        string = "AZURE_CLIENT_CERTIFICATE_PATH"
-	dockerConfigPath   string = "/kaniko/.docker/config.json"
+	dockerConfigPath   string = "/kaniko/.docker"
 	defaultDigestFile  string = "/kaniko/digest-file"
 )
 
@@ -296,7 +296,7 @@ func getACRToken(tenantId, clientId, clientSecret, cert, registry string) (strin
 	}
 
 	if clientSecret == "" && cert == "" {
-		return "", fmt.Errorf("one of client secert or cert should be defined")
+		return "", fmt.Errorf("one of client secret or cert should be defined")
 	}
 
 	// in case of authentication via cert
@@ -311,6 +311,7 @@ func getACRToken(tenantId, clientId, clientSecret, cert, registry string) (strin
 	os.Setenv(clientIdEnv, clientId)
 	os.Setenv(clientSecretKeyEnv, clientSecret)
 	os.Setenv(tenantKeyEnv, tenantId)
+	os.Setenv(certPathEnv, ACRCertPath)
 	env, err := azidentity.NewEnvironmentCredential(nil)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to get env credentials from azure")
@@ -366,14 +367,10 @@ func fetchACRToken(tenantId, token, registry string) (string, error) {
 	return "", errors.New("failed to get refresh token from acr")
 }
 
-func setupACRCert(jsonKey string) error {
-	err := ioutil.WriteFile(ACRCertPath, []byte(jsonKey), 0644)
+func setupACRCert(cert string) error {
+	err := ioutil.WriteFile(ACRCertPath, []byte(cert), 0644)
 	if err != nil {
 		return errors.Wrap(err, "failed to write ACR certificate")
-	}
-	err = os.Setenv(certPathEnv, ACRCertPath)
-	if err != nil {
-		return errors.Wrap(err, fmt.Sprintf("failed to set %s environment variable", certPathEnv))
 	}
 	return nil
 }
