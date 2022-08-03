@@ -131,7 +131,7 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:   "client-cert",
-			Usage:  "Azure client certificate",
+			Usage:  "Azure client certificate. Certificate should be encoded to base64 format",
 			EnvVar: "CLIENT_CERTIFICATE",
 		},
 		cli.StringFlag{
@@ -383,7 +383,7 @@ func fetchACRToken(tenantId, token, registry string) (string, error) {
 func setupACRCert(cert string) error {
 	decoded, err := base64.StdEncoding.DecodeString(cert)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "failed to base64 decode ACR certificate")
 	}
 	err = ioutil.WriteFile(ACRCertPath, []byte(decoded), 0644)
 	if err != nil {
