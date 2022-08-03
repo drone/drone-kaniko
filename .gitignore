@@ -2,4 +2,4 @@ release
 coverage.out
 vendor
 .idea
-.vscode/launch.json
+.vscode
