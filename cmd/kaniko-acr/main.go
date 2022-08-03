@@ -268,7 +268,6 @@ func createDockerConfig(tenantId, clientId, cert,
 		return nil
 	}
 
-	fmt.Printf("tenantId %s clientId %s cert %s", tenantId, clientId, cert)
 	// case of client secret or cert based auth
 	if clientId != "" {
 		// only setup auth when pushing or credentials are defined
@@ -277,7 +276,6 @@ func createDockerConfig(tenantId, clientId, cert,
 		if err != nil {
 			return errors.Wrap(err, "failed to fetch ACR Token")
 		}
-		fmt.Printf("token %s err %s", token, err)
 		err = docker.CreateDockerCfgFile(username, token, registry, dockerConfigPath)
 		if err != nil {
 			return errors.Wrap(err, "failed to create docker config")
@@ -345,17 +343,14 @@ func getACRToken(tenantId, clientId, clientSecret, cert, registry string) (strin
 		return "", errors.Wrap(err, "failed to fetch access token")
 	}
 
-	fmt.Printf("azToken %s\n", azToken)
 	ACRToken, err := fetchACRToken(tenantId, azToken.Token, registry)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to fetch ACR token")
 	}
-	fmt.Printf("ACRTokrn %s\n", ACRToken)
 	return ACRToken, nil
 }
 
 func fetchACRToken(tenantId, token, registry string) (string, error) {
-	fmt.Printf("tenant token %s %s\n", tenantId, token)
 	formData := url.Values{
 		"grant_type":   {"access_token"},
 		"service":      {registry},
@@ -366,14 +361,12 @@ func fetchACRToken(tenantId, token, registry string) (string, error) {
 	if err != nil {
 		return "", errors.Wrap(err, "failed to fetch ACR token")
 	}
-	fmt.Printf("Json Response %s %s\n", jsonResponse.Status, jsonResponse.Body)
 	var response map[string]interface{}
 	err = json.NewDecoder(jsonResponse.Body).Decode(&response)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to decode oauth exchange response")
 	}
 
-	fmt.Printf("Json Response %s %s\n", response, jsonResponse.Body)
 	if x, found := response["refresh_token"]; found {
 		s, ok := x.(string)
 		if !ok {
@@ -392,7 +385,6 @@ func setupACRCert(cert string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("writing file %s %s", ACRCertPath, decoded)
 	err = ioutil.WriteFile(ACRCertPath, []byte(decoded), 0644)
 	if err != nil {
 		return errors.Wrap(err, "failed to write ACR certificate")
