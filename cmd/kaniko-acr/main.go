@@ -131,7 +131,7 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:   "client-cert",
-			Usage:  "Azure client certificate. Certificate should be encoded to base64 format",
+			Usage:  "Azure client certificate. Certificate should in base64 encoded format",
 			EnvVar: "CLIENT_CERTIFICATE",
 		},
 		cli.StringFlag{
