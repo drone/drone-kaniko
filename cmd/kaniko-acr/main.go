@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -130,7 +131,7 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:   "client-cert",
-			Usage:  "Azure client certificate",
+			Usage:  "Azure client certificate encoded in base64 format",
 			EnvVar: "CLIENT_CERTIFICATE",
 		},
 		cli.StringFlag{
@@ -307,16 +308,22 @@ func getACRToken(tenantId, clientId, clientSecret, cert, registry string) (strin
 		}
 	}
 
-	// TODO check for presence of file as well.
-	os.Setenv(clientIdEnv, clientId)
-	os.Setenv(clientSecretKeyEnv, clientSecret)
-	os.Setenv(tenantKeyEnv, tenantId)
-	os.Setenv(certPathEnv, ACRCertPath)
+	if err := os.Setenv(clientIdEnv, clientId); err != nil {
+		return "", errors.Wrap(err, "failed to set env variable client Id")
+	}
+	if err := os.Setenv(clientSecretKeyEnv, clientSecret); err != nil {
+		return "", errors.Wrap(err, "failed to set env variable client secret")
+	}
+	if err := os.Setenv(tenantKeyEnv, tenantId); err != nil {
+		return "", errors.Wrap(err, "failed to set env variable tenant Id")
+	}
+	if err := os.Setenv(certPathEnv, ACRCertPath); err != nil {
+		return "", errors.Wrap(err, "failed to set env variable cert path")
+	}
 	env, err := azidentity.NewEnvironmentCredential(nil)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to get env credentials from azure")
 	}
-
 	policy := policy.TokenRequestOptions{
 		Scopes: []string{"https://management.azure.com/.default"},
 	}
@@ -368,7 +375,11 @@ func fetchACRToken(tenantId, token, registry string) (string, error) {
 }
 
 func setupACRCert(cert string) error {
-	err := ioutil.WriteFile(ACRCertPath, []byte(cert), 0644)
+	decoded, err := base64.StdEncoding.DecodeString(cert)
+	if err != nil {
+		return errors.Wrap(err, "failed to base64 decode ACR certificate")
+	}
+	err = ioutil.WriteFile(ACRCertPath, []byte(decoded), 0644)
 	if err != nil {
 		return errors.Wrap(err, "failed to write ACR certificate")
 	}
