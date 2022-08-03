@@ -17,6 +17,7 @@ export GO111MODULE=on
 go build -v -a -tags netgo -o release/linux/amd64/kaniko-docker ./cmd/kaniko-docker
 go build -v -a -tags netgo -o release/linux/amd64/kaniko-gcr ./cmd/kaniko-gcr
 go build -v -a -tags netgo -o release/linux/amd64/kaniko-ecr ./cmd/kaniko-ecr
+go build -v -a -tags netgo -o release/linux/amd64/kaniko-acr ./cmd/kaniko-acr
 ```
 
 ## Docker
@@ -28,6 +29,11 @@ docker build \
   --label org.label-schema.build-date=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
   --label org.label-schema.vcs-ref=$(git rev-parse --short HEAD) \
   --file docker/docker/Dockerfile.linux.amd64 --tag plugins/kaniko .
+  
+docker build \
+  --label org.label-schema.build-date=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
+  --label org.label-schema.vcs-ref=$(git rev-parse --short HEAD) \
+  --file docker/acr/Dockerfile.linux.amd64 --tag plugins/kaniko-acr .
 
 docker build \
   --label org.label-schema.build-date=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
