@@ -308,24 +308,18 @@ func getACRToken(tenantId, clientId, clientSecret, cert, registry string) (strin
 		}
 	}
 
-	// TODO check for presence of file as well.
-	err := os.Setenv(clientIdEnv, clientId)
-	if err != nil {
-		errors.Wrap(err, "failed to set env variable client Id")
+	if err := os.Setenv(clientIdEnv, clientId); err != nil {
+		return "", errors.Wrap(err, "failed to set env variable client Id")
 	}
-	err = os.Setenv(clientSecretKeyEnv, clientSecret)
-	if err != nil {
-		errors.Wrap(err, "failed to set env variable client secret")
+	if err := os.Setenv(clientSecretKeyEnv, clientSecret); err != nil {
+		return "", errors.Wrap(err, "failed to set env variable client secret")
 	}
-	err = os.Setenv(tenantKeyEnv, tenantId)
-	if err != nil {
-		errors.Wrap(err, "failed to set env variable tenant Id")
+	if err := os.Setenv(tenantKeyEnv, tenantId); err != nil {
+		return "", errors.Wrap(err, "failed to set env variable tenant Id")
 	}
-	os.Setenv(certPathEnv, ACRCertPath)
-	if err != nil {
-		errors.Wrap(err, "failed to set env variable cert path")
+	if err := os.Setenv(certPathEnv, ACRCertPath); err != nil {
+		return "", errors.Wrap(err, "failed to set env variable cert path")
 	}
-
 	env, err := azidentity.NewEnvironmentCredential(nil)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to get env credentials from azure")
