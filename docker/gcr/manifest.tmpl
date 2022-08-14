@@ -11,3 +11,8 @@ manifests:
     platform:
       architecture: amd64
       os: linux
+  -
+    image: plugins/kaniko-gcr:{{#if build.tag}}{{trimPrefix "v" build.tag}}-{{/if}}linux-arm64
+    platform:
+      architecture: arm64
+      os: linux
