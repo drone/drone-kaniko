@@ -131,6 +131,141 @@ steps:
 ---
 kind: pipeline
 type: docker
+name: arm
+
+platform:
+  os: linux
+  arch: arm64
+
+steps:
+- name: build
+  image: golang:1.18
+  commands:
+  - go test ./...
+  - sh scripts/build.sh
+
+- name: docker
+  image: plugins/docker
+  settings:
+    repo: plugins/kaniko
+    auto_tag: true
+    auto_tag_suffix: linux-arm64
+    daemon_off: false
+    dockerfile: docker/docker/Dockerfile.linux.arm64
+    username:
+      from_secret: docker_username
+    password:
+      from_secret: docker_password
+  when:
+    event:
+      exclude:
+      - pull_request
+
+- name: gcr
+  image: plugins/docker
+  settings:
+    repo: plugins/kaniko-gcr
+    auto_tag: true
+    auto_tag_suffix: linux-arm64
+    daemon_off: false
+    dockerfile: docker/gcr/Dockerfile.linux.arm64
+    username:
+      from_secret: docker_username
+    password:
+      from_secret: docker_password
+  when:
+    event:
+      exclude:
+      - pull_request
+
+- name: ecr
+  image: plugins/docker
+  settings:
+    repo: plugins/kaniko-ecr
+    auto_tag: true
+    auto_tag_suffix: linux-arm64
+    daemon_off: false
+    dockerfile: docker/ecr/Dockerfile.linux.arm64
+    username:
+      from_secret: docker_username
+    password:
+      from_secret: docker_password
+  when:
+    event:
+      exclude:
+      - pull_request
+
+- name: acr
+  image: plugins/docker
+  settings:
+    repo: plugins/kaniko-acr
+    auto_tag: true
+    auto_tag_suffix: linux-arm64
+    daemon_off: false
+    dockerfile: docker/acr/Dockerfile.linux.arm64
+    username:
+      from_secret: docker_username
+    password:
+      from_secret: docker_password
+  when:
+    event:
+      exclude:
+      - pull_request
+
+- name: docker-kaniko-v1-8
+  image: plugins/docker
+  settings:
+    repo: plugins/kaniko
+    auto_tag: true
+    auto_tag_suffix: linux-arm64-kaniko1.8.1
+    daemon_off: false
+    dockerfile: docker/docker/Dockerfile.linux.arm64.kaniko1.8.1
+    username:
+      from_secret: docker_username
+    password:
+      from_secret: docker_password
+  when:
+    event:
+      exclude:
+      - pull_request
+
+- name: gcr-kaniko-v1-8
+  image: plugins/docker
+  settings:
+    repo: plugins/kaniko-gcr
+    auto_tag: true
+    auto_tag_suffix: linux-arm64-kaniko1.8.1
+    daemon_off: false
+    dockerfile: docker/gcr/Dockerfile.linux.arm64.kaniko1.8.1
+    username:
+      from_secret: docker_username
+    password:
+      from_secret: docker_password
+  when:
+    event:
+      exclude:
+      - pull_request
+
+
+- name: ecr-kaniko-v1-8
+  image: plugins/docker
+  settings:
+    repo: plugins/kaniko-ecr
+    auto_tag: true
+    auto_tag_suffix: linux-arm64-kaniko1.8.1
+    daemon_off: false
+    dockerfile: docker/ecr/Dockerfile.linux.arm64.kaniko1.8.1
+    username:
+      from_secret: docker_username
+    password:
+      from_secret: docker_password
+  when:
+    event:
+      exclude:
+      - pull_request
+---
+kind: pipeline
+type: docker
 name: notifications-docker
 
 platform:
