@@ -328,6 +328,7 @@ trigger:
 
 depends_on:
 - default
+- arm
 
 ---
 kind: pipeline
@@ -382,3 +383,4 @@ trigger:
 
 depends_on:
 - default
+- arm
