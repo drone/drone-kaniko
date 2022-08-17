@@ -11,7 +11,7 @@ manifests:
     platform:
       architecture: amd64
       os: linux
--
+  -
     image: plugins/kaniko:{{#if build.tag}}{{trimPrefix "v" build.tag}}-{{/if}}linux-arm64
     platform:
       architecture: arm64
