@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/joho/godotenv"
@@ -186,6 +187,11 @@ func main() {
 			Usage:  "build only used stages",
 			EnvVar: "PLUGIN_SKIP_UNUSED_STAGES",
 		},
+		cli.StringSliceFlag{
+			Name:   "credentials",
+			Usage:  "docker registry credentials in the format <user>:<pass>@<server>",
+			EnvVar: "PLUGIN_CREDENTIALS",
+		},
 	}
 
 	if err := app.Run(os.Args); err != nil {
@@ -194,12 +200,25 @@ func main() {
 }
 
 func run(c *cli.Context) error {
+	credentials := c.StringSlice("credentials")
 	username := c.String("username")
 	noPush := c.Bool("no-push")
 
+	// if username is defined append it to credentials
+	if username != "" {
+		password := c.String("password")
+		registry := c.String("registry")
+		if password == "" {
+			return fmt.Errorf("Password must be specified")
+		}
+		if registry == "" {
+			return fmt.Errorf("Registry must be specified")
+		}
+		credentials = append(credentials, fmt.Sprintf("%s:%s@%s", username, password, registry))
+	}
 	// only setup auth when pushing or credentials are defined
-	if !noPush || username != "" {
-		if err := createDockerCfgFile(username, c.String("password"), c.String("registry")); err != nil {
+	if !noPush || len(credentials) > 0 {
+		if err := createDockerCfgFile(credentials); err != nil {
 			return err
 		}
 	}
@@ -242,31 +261,43 @@ func run(c *cli.Context) error {
 }
 
 // Create the docker config file for authentication
-func createDockerCfgFile(username, password, registry string) error {
-	if username == "" {
-		return fmt.Errorf("Username must be specified")
-	}
-	if password == "" {
-		return fmt.Errorf("Password must be specified")
-	}
-	if registry == "" {
-		return fmt.Errorf("Registry must be specified")
-	}
-
-	if registry == v2RegistryURL || registry == v2HubRegistryURL {
-		fmt.Println("Docker v2 registry is not supported in kaniko. Refer issue: https://github.com/GoogleContainerTools/kaniko/issues/1209")
-		fmt.Printf("Using v1 registry instead: %s\n", v1RegistryURL)
-		registry = v1RegistryURL
-	}
-
+func createDockerCfgFile(credentials []string) error {
 	err := os.MkdirAll(dockerPath, 0600)
 	if err != nil {
 		return errors.Wrap(err, fmt.Sprintf("failed to create %s directory", dockerPath))
 	}
+	jsonBytes := []byte(nil)
+	authData := ""
+	matcher := regexp.MustCompile(`^(?P<username>\w+):(?P<password>\w+)@(?P<registry>[a-zA-Z0-9-:.]+)$`)
+	for _, credential := range credentials {
+		match := matcher.FindStringSubmatch(credential)
+		if len(match) == 0 {
+			return errors.Errorf("Invalid credentials provided")
+		}
+		result := make(map[string]string)
+		for i, name := range matcher.SubexpNames() {
+			if i != 0 && name != "" {
+				result[name] = match[i]
+			}
+		}
+		username := result["username"]
+		password := result["password"]
+		registry := result["registry"]
+		if registry == v2RegistryURL || registry == v2HubRegistryURL {
+			fmt.Println("Docker v2 registry is not supported in kaniko. Refer issue: https://github.com/GoogleContainerTools/kaniko/issues/1209")
+			fmt.Printf("Using v1 registry instead: %s\n", v1RegistryURL)
+			registry = v1RegistryURL
+		}
 
-	authBytes := []byte(fmt.Sprintf("%s:%s", username, password))
-	encodedString := base64.StdEncoding.EncodeToString(authBytes)
-	jsonBytes := []byte(fmt.Sprintf(`{"auths": {"%s": {"auth": "%s"}}}`, registry, encodedString))
+		authBytes := []byte(fmt.Sprintf("%s:%s", username, password))
+		encodedString := base64.StdEncoding.EncodeToString(authBytes)
+		authData += fmt.Sprintf(`"%s": {"auth": "%s"},`, registry, encodedString)
+	}
+	if len(authData) == 0 {
+		return errors.Errorf("Failed processing credentials")
+	}
+	authData = authData[:len(authData) -1]
+	jsonBytes = []byte(fmt.Sprintf(`{"auths": {%s}}`, authData))
 	err = ioutil.WriteFile(dockerConfigPath, jsonBytes, 0644)
 	if err != nil {
 		return errors.Wrap(err, "failed to create docker config file")
