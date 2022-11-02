@@ -30,6 +30,7 @@ const (
 	certPathEnv        string = "AZURE_CLIENT_CERTIFICATE_PATH"
 	dockerConfigPath   string = "/kaniko/.docker"
 	defaultDigestFile  string = "/kaniko/digest-file"
+	finalUrl           string = "https://portal.azure.com/#view/Microsoft_Azure_ContainerRegistries/TagMetadataBlade/registryId/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ContainerRegistry/"
 )
 
 var (
@@ -257,7 +258,7 @@ func run(c *cli.Context) error {
 		Artifact: kaniko.Artifact{
 			Tags:         c.StringSlice("tags"),
 			Repo:         c.String("repo"),
-			Registry:     publicUrl,
+			Registry:     publicUrl, // this is public url on which the artifact can be seen
 			ArtifactFile: c.String("artifact-file"),
 			RegistryType: artifact.Docker,
 		},
@@ -399,14 +400,17 @@ func setupACRCert(cert string) error {
 }
 
 func getPublicUrl(token, registryUrl, subscriptionId string) (string, error) {
-	finalUrl := "https://portal.azure.com/#view/Microsoft_Azure_ContainerRegistries/TagMetadataBlade/registryId/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ContainerRegistry/"
+	// for backward compatibilty, if the subscription id is not defined, do not fail step.
+	if len(subscriptionId) == 0 {
+		return "", nil
+	}
+
 	registry := strings.Split(registryUrl, ".")[0]
 	burl := "https://management.azure.com/subscriptions/" +
 		subscriptionId + "/resources?$filter=resourceType%20eq%20'Microsoft.ContainerRegistry/registries'%20and%20name%20eq%20'" +
 		registry + "'&api-version=2021-04-01&$select=id"
 
 	method := "GET"
-
 	client := &http.Client{}
 	req, err := http.NewRequest(method, burl, nil)
 
@@ -427,8 +431,7 @@ func getPublicUrl(token, registryUrl, subscriptionId string) (string, error) {
 	if err != nil {
 		return "", errors.Wrap(err, "failed to send request for getting container registry setting")
 	}
-	resourceGroup := response.Value[0].ID
-	return fmt.Sprintf(finalUrl, subscriptionId, resourceGroup), nil
+	return fmt.Sprintf(finalUrl, subscriptionId, response.Value[0].ID), nil
 }
 
 type strct struct {
