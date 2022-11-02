@@ -344,7 +344,6 @@ func getACRToken(subscriptionId, tenantId, clientId, clientSecret, cert, registr
 		return "", "", errors.Wrap(err, "failed to fetch access token")
 	}
 
-	fmt.Fprintf(os.Stderr, "aman %s\n", azToken.Token)
 	publicUrl, err := getPublicUrl(azToken.Token, registry, subscriptionId)
 	if err != nil {
 		return "", "", errors.Wrap(err, "failed to fetch access token")
@@ -402,7 +401,6 @@ func setupACRCert(cert string) error {
 func getPublicUrl(token, registryUrl, subscriptionId string) (string, error) {
 	finalUrl := "https://portal.azure.com/#view/Microsoft_Azure_ContainerRegistries/TagMetadataBlade/registryId/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ContainerRegistry/"
 	registry := strings.Split(registryUrl, ".")[0]
-	fmt.Fprintf(os.Stderr, "aman %s %s %s\n", registry, registryUrl, subscriptionId)
 	burl := "https://management.azure.com/subscriptions/" +
 		subscriptionId + "/resources?$filter=resourceType%20eq%20'Microsoft.ContainerRegistry/registries'%20and%20name%20eq%20'" +
 		registry + "'&api-version=2021-04-01&$select=id"
@@ -423,8 +421,6 @@ func getPublicUrl(token, registryUrl, subscriptionId string) (string, error) {
 		return "", errors.Wrap(err, "failed to send request for getting container registry setting")
 	}
 	defer res.Body.Close()
-
-	fmt.Fprintf(os.Stderr, "aman %d %s %s\n", res.StatusCode, strings.Split(subscriptionId, "b"), burl)
 
 	var response strct
 	err = json.NewDecoder(res.Body).Decode(&response)

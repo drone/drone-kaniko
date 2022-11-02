@@ -52,7 +52,6 @@ func WritePluginArtifactFile(registryType RegistryTypeEnum, artifactFilePath, re
 		RegistryUrl:  registryUrl,
 		Images:       images,
 	}
-	fmt.Fprintf(os.Stderr, "public Url is %s\n", registryUrl)
 
 	dockerArtifact := DockerArtifact{
 		Kind: dockerArtifactV1,
