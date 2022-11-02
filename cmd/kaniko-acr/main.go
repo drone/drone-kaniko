@@ -30,7 +30,7 @@ const (
 	certPathEnv        string = "AZURE_CLIENT_CERTIFICATE_PATH"
 	dockerConfigPath   string = "/kaniko/.docker"
 	defaultDigestFile  string = "/kaniko/digest-file"
-	finalUrl           string = "https://portal.azure.com/#view/Microsoft_Azure_ContainerRegistries/TagMetadataBlade/registryId/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ContainerRegistry/"
+	finalUrl           string = "https://portal.azure.com/#view/Microsoft_Azure_ContainerRegistries/TagMetadataBlade/registryId/%s"
 )
 
 var (
@@ -413,11 +413,11 @@ func getPublicUrl(token, registryUrl, subscriptionId string) (string, error) {
 	method := "GET"
 	client := &http.Client{}
 	req, err := http.NewRequest(method, burl, nil)
-
 	if err != nil {
 		fmt.Println(err)
 		return "", errors.Wrap(err, "failed to create request for getting container registry setting")
 	}
+
 	req.Header.Add("Authorization", "Bearer "+token)
 	res, err := client.Do(req)
 	if err != nil {
@@ -431,7 +431,11 @@ func getPublicUrl(token, registryUrl, subscriptionId string) (string, error) {
 	if err != nil {
 		return "", errors.Wrap(err, "failed to send request for getting container registry setting")
 	}
-	return fmt.Sprintf(finalUrl, subscriptionId, response.Value[0].ID), nil
+	return finalUrl + encodeParam(response.Value[0].ID), nil
+}
+
+func encodeParam(s string) string {
+	return url.QueryEscape(s)
 }
 
 type strct struct {
