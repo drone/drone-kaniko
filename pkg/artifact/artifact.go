@@ -30,7 +30,6 @@ type (
 	Data struct {
 		RegistryType RegistryTypeEnum `json:"registryType"`
 		RegistryUrl  string           `json:"registryUrl"`
-		PublicUrl    string           `json:"publicUrl"`
 		Images       []Image          `json:"images"`
 	}
 	DockerArtifact struct {
