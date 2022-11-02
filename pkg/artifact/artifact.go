@@ -30,6 +30,7 @@ type (
 	Data struct {
 		RegistryType RegistryTypeEnum `json:"registryType"`
 		RegistryUrl  string           `json:"registryUrl"`
+		PublicUrl    string           `json:"publicUrl"`
 		Images       []Image          `json:"images"`
 	}
 	DockerArtifact struct {
@@ -51,6 +52,7 @@ func WritePluginArtifactFile(registryType RegistryTypeEnum, artifactFilePath, re
 		RegistryUrl:  registryUrl,
 		Images:       images,
 	}
+	fmt.Fprintf(os.Stderr, "public Url is %s\n", registryUrl)
 
 	dockerArtifact := DockerArtifact{
 		Kind: dockerArtifactV1,
