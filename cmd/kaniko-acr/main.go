@@ -347,7 +347,9 @@ func getACRToken(subscriptionId, tenantId, clientId, clientSecret, cert, registr
 
 	publicUrl, err := getPublicUrl(azToken.Token, registry, subscriptionId)
 	if err != nil {
-		return "", "", errors.Wrap(err, "failed to fetch access token")
+		// execution should not fail because of this error.
+		fmt.Fprintf(os.Stderr, "failed to get public url with error: %s\n", err)
+		return "", "", nil
 	}
 
 	ACRToken, err := fetchACRToken(tenantId, azToken.Token, registry)
