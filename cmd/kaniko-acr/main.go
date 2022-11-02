@@ -30,7 +30,7 @@ const (
 	certPathEnv        string = "AZURE_CLIENT_CERTIFICATE_PATH"
 	dockerConfigPath   string = "/kaniko/.docker"
 	defaultDigestFile  string = "/kaniko/digest-file"
-	finalUrl           string = "https://portal.azure.com/#view/Microsoft_Azure_ContainerRegistries/TagMetadataBlade/registryId/%s"
+	finalUrl           string = "https://portal.azure.com/#view/Microsoft_Azure_ContainerRegistries/TagMetadataBlade/registryId/"
 )
 
 var (
