@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
@@ -29,6 +30,7 @@ const (
 	certPathEnv        string = "AZURE_CLIENT_CERTIFICATE_PATH"
 	dockerConfigPath   string = "/kaniko/.docker"
 	defaultDigestFile  string = "/kaniko/digest-file"
+	finalUrl           string = "https://portal.azure.com/#view/Microsoft_Azure_ContainerRegistries/TagMetadataBlade/registryId/"
 )
 
 var (
@@ -140,6 +142,11 @@ func main() {
 			EnvVar: "TENANT_ID",
 		},
 		cli.StringFlag{
+			Name:   "subscription-id",
+			Usage:  "Azure Subscription Id",
+			EnvVar: "SUBSCRIPTION_ID",
+		},
+		cli.StringFlag{
 			Name:   "client-id",
 			Usage:  "Azure Client Id",
 			EnvVar: "CLIENT_ID",
@@ -210,11 +217,12 @@ func run(c *cli.Context) error {
 	registry := c.String("registry")
 	noPush := c.Bool("no-push")
 
-	err := createDockerConfig(
+	publicUrl, err := setupAuth(
 		c.String("tenant-id"),
 		c.String("client-id"),
 		c.String("client-cert"),
 		c.String("client-secret"),
+		c.String("subscription-id"),
 		registry,
 		noPush,
 	)
@@ -250,7 +258,7 @@ func run(c *cli.Context) error {
 		Artifact: kaniko.Artifact{
 			Tags:         c.StringSlice("tags"),
 			Repo:         c.String("repo"),
-			Registry:     c.String("registry"),
+			Registry:     publicUrl, // this is public url on which the artifact can be seen
 			ArtifactFile: c.String("artifact-file"),
 			RegistryType: artifact.Docker,
 		},
@@ -258,46 +266,45 @@ func run(c *cli.Context) error {
 	return plugin.Exec()
 }
 
-func createDockerConfig(tenantId, clientId, cert,
-	clientSecret, registry string, noPush bool) error {
+func setupAuth(tenantId, clientId, cert,
+	clientSecret, subscriptionId, registry string, noPush bool) (string, error) {
 	if registry == "" {
-		return fmt.Errorf("registry must be specified")
+		return "", fmt.Errorf("registry must be specified")
 	}
 
 	if noPush {
-		return nil
+		return "", nil
 	}
 
 	// case of client secret or cert based auth
 	if clientId != "" {
 		// only setup auth when pushing or credentials are defined
 
-		token, err := getACRToken(tenantId, clientId, clientSecret, cert, registry)
+		token, publicUrl, err := getACRToken(subscriptionId, tenantId, clientId, clientSecret, cert, registry)
 		if err != nil {
-			return errors.Wrap(err, "failed to fetch ACR Token")
+			return "", errors.Wrap(err, "failed to fetch ACR Token")
 		}
 		err = docker.CreateDockerCfgFile(username, token, registry, dockerConfigPath)
 		if err != nil {
-			return errors.Wrap(err, "failed to create docker config")
+			return "", errors.Wrap(err, "failed to create docker config")
 		}
+		return publicUrl, nil
 	} else {
-		return fmt.Errorf("managed authentication is not supported")
+		return "", fmt.Errorf("managed authentication is not supported")
 	}
-
-	return nil
 }
 
-func getACRToken(tenantId, clientId, clientSecret, cert, registry string) (string, error) {
+func getACRToken(subscriptionId, tenantId, clientId, clientSecret, cert, registry string) (string, string, error) {
 	if tenantId == "" {
-		return "", fmt.Errorf("tenantId can't be empty for AAD authentication")
+		return "", "", fmt.Errorf("tenantId can't be empty for AAD authentication")
 	}
 
 	if clientId == "" {
-		return "", fmt.Errorf("clientId can't be empty for AAD authentication")
+		return "", "", fmt.Errorf("clientId can't be empty for AAD authentication")
 	}
 
 	if clientSecret == "" && cert == "" {
-		return "", fmt.Errorf("one of client secret or cert should be defined")
+		return "", "", fmt.Errorf("one of client secret or cert should be defined")
 	}
 
 	// in case of authentication via cert
@@ -309,21 +316,22 @@ func getACRToken(tenantId, clientId, clientSecret, cert, registry string) (strin
 	}
 
 	if err := os.Setenv(clientIdEnv, clientId); err != nil {
-		return "", errors.Wrap(err, "failed to set env variable client Id")
+		return "", "", errors.Wrap(err, "failed to set env variable client Id")
 	}
 	if err := os.Setenv(clientSecretKeyEnv, clientSecret); err != nil {
-		return "", errors.Wrap(err, "failed to set env variable client secret")
+		return "", "", errors.Wrap(err, "failed to set env variable client secret")
 	}
 	if err := os.Setenv(tenantKeyEnv, tenantId); err != nil {
-		return "", errors.Wrap(err, "failed to set env variable tenant Id")
+		return "", "", errors.Wrap(err, "failed to set env variable tenant Id")
 	}
 	if err := os.Setenv(certPathEnv, ACRCertPath); err != nil {
-		return "", errors.Wrap(err, "failed to set env variable cert path")
+		return "", "", errors.Wrap(err, "failed to set env variable cert path")
 	}
 	env, err := azidentity.NewEnvironmentCredential(nil)
 	if err != nil {
-		return "", errors.Wrap(err, "failed to get env credentials from azure")
+		return "", "", errors.Wrap(err, "failed to get env credentials from azure")
 	}
+
 	policy := policy.TokenRequestOptions{
 		Scopes: []string{"https://management.azure.com/.default"},
 	}
@@ -334,14 +342,20 @@ func getACRToken(tenantId, clientId, clientSecret, cert, registry string) (strin
 
 	azToken, err := env.GetToken(context.Background(), policy)
 	if err != nil {
-		return "", errors.Wrap(err, "failed to fetch access token")
+		return "", "", errors.Wrap(err, "failed to fetch access token")
+	}
+
+	publicUrl, err := getPublicUrl(azToken.Token, registry, subscriptionId)
+	if err != nil {
+		// execution should not fail because of this error.
+		fmt.Fprintf(os.Stderr, "failed to get public url with error: %s\n", err)
 	}
 
 	ACRToken, err := fetchACRToken(tenantId, azToken.Token, registry)
 	if err != nil {
-		return "", errors.Wrap(err, "failed to fetch ACR token")
+		return "", "", errors.Wrap(err, "failed to fetch ACR token")
 	}
-	return ACRToken, nil
+	return ACRToken, publicUrl, nil
 }
 
 func fetchACRToken(tenantId, token, registry string) (string, error) {
@@ -384,4 +398,49 @@ func setupACRCert(cert string) error {
 		return errors.Wrap(err, "failed to write ACR certificate")
 	}
 	return nil
+}
+
+func getPublicUrl(token, registryUrl, subscriptionId string) (string, error) {
+	// for backward compatibilty, if the subscription id is not defined, do not fail step.
+	if len(subscriptionId) == 0 {
+		return "", nil
+	}
+
+	registry := strings.Split(registryUrl, ".")[0]
+	burl := "https://management.azure.com/subscriptions/" +
+		subscriptionId + "/resources?$filter=resourceType%20eq%20'Microsoft.ContainerRegistry/registries'%20and%20name%20eq%20'" +
+		registry + "'&api-version=2021-04-01&$select=id"
+
+	method := "GET"
+	client := &http.Client{}
+	req, err := http.NewRequest(method, burl, nil)
+	if err != nil {
+		fmt.Println(err)
+		return "", errors.Wrap(err, "failed to create request for getting container registry setting")
+	}
+
+	req.Header.Add("Authorization", "Bearer "+token)
+	res, err := client.Do(req)
+	if err != nil {
+		fmt.Println(err)
+		return "", errors.Wrap(err, "failed to send request for getting container registry setting")
+	}
+	defer res.Body.Close()
+
+	var response strct
+	err = json.NewDecoder(res.Body).Decode(&response)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to send request for getting container registry setting")
+	}
+	return finalUrl + encodeParam(response.Value[0].ID), nil
+}
+
+func encodeParam(s string) string {
+	return url.QueryEscape(s)
+}
+
+type strct struct {
+	Value []struct {
+		ID string `json:"id"`
+	} `json:"value"`
 }
