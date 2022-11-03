@@ -100,7 +100,16 @@ func TestBuild_AutoTags(t *testing.T) {
 			},
 		},
 		{
-			name:          "tag push",
+			name:          "beta tag push",
+			repoBranch:    "master",
+			commitRef:     "refs/tags/v1.0.0-beta.1",
+			autoTagSuffix: "",
+			expectedTags: []string{
+				"1.0.0-beta.1",
+			},
+		},
+		{
+			name:          "tag push with suffix",
 			repoBranch:    "master",
 			commitRef:     "refs/tags/v1.0.0",
 			autoTagSuffix: "linux-amd64",
