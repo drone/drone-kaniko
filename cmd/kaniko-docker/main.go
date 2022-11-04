@@ -201,6 +201,7 @@ func main() {
 func run(c *cli.Context) error {
 	username := c.String("username")
 	noPush := c.Bool("no-push")
+	// use the dockerconfig present at the path instead of creating one
 	configOverride := c.Bool("dockerconfig-override")
 
 	// only setup auth when pushing or credentials are defined and docker config override is false
