@@ -201,9 +201,10 @@ func main() {
 func run(c *cli.Context) error {
 	username := c.String("username")
 	noPush := c.Bool("no-push")
+	configOverride := c.Bool("dockerconfig-override")
 
 	// only setup auth when pushing or credentials are defined and docker config override is false
-	if (!noPush || username != "") && !c.Bool("dockerconfig-override") {
+	if (!noPush || username != "") && !configOverride {
 		if err := createDockerCfgFile(username, c.String("password"), c.String("registry")); err != nil {
 			return err
 		}
