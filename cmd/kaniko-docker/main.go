@@ -90,6 +90,11 @@ func main() {
 			Usage:  "enable auto generation of build tags",
 			EnvVar: "PLUGIN_AUTO_TAG",
 		},
+		cli.BoolFlag{
+			Name:   "dockerconfig-override",
+			Usage:  "enable auto generation of build tags",
+			EnvVar: "PLUGIN_DOCKERCONFIG_OVERRIDE",
+		},
 		cli.StringFlag{
 			Name:   "auto-tag-suffix",
 			Usage:  "the suffix of auto build tags",
@@ -197,8 +202,8 @@ func run(c *cli.Context) error {
 	username := c.String("username")
 	noPush := c.Bool("no-push")
 
-	// only setup auth when pushing or credentials are defined
-	if !noPush || username != "" {
+	// only setup auth when pushing or credentials are defined and docker config override is false
+	if (!noPush || username != "") && !c.Bool("dockerconfig-override") {
 		if err := createDockerCfgFile(username, c.String("password"), c.String("registry")); err != nil {
 			return err
 		}
