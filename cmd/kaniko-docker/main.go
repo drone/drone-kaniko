@@ -90,9 +90,9 @@ func main() {
 			Usage:  "enable auto generation of build tags",
 			EnvVar: "PLUGIN_AUTO_TAG",
 		},
-		cli.BoolFlag{
+		cli.StringFlag{
 			Name:   "dockerconfig-override",
-			Usage:  "enable auto generation of build tags",
+			Usage:  "use provided docker config override for docker auth",
 			EnvVar: "PLUGIN_DOCKERCONFIG_OVERRIDE",
 		},
 		cli.StringFlag{
@@ -201,11 +201,14 @@ func main() {
 func run(c *cli.Context) error {
 	username := c.String("username")
 	noPush := c.Bool("no-push")
-	// use the dockerconfig present at the path instead of creating one
-	configOverride := c.Bool("dockerconfig-override")
+	configOverride := c.String("dockerconfig-override")
 
-	// only setup auth when pushing or credentials are defined and docker config override is false
-	if (!noPush || username != "") && !configOverride {
+	// if configOverride is provided, use this for docker auth
+	if len(configOverride) > 0 {
+		if err := writeDockerCfgFile([]byte(c.String("dockerconfig-override"))); err != nil {
+			return err
+		}
+	} else if !noPush || username != "" {
 		if err := createDockerCfgFile(username, c.String("password"), c.String("registry")); err != nil {
 			return err
 		}
@@ -266,14 +269,22 @@ func createDockerCfgFile(username, password, registry string) error {
 		registry = v1RegistryURL
 	}
 
+	authBytes := []byte(fmt.Sprintf("%s:%s", username, password))
+	encodedString := base64.StdEncoding.EncodeToString(authBytes)
+	jsonBytes := []byte(fmt.Sprintf(`{"auths": {"%s": {"auth": "%s"}}}`, registry, encodedString))
+
+	if err := writeDockerCfgFile(jsonBytes); err != nil {
+		return errors.Wrap(err, "failed to write docker config file")
+	}
+	return nil
+}
+
+// Write json bytes in the docker config file
+func writeDockerCfgFile(jsonBytes []byte) error {
 	err := os.MkdirAll(dockerPath, 0600)
 	if err != nil {
 		return errors.Wrap(err, fmt.Sprintf("failed to create %s directory", dockerPath))
 	}
-
-	authBytes := []byte(fmt.Sprintf("%s:%s", username, password))
-	encodedString := base64.StdEncoding.EncodeToString(authBytes)
-	jsonBytes := []byte(fmt.Sprintf(`{"auths": {"%s": {"auth": "%s"}}}`, registry, encodedString))
 	err = ioutil.WriteFile(dockerConfigPath, jsonBytes, 0644)
 	if err != nil {
 		return errors.Wrap(err, "failed to create docker config file")
