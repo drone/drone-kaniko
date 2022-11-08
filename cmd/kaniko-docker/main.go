@@ -91,8 +91,8 @@ func main() {
 			EnvVar: "PLUGIN_AUTO_TAG",
 		},
 		cli.StringFlag{
-			Name:   "dockerconfig-override",
-			Usage:  "use provided docker config override for docker auth",
+			Name:   "dockerconfig",
+			Usage:  "docker json dockerconfig content",
 			EnvVar: "PLUGIN_CONFIG",
 		},
 		cli.StringFlag{
