@@ -201,7 +201,7 @@ func main() {
 func run(c *cli.Context) error {
 	username := c.String("username")
 	noPush := c.Bool("no-push")
-	configOverride := c.String("dockerconfig-override")
+	configOverride := c.String("dockerconfig")
 
 	// if configOverride is provided, use this for docker auth
 	if len(configOverride) > 0 {
