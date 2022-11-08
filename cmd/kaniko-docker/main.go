@@ -93,7 +93,7 @@ func main() {
 		cli.StringFlag{
 			Name:   "dockerconfig-override",
 			Usage:  "use provided docker config override for docker auth",
-			EnvVar: "PLUGIN_DOCKERCONFIG_OVERRIDE",
+			EnvVar: "PLUGIN_CONFIG",
 		},
 		cli.StringFlag{
 			Name:   "auto-tag-suffix",
