@@ -92,7 +92,7 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:   "dockerconfig",
-			Usage:  "docker json dockerconfig content",
+			Usage:  "docker json dockerconfig",
 			EnvVar: "PLUGIN_CONFIG",
 		},
 		cli.StringFlag{
