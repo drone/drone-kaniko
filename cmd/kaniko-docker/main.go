@@ -91,9 +91,9 @@ func main() {
 			EnvVar: "PLUGIN_AUTO_TAG",
 		},
 		cli.StringFlag{
-			Name:   "dockerconfig-override",
-			Usage:  "use provided docker config override for docker auth",
-			EnvVar: "PLUGIN_DOCKERCONFIG_OVERRIDE",
+			Name:   "dockerconfig",
+			Usage:  "docker json dockerconfig",
+			EnvVar: "PLUGIN_CONFIG",
 		},
 		cli.StringFlag{
 			Name:   "auto-tag-suffix",
@@ -201,11 +201,11 @@ func main() {
 func run(c *cli.Context) error {
 	username := c.String("username")
 	noPush := c.Bool("no-push")
-	configOverride := c.String("dockerconfig-override")
+	configOverride := c.String("dockerconfig")
 
 	// if configOverride is provided, use this for docker auth
 	if len(configOverride) > 0 {
-		if err := writeDockerCfgFile([]byte(c.String("dockerconfig-override"))); err != nil {
+		if err := writeDockerCfgFile([]byte(configOverride)); err != nil {
 			return err
 		}
 	} else if !noPush || username != "" {
