@@ -1,5 +1,5 @@
-FROM gcr.io/kaniko-project/executor:v1.8.1
+FROM gcr.io/kaniko-project/executor:v1.9.1
 
-ENV KANIKO_VERSION=1.8.1
+ENV KANIKO_VERSION=1.9.1
 ADD release/linux/arm64/kaniko-gcr /kaniko/
 ENTRYPOINT ["/kaniko/kaniko-gcr"]
