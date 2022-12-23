@@ -469,7 +469,7 @@ func getAssumeRoleCreds(region, roleArn, externalId, roleSessionName string) (st
 
 	username, password, registry, err := getAuthInfo(svc)
 	if err != nil {
-		return "", "", "", errors.Wrap(err, "failed to get ECR auth")
+		return "", "", "", errors.Wrap(err, "failed to get ECR auth: no basic auth credentials")
 	}
 	return username, password, registry, nil
 }
