@@ -65,6 +65,11 @@ func main() {
 			EnvVar: "PLUGIN_DOCKERFILE",
 		},
 		cli.StringFlag{
+			Name:   "docker-registry",
+			Usage:  "docker registry",
+			EnvVar: "PLUGIN_DOCKER_REGISTRY,DOCKER_REGISTRY",
+		},
+		cli.StringFlag{
 			Name:   "docker-username",
 			Usage:  "docker username",
 			EnvVar: "PLUGIN_USERNAME,DOCKER_USERNAME",
@@ -242,6 +247,7 @@ func run(c *cli.Context) error {
 	noPush := c.Bool("no-push")
 
 	dockerConfig, err := createDockerConfig(
+		c.String("docker-registry"),
 		c.String("docker-username"),
 		c.String("docker-password"),
 		c.String("access-key"),
@@ -328,12 +334,16 @@ func run(c *cli.Context) error {
 	return plugin.Exec()
 }
 
-func createDockerConfig(dockerUsername, dockerPassword, accessKey, secretKey,
+func createDockerConfig(dockerRegistry, dockerUsername, dockerPassword, accessKey, secretKey,
 	registry, assumeRole, externalId, region string, noPush bool) (*docker.Config, error) {
 	dockerConfig := docker.NewConfig()
 
 	if dockerUsername != "" {
-		dockerConfig.SetAuth(docker.RegistryV1, dockerUsername, dockerPassword)
+		// if no docker registry provided, use dockerhub by default
+		if len(dockerRegistry) == 0 {
+			dockerRegistry = docker.RegistryV1
+		}
+		dockerConfig.SetAuth(dockerRegistry, dockerUsername, dockerPassword)
 	}
 
 	if assumeRole != "" {

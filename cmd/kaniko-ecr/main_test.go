@@ -10,6 +10,7 @@ import (
 
 func TestCreateDockerConfig(t *testing.T) {
 	got, err := createDockerConfig(
+		"",
 		"docker-username",
 		"docker-password",
 		"access-key",
@@ -34,10 +35,37 @@ func TestCreateDockerConfig(t *testing.T) {
 	}
 }
 
+func TestCreateDockerConfigFromGivenRegistry(t *testing.T) {
+	got, err := createDockerConfig(
+		"docker-registry",
+		"docker-username",
+		"docker-password",
+		"access-key",
+		"secret-key",
+		"ecr-registry",
+		"",
+		"",
+		"",
+		false,
+	)
+	if err != nil {
+		t.Error("failed to create docker config")
+	}
+
+	want := docker.NewConfig()
+	want.SetAuth("docker-registry", "docker-username", "docker-password")
+	want.SetCredHelper(docker.RegistryECRPublic, "ecr-login")
+	want.SetCredHelper("ecr-registry", "ecr-login")
+	if !reflect.DeepEqual(want, got) {
+		t.Errorf("not equal:\n  want: %#v\n   got: %#v", want, got)
+	}
+}
+
 func TestCreateDockerConfigKanikoOneDotEight(t *testing.T) {
 	os.Setenv(kanikoVersionEnv, "1.8.1")
 	defer os.Setenv(kanikoVersionEnv, "")
 	got, err := createDockerConfig(
+		"",
 		"docker-username",
 		"docker-password",
 		"access-key",
