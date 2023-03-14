@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/drone/drone-kaniko/pkg/artifact"
+	"github.com/drone/drone-kaniko/pkg/output"
 	"github.com/drone/drone-kaniko/pkg/tagger"
 	"golang.org/x/mod/semver"
 )
@@ -49,10 +50,16 @@ type (
 		ArtifactFile string                    // Artifact file location
 	}
 
+	// Output defines content of output file
+	Output struct {
+		OutputFile string   // File where plugin output are saved
+	}
+
 	// Plugin defines the Docker plugin parameters.
 	Plugin struct {
 		Build    Build    // Docker build configuration
 		Artifact Artifact // Artifact file content
+		Output   Output   // Output file content
 	}
 )
 
@@ -223,17 +230,27 @@ func (p Plugin) Exec() error {
 	}
 
 	if p.Build.DigestFile != "" && p.Artifact.ArtifactFile != "" {
-		content, err := ioutil.ReadFile(p.Build.DigestFile)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed to read digest file contents at path: %s with error: %s\n", p.Build.DigestFile, err)
-		}
-		err = artifact.WritePluginArtifactFile(p.Artifact.RegistryType, p.Artifact.ArtifactFile, p.Artifact.Registry, p.Artifact.Repo, string(content), p.Artifact.Tags)
+		err = artifact.WritePluginArtifactFile(p.Artifact.RegistryType, p.Artifact.ArtifactFile, p.Artifact.Registry, p.Artifact.Repo, getDigest(p.Build.DigestFile), p.Artifact.Tags)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "failed to write plugin artifact file at path: %s with error: %s\n", p.Artifact.ArtifactFile, err)
 		}
 	}
 
+	if p.Output.OutputFile != "" {
+		if err = output.WritePluginOutputFile(p.Output.OutputFile, p.Build.Repo, getDigest(p.Build.DigestFile), p.Build.Tags); err != nil {
+			fmt.Fprintf(os.Stderr, "failed to write plugin output file at path: %s with error: %s\n", p.Output.OutputFile, err)
+		}
+	}
+
 	return nil
+}
+
+func getDigest(digestFile string) string {
+	content, err := ioutil.ReadFile(digestFile)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to read digest file contents at path: %s with error: %s\n", digestFile, err)
+	}
+	return string(content)
 }
 
 // trace writes each command to stdout with the command wrapped in an xml
