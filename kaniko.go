@@ -52,7 +52,7 @@ type (
 
 	// Output defines content of output file
 	Output struct {
-		OutputFile string   // File where plugin output are saved
+		OutputFile string // File where plugin output are saved
 	}
 
 	// Plugin defines the Docker plugin parameters.
