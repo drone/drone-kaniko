@@ -4,7 +4,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
-func WritePluginOutputFile(outputFilePath, imageName, digest string, tags []string) error {
+func WritePluginOutputFile(outputFilePath, digest string) error {
 	output := map[string]string{
 		"digest": digest,
 	}
