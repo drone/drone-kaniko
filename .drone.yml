@@ -130,12 +130,11 @@ steps:
       - pull_request
 ---
 kind: pipeline
-type: docker
+type: vm
 name: arm
 
-platform:
-  os: linux
-  arch: arm64
+pool:
+  use: ubuntu_arm64
 
 steps:
 - name: build
