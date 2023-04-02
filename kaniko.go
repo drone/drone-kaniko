@@ -39,6 +39,7 @@ type (
 		Verbosity        string   // Log level
 		Platform         string   // Allows to build with another default platform than the host, similarly to docker build --platform
 		SkipUnusedStages bool     // Build only used stages
+		TarPath          string   // Set this flag to save the image as a tarball at path
 	}
 
 	// Artifact defines content of artifact file
@@ -155,14 +156,15 @@ func (p Plugin) Exec() error {
 		fmt.Sprintf("--context=dir://%s", p.Build.Context),
 	}
 
-	// Set the destination repository
-	if !p.Build.NoPush {
+	// Set the destination repository only when we push or save to tarball
+	if !p.Build.NoPush || p.Build.TarPath != "" {
 		for _, tag := range tags {
 			for _, label := range p.Build.labelsForTag(tag) {
 				cmdArgs = append(cmdArgs, fmt.Sprintf("--destination=%s:%s", p.Build.Repo, label))
 			}
 		}
 	}
+
 	// Set the build arguments
 	for _, arg := range p.Build.Args {
 		cmdArgs = append(cmdArgs, fmt.Sprintf("--build-arg=%s", arg))
@@ -219,6 +221,10 @@ func (p Plugin) Exec() error {
 		cmdArgs = append(cmdArgs, "--skip-unused-stages")
 	}
 
+	if p.Build.TarPath != "" {
+		cmdArgs = append(cmdArgs, fmt.Sprintf("--tar-path=%s", p.Build.TarPath))
+	}
+	
 	cmd := exec.Command("/kaniko/executor", cmdArgs...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
