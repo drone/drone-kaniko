@@ -177,6 +177,11 @@ func main() {
 			EnvVar: "PLUGIN_NO_PUSH",
 		},
 		cli.StringFlag{
+			Name:   "tar-path",
+			Usage:  "Set this flag to save the image as a tarball at path",
+			EnvVar: "PLUGIN_TAR_PATH",
+		},
+		cli.StringFlag{
 			Name:   "verbosity",
 			Usage:  "Set this flag with value as oneof <panic|fatal|error|warn|info|debug|trace> to set the logging level for kaniko. Defaults to info.",
 			EnvVar: "PLUGIN_VERBOSITY",
@@ -242,6 +247,7 @@ func run(c *cli.Context) error {
 			CacheTTL:         c.Int("cache-ttl"),
 			DigestFile:       defaultDigestFile,
 			NoPush:           noPush,
+			TarPath:          c.String("tar-path"),
 			Verbosity:        c.String("verbosity"),
 			Platform:         c.String("platform"),
 			SkipUnusedStages: c.Bool("skip-unused-stages"),
