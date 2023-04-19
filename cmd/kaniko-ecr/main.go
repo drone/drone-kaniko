@@ -9,9 +9,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/aws/smithy-go"
-	"github.com/hashicorp/go-version"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ecr"
@@ -21,6 +18,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	ecrv1 "github.com/aws/aws-sdk-go/service/ecr"
 	ecrpublicv1 "github.com/aws/aws-sdk-go/service/ecrpublic"
+	"github.com/aws/smithy-go"
+	"github.com/hashicorp/go-version"
 	"github.com/joho/godotenv"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
