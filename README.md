@@ -2,7 +2,7 @@
 
 Drone kaniko plugin uses [kaniko](https://github.com/GoogleContainerTools/kaniko) to build and publish Docker images to a container registry.
 
-Plugin images are published with 1.6.0 as well as 1.9.2 kaniko version from 1.5.1 release tag. `plugins/kaniko:<release-tag>` uses 1.6.0 version while `plugins/kaniko:<release-tag>-kaniko1.9.2` uses 1.9.2 version. Similar convention is used for plugins/kaniko-ecr & plugins/kaniko-gcr images as well.
+Plugin images are published with 1.6.0 as well as 1.9.1 kaniko version from 1.5.1 release tag. `plugins/kaniko:<release-tag>` uses 1.6.0 version while `plugins/kaniko:<release-tag>-kaniko1.9.1` uses 1.9.1 version. Similar convention is used for plugins/kaniko-ecr & plugins/kaniko-gcr images as well.
 
 ## Build
 
