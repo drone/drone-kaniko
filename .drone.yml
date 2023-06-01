@@ -82,9 +82,9 @@ steps:
   settings:
     repo: plugins/kaniko
     auto_tag: true
-    auto_tag_suffix: linux-amd64-kaniko1.9.2
+    auto_tag_suffix: linux-amd64-kaniko1.9.1
     daemon_off: false
-    dockerfile: docker/docker/Dockerfile.linux.amd64.kaniko1.9.2
+    dockerfile: docker/docker/Dockerfile.linux.amd64.kaniko1.9.1
     username:
       from_secret: docker_username
     password:
@@ -99,9 +99,9 @@ steps:
   settings:
     repo: plugins/kaniko-gcr
     auto_tag: true
-    auto_tag_suffix: linux-amd64-kaniko1.9.2
+    auto_tag_suffix: linux-amd64-kaniko1.9.1
     daemon_off: false
-    dockerfile: docker/gcr/Dockerfile.linux.amd64.kaniko1.9.2
+    dockerfile: docker/gcr/Dockerfile.linux.amd64.kaniko1.9.1
     username:
       from_secret: docker_username
     password:
@@ -117,9 +117,9 @@ steps:
   settings:
     repo: plugins/kaniko-ecr
     auto_tag: true
-    auto_tag_suffix: linux-amd64-kaniko1.9.2
+    auto_tag_suffix: linux-amd64-kaniko1.9.1
     daemon_off: false
-    dockerfile: docker/ecr/Dockerfile.linux.amd64.kaniko1.9.2
+    dockerfile: docker/ecr/Dockerfile.linux.amd64.kaniko1.9.1
     username:
       from_secret: docker_username
     password:
@@ -216,9 +216,9 @@ steps:
   settings:
     repo: plugins/kaniko
     auto_tag: true
-    auto_tag_suffix: linux-arm64-kaniko1.9.2
+    auto_tag_suffix: linux-arm64-kaniko1.9.1
     daemon_off: false
-    dockerfile: docker/docker/Dockerfile.linux.arm64.kaniko1.9.2
+    dockerfile: docker/docker/Dockerfile.linux.arm64.kaniko1.9.1
     username:
       from_secret: docker_username
     password:
@@ -233,9 +233,9 @@ steps:
   settings:
     repo: plugins/kaniko-gcr
     auto_tag: true
-    auto_tag_suffix: linux-arm64-kaniko1.9.2
+    auto_tag_suffix: linux-arm64-kaniko1.9.1
     daemon_off: false
-    dockerfile: docker/gcr/Dockerfile.linux.arm64.kaniko1.9.2
+    dockerfile: docker/gcr/Dockerfile.linux.arm64.kaniko1.9.1
     username:
       from_secret: docker_username
     password:
@@ -251,9 +251,9 @@ steps:
   settings:
     repo: plugins/kaniko-ecr
     auto_tag: true
-    auto_tag_suffix: linux-arm64-kaniko1.9.2
+    auto_tag_suffix: linux-arm64-kaniko1.9.1
     daemon_off: false
-    dockerfile: docker/ecr/Dockerfile.linux.arm64.kaniko1.9.2
+    dockerfile: docker/ecr/Dockerfile.linux.arm64.kaniko1.9.1
     username:
       from_secret: docker_username
     password:
@@ -347,7 +347,7 @@ steps:
     ignore_missing: true
     password:
       from_secret: docker_password
-    spec: docker/docker/manifest-kaniko1.9.2.tmpl
+    spec: docker/docker/manifest-kaniko1.9.1.tmpl
     username:
       from_secret: docker_username
 
@@ -359,7 +359,7 @@ steps:
     ignore_missing: true
     password:
       from_secret: docker_password
-    spec: docker/gcr/manifest-kaniko1.9.2.tmpl
+    spec: docker/gcr/manifest-kaniko1.9.1.tmpl
     username:
       from_secret: docker_username
 
@@ -371,7 +371,7 @@ steps:
     ignore_missing: true
     password:
       from_secret: docker_password
-    spec: docker/ecr/manifest-kaniko1.9.2.tmpl
+    spec: docker/ecr/manifest-kaniko1.9.1.tmpl
     username:
       from_secret: docker_username
 
