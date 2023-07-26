@@ -9,8 +9,10 @@ on:
       - main
 
 env:
+  MAJOR_VERSION: 1
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+
 
 jobs:
   build-binaries:
@@ -63,10 +65,10 @@ jobs:
           DOCKERFILE: docker/docker/Dockerfile.linux.amd64
           AUTO_TAG_SUFFIX: linux-amd64
         run: |
-          docker build -t $REPO:$GITHUB_SHA -f $DOCKERFILE .
-          docker tag $REPO:$GITHUB_SHA $REPO:$GITHUB_SHA-$AUTO_TAG_SUFFIX
-          docker push $REPO:$GITHUB_SHA
-          docker push $REPO:$GITHUB_SHA-$AUTO_TAG_SUFFIX
+          docker build -t $REPO:$MAJOR_VERSION -f $DOCKERFILE .
+          docker tag $REPO:$MAJOR_VERSION $REPO:$MAJOR_VERSION-$AUTO_TAG_SUFFIX
+          docker push $REPO:$MAJOR_VERSION
+          docker push $REPO:$MAJOR_VERSION-$AUTO_TAG_SUFFIX
 
       - name: Build and push Docker image for gcr
         env:
@@ -74,10 +76,10 @@ jobs:
           DOCKERFILE: docker/gcr/Dockerfile.linux.amd64
           AUTO_TAG_SUFFIX: linux-amd64-gcr
         run: |
-          docker build -t $REPO:$GITHUB_SHA -f $DOCKERFILE .
-          docker tag $REPO:$GITHUB_SHA $REPO:$GITHUB_SHA-$AUTO_TAG_SUFFIX
-          docker push $REPO:$GITHUB_SHA
-          docker push $REPO:$GITHUB_SHA-$AUTO_TAG_SUFFIX
+          docker build -t $REPO:$MAJOR_VERSION -f $DOCKERFILE .
+          docker tag $REPO:$MAJOR_VERSION $REPO:$MAJOR_VERSION-$AUTO_TAG_SUFFIX
+          docker push $REPO:$MAJOR_VERSION
+          docker push $REPO:$MAJOR_VERSION-$AUTO_TAG_SUFFIX
 
       - name: Build and push Docker image for ecr
         env:
@@ -85,10 +87,10 @@ jobs:
           DOCKERFILE: docker/ecr/Dockerfile.linux.amd64
           AUTO_TAG_SUFFIX: linux-amd64-ecr
         run: |
-          docker build -t $REPO:$GITHUB_SHA -f $DOCKERFILE .
-          docker tag $REPO:$GITHUB_SHA $REPO:$GITHUB_SHA-$AUTO_TAG_SUFFIX
-          docker push $REPO:$GITHUB_SHA
-          docker push $REPO:$GITHUB_SHA-$AUTO_TAG_SUFFIX
+          docker build -t $REPO:$MAJOR_VERSION -f $DOCKERFILE .
+          docker tag $REPO:$MAJOR_VERSION $REPO:$MAJOR_VERSION-$AUTO_TAG_SUFFIX
+          docker push $REPO:$MAJOR_VERSION
+          docker push $REPO:$MAJOR_VERSION-$AUTO_TAG_SUFFIX
 
       - name: Build and push Docker image for acr
         env:
@@ -96,10 +98,10 @@ jobs:
           DOCKERFILE: docker/acr/Dockerfile.linux.amd64
           AUTO_TAG_SUFFIX: linux-amd64-acr
         run: |
-          docker build -t $REPO:$GITHUB_SHA -f $DOCKERFILE .
-          docker tag $REPO:$GITHUB_SHA $REPO:$GITHUB_SHA-$AUTO_TAG_SUFFIX
-          docker push $REPO:$GITHUB_SHA
-          docker push $REPO:$GITHUB_SHA-$AUTO_TAG_SUFFIX
+          docker build -t $REPO:$MAJOR_VERSION -f $DOCKERFILE .
+          docker tag $REPO:$MAJOR_VERSION $REPO:$MAJOR_VERSION-$AUTO_TAG_SUFFIX
+          docker push $REPO:$MAJOR_VERSION
+          docker push $REPO:$MAJOR_VERSION-$AUTO_TAG_SUFFIX
 
       - name: Build and push Docker image for docker-kaniko-v1-9
         env:
@@ -107,10 +109,10 @@ jobs:
           DOCKERFILE: docker/docker/Dockerfile.linux.amd64.kaniko1.9.1
           AUTO_TAG_SUFFIX: linux-amd64-kaniko1.9.1
         run: |
-          docker build -t $REPO:$GITHUB_SHA -f $DOCKERFILE .
-          docker tag $REPO:$GITHUB_SHA $REPO:$GITHUB_SHA-$AUTO_TAG_SUFFIX
-          docker push $REPO:$GITHUB_SHA
-          docker push $REPO:$GITHUB_SHA-$AUTO_TAG_SUFFIX
+          docker build -t $REPO:$MAJOR_VERSION -f $DOCKERFILE .
+          docker tag $REPO:$MAJOR_VERSION $REPO:$MAJOR_VERSION-$AUTO_TAG_SUFFIX
+          docker push $REPO:$MAJOR_VERSION
+          docker push $REPO:$MAJOR_VERSION-$AUTO_TAG_SUFFIX
 
       - name: Build and push Docker image for gcr-kaniko-v1-9
         env:
@@ -118,10 +120,10 @@ jobs:
           DOCKERFILE: docker/gcr/Dockerfile.linux.amd64.kaniko1.9.1
           AUTO_TAG_SUFFIX: linux-amd64-gcr-kaniko1.9.1
         run: |
-          docker build -t $REPO:$GITHUB_SHA -f $DOCKERFILE .
-          docker tag $REPO:$GITHUB_SHA $REPO:$GITHUB_SHA-$AUTO_TAG_SUFFIX
-          docker push $REPO:$GITHUB_SHA
-          docker push $REPO:$GITHUB_SHA-$AUTO_TAG_SUFFIX
+          docker build -t $REPO:$MAJOR_VERSION -f $DOCKERFILE .
+          docker tag $REPO:$MAJOR_VERSION $REPO:$MAJOR_VERSION-$AUTO_TAG_SUFFIX
+          docker push $REPO:$MAJOR_VERSION
+          docker push $REPO:$MAJOR_VERSION-$AUTO_TAG_SUFFIX
 
       - name: Build and push Docker image for ecr-kaniko-v1-9
         env:
@@ -129,7 +131,7 @@ jobs:
           DOCKERFILE: docker/ecr/Dockerfile.linux.amd64.kaniko1.9.1
           AUTO_TAG_SUFFIX: linux-amd64-ecr-kaniko1.9.1
         run: |
-          docker build -t $REPO:$GITHUB_SHA -f $DOCKERFILE .
-          docker tag $REPO:$GITHUB_SHA $REPO:$GITHUB_SHA-$AUTO_TAG_SUFFIX
-          docker push $REPO:$GITHUB_SHA
-          docker push $REPO:$GITHUB_SHA-$AUTO_TAG_SUFFIX
+          docker build -t $REPO:$MAJOR_VERSION -f $DOCKERFILE .
+          docker tag $REPO:$MAJOR_VERSION $REPO:$MAJOR_VERSION-$AUTO_TAG_SUFFIX
+          docker push $REPO:$MAJOR_VERSION
+          docker push $REPO:$MAJOR_VERSION-$AUTO_TAG_SUFFIX
