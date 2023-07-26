@@ -1,0 +1,117 @@
+name: default
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.19
+
+      - name: Test
+        run: go test ./...
+
+      - name: Build
+        run: sh scripts/build.sh
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name != 'pull_request'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v1
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        env:
+          REPO: ghcr.io/star-inc/drone-kaniko
+          DOCKERFILE: docker/docker/Dockerfile.linux.amd64
+          AUTO_TAG_SUFFIX: linux-amd64
+        run: |
+          docker build -t $REPO:$GITHUB_SHA -f $DOCKERFILE .
+          docker tag $REPO:$GITHUB_SHA $REPO:$GITHUB_SHA-$AUTO_TAG_SUFFIX
+          docker push $REPO:$GITHUB_SHA
+          docker push $REPO:$GITHUB_SHA-$AUTO_TAG_SUFFIX
+
+      - name: Build and push Docker image for gcr
+        env:
+          REPO: ghcr.io/star-inc/drone-kaniko
+          DOCKERFILE: docker/gcr/Dockerfile.linux.amd64
+          AUTO_TAG_SUFFIX: linux-amd64-gcr
+        run: |
+          docker build -t $REPO:$GITHUB_SHA -f $DOCKERFILE .
+          docker tag $REPO:$GITHUB_SHA $REPO:$GITHUB_SHA-$AUTO_TAG_SUFFIX
+          docker push $REPO:$GITHUB_SHA
+          docker push $REPO:$GITHUB_SHA-$AUTO_TAG_SUFFIX
+
+      - name: Build and push Docker image for ecr
+        env:
+          REPO: ghcr.io/star-inc/drone-kaniko
+          DOCKERFILE: docker/ecr/Dockerfile.linux.amd64
+          AUTO_TAG_SUFFIX: linux-amd64-ecr
+        run: |
+          docker build -t $REPO:$GITHUB_SHA -f $DOCKERFILE .
+          docker tag $REPO:$GITHUB_SHA $REPO:$GITHUB_SHA-$AUTO_TAG_SUFFIX
+          docker push $REPO:$GITHUB_SHA
+          docker push $REPO:$GITHUB_SHA-$AUTO_TAG_SUFFIX
+
+      - name: Build and push Docker image for acr
+        env:
+          REPO: ghcr.io/star-inc/drone-kaniko
+          DOCKERFILE: docker/acr/Dockerfile.linux.amd64
+          AUTO_TAG_SUFFIX: linux-amd64-acr
+        run: |
+          docker build -t $REPO:$GITHUB_SHA -f $DOCKERFILE .
+          docker tag $REPO:$GITHUB_SHA $REPO:$GITHUB_SHA-$AUTO_TAG_SUFFIX
+          docker push $REPO:$GITHUB_SHA
+          docker push $REPO:$GITHUB_SHA-$AUTO_TAG_SUFFIX
+
+      - name: Build and push Docker image for docker-kaniko-v1-9
+        env:
+          REPO: ghcr.io/star-inc/drone-kaniko
+          DOCKERFILE: docker/docker/Dockerfile.linux.amd64.kaniko1.9.1
+          AUTO_TAG_SUFFIX: linux-amd64-kaniko1.9.1
+        run: |
+          docker build -t $REPO:$GITHUB_SHA -f $DOCKERFILE .
+          docker tag $REPO:$GITHUB_SHA $REPO:$GITHUB_SHA-$AUTO_TAG_SUFFIX
+          docker push $REPO:$GITHUB_SHA
+          docker push $REPO:$GITHUB_SHA-$AUTO_TAG_SUFFIX
+
+      - name: Build and push Docker image for gcr-kaniko-v1-9
+        env:
+          REPO: ghcr.io/star-inc/drone-kaniko
+          DOCKERFILE: docker/gcr/Dockerfile.linux.amd64.kaniko1.9.1
+          AUTO_TAG_SUFFIX: linux-amd64-gcr-kaniko1.9.1
+        run: |
+          docker build -t $REPO:$GITHUB_SHA -f $DOCKERFILE .
+          docker tag $REPO:$GITHUB_SHA $REPO:$GITHUB_SHA-$AUTO_TAG_SUFFIX
+          docker push $REPO:$GITHUB_SHA
+          docker push $REPO:$GITHUB_SHA-$AUTO_TAG_SUFFIX
+
+      - name: Build and push Docker image for ecr-kaniko-v1-9
+        env:
+          REPO: ghcr.io/star-inc/drone-kaniko
+          DOCKERFILE: docker/ecr/Dockerfile.linux.amd64.kaniko1.9.1
+          AUTO_TAG_SUFFIX: linux-amd64-ecr-kaniko1.9.1
+        run: |
+          docker build -t $REPO:$GITHUB_SHA -f $DOCKERFILE .
+          docker tag $REPO:$GITHUB_SHA $REPO:$GITHUB_SHA-$AUTO_TAG_SUFFIX
+          docker push $REPO:$GITHUB_SHA
+          docker push $REPO:$GITHUB_SHA-$AUTO_TAG_SUFFIX
