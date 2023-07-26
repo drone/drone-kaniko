@@ -246,6 +246,7 @@ func run(c *cli.Context) error {
 			AutoTagSuffix:    c.String("auto-tag-suffix"),
 			ExpandTag:        c.Bool("expand-tag"),
 			Args:             c.StringSlice("args"),
+			ArgsFromEnv:      c.StringSlice("args-from-env"),
 			Target:           c.String("target"),
 			Repo:             c.String("repo"),
 			Mirrors:          c.StringSlice("registry-mirrors"),
