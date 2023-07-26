@@ -13,7 +13,7 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  build:
+  build-binaries:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -30,13 +30,25 @@ jobs:
       - name: Build
         run: sh scripts/build.sh
 
-  image:
+      - name: Save binaries
+        uses: actions/cache/save@v3
+        with:
+          path: release
+          key: ${{ runner.os }}-binaries
+
+  pack-images:
     runs-on: ubuntu-latest
     needs: build
     if: github.event_name != 'pull_request'
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+
+      - name: Restore binaries
+        uses: actions/cache/restore@v3
+        with:
+          path: release
+          key: ${{ runner.os }}-binaries
 
       - name: Log in to the Container registry
         uses: docker/login-action@v2
