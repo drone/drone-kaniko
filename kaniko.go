@@ -171,7 +171,7 @@ func (p Plugin) Exec() error {
 		cmdArgs = append(cmdArgs, fmt.Sprintf("--build-arg=%s", arg))
 	}
 	for _, argName := range p.Build.ArgsFromEnv {
-		argKey := fmt.Sprintf("PLUGIN_SECRET_%s", argName)
+		argKey := fmt.Sprintf("PLUGIN_BUILD_ARG_%s", argName)
 		arg := fmt.Sprintf("%s=%s", argName, os.Getenv(argKey))
 		cmdArgs = append(cmdArgs, fmt.Sprintf("--build-arg=%s", arg))
 	}
