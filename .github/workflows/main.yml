@@ -65,10 +65,10 @@ jobs:
           DOCKERFILE: docker/docker/Dockerfile.linux.amd64
           AUTO_TAG_SUFFIX: linux-amd64
         run: |
-          docker build -t $REPO:$MAJOR_VERSION -f $DOCKERFILE .
-          docker tag $REPO:$MAJOR_VERSION $REPO:$MAJOR_VERSION-$AUTO_TAG_SUFFIX
-          docker push $REPO:$MAJOR_VERSION
+          docker build -t $REPO:$MAJOR_VERSION-$AUTO_TAG_SUFFIX -f $DOCKERFILE .
+          docker tag $REPO:$MAJOR_VERSION-$AUTO_TAG_SUFFIX $REPO:$MAJOR_VERSION
           docker push $REPO:$MAJOR_VERSION-$AUTO_TAG_SUFFIX
+          docker push $REPO:$MAJOR_VERSION
 
       - name: Build and push Docker image for gcr
         env:
@@ -76,9 +76,7 @@ jobs:
           DOCKERFILE: docker/gcr/Dockerfile.linux.amd64
           AUTO_TAG_SUFFIX: linux-amd64-gcr
         run: |
-          docker build -t $REPO:$MAJOR_VERSION -f $DOCKERFILE .
-          docker tag $REPO:$MAJOR_VERSION $REPO:$MAJOR_VERSION-$AUTO_TAG_SUFFIX
-          docker push $REPO:$MAJOR_VERSION
+          docker build -t $REPO:$MAJOR_VERSION-$AUTO_TAG_SUFFIX -f $DOCKERFILE .
           docker push $REPO:$MAJOR_VERSION-$AUTO_TAG_SUFFIX
 
       - name: Build and push Docker image for ecr
@@ -87,9 +85,7 @@ jobs:
           DOCKERFILE: docker/ecr/Dockerfile.linux.amd64
           AUTO_TAG_SUFFIX: linux-amd64-ecr
         run: |
-          docker build -t $REPO:$MAJOR_VERSION -f $DOCKERFILE .
-          docker tag $REPO:$MAJOR_VERSION $REPO:$MAJOR_VERSION-$AUTO_TAG_SUFFIX
-          docker push $REPO:$MAJOR_VERSION
+          docker build -t $REPO:$MAJOR_VERSION-$AUTO_TAG_SUFFIX -f $DOCKERFILE .
           docker push $REPO:$MAJOR_VERSION-$AUTO_TAG_SUFFIX
 
       - name: Build and push Docker image for acr
@@ -98,9 +94,7 @@ jobs:
           DOCKERFILE: docker/acr/Dockerfile.linux.amd64
           AUTO_TAG_SUFFIX: linux-amd64-acr
         run: |
-          docker build -t $REPO:$MAJOR_VERSION -f $DOCKERFILE .
-          docker tag $REPO:$MAJOR_VERSION $REPO:$MAJOR_VERSION-$AUTO_TAG_SUFFIX
-          docker push $REPO:$MAJOR_VERSION
+          docker build -t $REPO:$MAJOR_VERSION-$AUTO_TAG_SUFFIX -f $DOCKERFILE .
           docker push $REPO:$MAJOR_VERSION-$AUTO_TAG_SUFFIX
 
       - name: Build and push Docker image for docker-kaniko-v1-9
@@ -109,9 +103,7 @@ jobs:
           DOCKERFILE: docker/docker/Dockerfile.linux.amd64.kaniko1.9.1
           AUTO_TAG_SUFFIX: linux-amd64-kaniko1.9.1
         run: |
-          docker build -t $REPO:$MAJOR_VERSION -f $DOCKERFILE .
-          docker tag $REPO:$MAJOR_VERSION $REPO:$MAJOR_VERSION-$AUTO_TAG_SUFFIX
-          docker push $REPO:$MAJOR_VERSION
+          docker build -t $REPO:$MAJOR_VERSION-$AUTO_TAG_SUFFIX -f $DOCKERFILE .
           docker push $REPO:$MAJOR_VERSION-$AUTO_TAG_SUFFIX
 
       - name: Build and push Docker image for gcr-kaniko-v1-9
@@ -120,9 +112,7 @@ jobs:
           DOCKERFILE: docker/gcr/Dockerfile.linux.amd64.kaniko1.9.1
           AUTO_TAG_SUFFIX: linux-amd64-gcr-kaniko1.9.1
         run: |
-          docker build -t $REPO:$MAJOR_VERSION -f $DOCKERFILE .
-          docker tag $REPO:$MAJOR_VERSION $REPO:$MAJOR_VERSION-$AUTO_TAG_SUFFIX
-          docker push $REPO:$MAJOR_VERSION
+          docker build -t $REPO:$MAJOR_VERSION-$AUTO_TAG_SUFFIX -f $DOCKERFILE .
           docker push $REPO:$MAJOR_VERSION-$AUTO_TAG_SUFFIX
 
       - name: Build and push Docker image for ecr-kaniko-v1-9
@@ -131,7 +121,5 @@ jobs:
           DOCKERFILE: docker/ecr/Dockerfile.linux.amd64.kaniko1.9.1
           AUTO_TAG_SUFFIX: linux-amd64-ecr-kaniko1.9.1
         run: |
-          docker build -t $REPO:$MAJOR_VERSION -f $DOCKERFILE .
-          docker tag $REPO:$MAJOR_VERSION $REPO:$MAJOR_VERSION-$AUTO_TAG_SUFFIX
-          docker push $REPO:$MAJOR_VERSION
+          docker build -t $REPO:$MAJOR_VERSION-$AUTO_TAG_SUFFIX -f $DOCKERFILE .
           docker push $REPO:$MAJOR_VERSION-$AUTO_TAG_SUFFIX
