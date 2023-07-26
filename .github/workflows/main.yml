@@ -12,7 +12,7 @@ env:
   MAJOR_VERSION: 1
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-
+  IMAGE_SHA: ${{ github.sha }}
 
 jobs:
   build-binaries:
@@ -36,7 +36,7 @@ jobs:
         uses: actions/cache/save@v3
         with:
           path: release
-          key: ${{ env.GITHUB_SHA }}-${{ runner.os }}-binaries
+          key: ${{ env.IMAGE_SHA }}-${{ runner.os }}-binaries
 
   pack-images:
     runs-on: ubuntu-latest
@@ -50,7 +50,7 @@ jobs:
         uses: actions/cache/restore@v3
         with:
           path: release
-          key: ${{ env.GITHUB_SHA }}-${{ runner.os }}-binaries
+          key: ${{ env.IMAGE_SHA }}-${{ runner.os }}-binaries
 
       - name: Log in to the Container registry
         uses: docker/login-action@v2
