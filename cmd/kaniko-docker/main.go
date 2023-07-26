@@ -105,6 +105,11 @@ func main() {
 			Usage:  "build args",
 			EnvVar: "PLUGIN_BUILD_ARGS",
 		},
+		cli.StringSliceFlag{
+			Name:   "args-from-env",
+			Usage:  "build args from env",
+			EnvVar: "PLUGIN_BUILD_ARGS_FROM_ENV",
+		},
 		cli.StringFlag{
 			Name:   "target",
 			Usage:  "build target",
