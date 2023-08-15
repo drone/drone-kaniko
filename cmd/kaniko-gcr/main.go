@@ -165,6 +165,12 @@ func main() {
 			Usage:  "build only used stages",
 			EnvVar: "PLUGIN_SKIP_UNUSED_STAGES",
 		},
+		cli.StringFlag{
+                        Name:   "ignore-var-run",
+                        Usage:  "Set it to false to preserve /var/run/* in destination image",
+                        Value:  "True",
+                        EnvVar: "PLUGIN_IGNORE_VAR_RUN",
+                },
 	}
 
 	if err := app.Run(os.Args); err != nil {
@@ -209,6 +215,7 @@ func run(c *cli.Context) error {
 			Verbosity:        c.String("verbosity"),
 			Platform:         c.String("platform"),
 			SkipUnusedStages: c.Bool("skip-unused-stages"),
+			IgnoreVarRun:     c.String("ignore-var-run"),
 		},
 		Artifact: kaniko.Artifact{
 			Tags:         c.StringSlice("tags"),
