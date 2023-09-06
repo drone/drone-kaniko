@@ -4,7 +4,7 @@ name: default
 
 steps:
 - name: build
-  image: golang:1.19
+  image: golang:1.21
   commands:
   - go test ./...
   - sh scripts/build.sh
@@ -138,7 +138,7 @@ pool:
 
 steps:
 - name: build
-  image: golang:1.19
+  image: golang:1.21
   commands:
   - go test ./...
   - sh scripts/build.sh
