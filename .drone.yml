@@ -1,6 +1,13 @@
 kind: pipeline
-type: docker
+type: vm
 name: default
+
+pool:
+  use: ubuntu
+
+platform:
+  os: linux
+  arch: amd64
 
 steps:
 - name: build
@@ -330,8 +337,11 @@ steps:
       - pull_request
 ---
 kind: pipeline
-type: docker
+type: vm
 name: notifications-docker
+
+pool:
+  use: ubuntu
 
 platform:
   os: linux
@@ -409,8 +419,11 @@ depends_on:
 
 ---
 kind: pipeline
-type: docker
+type: vm
 name: notifications-docker-kaniko1-8
+
+pool:
+  use: ubuntu
 
 platform:
   os: linux
