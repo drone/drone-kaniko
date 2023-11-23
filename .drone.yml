@@ -1,6 +1,13 @@
 kind: pipeline
-type: docker
+type: vm
 name: default
+
+pool:
+  use: ubuntu
+
+platform:
+  os: linux
+  arch: amd64
 
 steps:
 - name: build
@@ -42,6 +49,23 @@ steps:
     event:
       exclude:
       - pull_request
+
+- name: gar
+  image: plugins/docker
+  settings:
+    repo: plugins/kaniko-gar
+    auto_tag: true
+    auto_tag_suffix: linux-amd64
+    daemon_off: false
+    dockerfile: docker/gar/Dockerfile.linux.amd64
+    username:
+      from_secret: docker_username
+    password:
+      from_secret: docker_password
+  when:
+    event:
+      exclude:
+        - pull_request
 
 - name: ecr
   image: plugins/docker
@@ -111,6 +135,22 @@ steps:
       exclude:
       - pull_request
 
+- name: gar-kaniko-v1-9
+  image: plugins/docker
+  settings:
+    repo: plugins/kaniko-gar
+    auto_tag: true
+    auto_tag_suffix: linux-amd64-kaniko1.9.1
+    daemon_off: false
+    dockerfile: docker/gar/Dockerfile.linux.amd64.kaniko1.9.1
+    username:
+      from_secret: docker_username
+    password:
+      from_secret: docker_password
+  when:
+    event:
+      exclude:
+        - pull_request
 
 - name: ecr-kaniko-v1-9
   image: plugins/docker
@@ -176,6 +216,23 @@ steps:
     event:
       exclude:
       - pull_request
+
+- name: gar
+  image: plugins/docker
+  settings:
+    repo: plugins/kaniko-gar
+    auto_tag: true
+    auto_tag_suffix: linux-arm64
+    daemon_off: false
+    dockerfile: docker/gar/Dockerfile.linux.arm64
+    username:
+      from_secret: docker_username
+    password:
+      from_secret: docker_password
+  when:
+    event:
+      exclude:
+        - pull_request
 
 - name: ecr
   image: plugins/docker
@@ -245,6 +302,22 @@ steps:
       exclude:
       - pull_request
 
+- name: gar-kaniko-v1-9
+  image: plugins/docker
+  settings:
+    repo: plugins/kaniko-gar
+    auto_tag: true
+    auto_tag_suffix: linux-arm64-kaniko1.9.1
+    daemon_off: false
+    dockerfile: docker/gar/Dockerfile.linux.arm64.kaniko1.9.1
+    username:
+      from_secret: docker_username
+    password:
+      from_secret: docker_password
+  when:
+    event:
+      exclude:
+        - pull_request
 
 - name: ecr-kaniko-v1-9
   image: plugins/docker
@@ -264,8 +337,11 @@ steps:
       - pull_request
 ---
 kind: pipeline
-type: docker
+type: vm
 name: notifications-docker
+
+pool:
+  use: ubuntu
 
 platform:
   os: linux
@@ -293,6 +369,18 @@ steps:
     password:
       from_secret: docker_password
     spec: docker/gcr/manifest.tmpl
+    username:
+      from_secret: docker_username
+
+- name: manifest-gar
+  pull: always
+  image: plugins/manifest
+  settings:
+    auto_tag: true
+    ignore_missing: true
+    password:
+      from_secret: docker_password
+    spec: docker/gar/manifest.tmpl
     username:
       from_secret: docker_username
 
@@ -331,8 +419,11 @@ depends_on:
 
 ---
 kind: pipeline
-type: docker
+type: vm
 name: notifications-docker-kaniko1-8
+
+pool:
+  use: ubuntu
 
 platform:
   os: linux
@@ -360,6 +451,18 @@ steps:
     password:
       from_secret: docker_password
     spec: docker/gcr/manifest-kaniko1.9.1.tmpl
+    username:
+      from_secret: docker_username
+
+- name: manifest-gar
+  pull: always
+  image: plugins/manifest
+  settings:
+    auto_tag: false
+    ignore_missing: true
+    password:
+      from_secret: docker_password
+    spec: docker/gar/manifest-kaniko1.9.1.tmpl
     username:
       from_secret: docker_username
 

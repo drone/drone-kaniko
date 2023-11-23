@@ -20,6 +20,7 @@ const (
 	Docker RegistryTypeEnum = "Docker"
 	ECR    RegistryTypeEnum = "ECR"
 	GCR    RegistryTypeEnum = "GCR"
+	GAR    RegistryTypeEnum = "GAR"
 )
 
 type (
