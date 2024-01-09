@@ -30,6 +30,7 @@ type (
 		Mirrors          []string // Docker repository mirrors
 		Labels           []string // Label map
 		SkipTlsVerify    bool     // Docker skip tls certificate verify for registry
+		SingleSnapshot   bool     // Kaniko single snapshot mode
 		SnapshotMode     string   // Kaniko snapshot mode
 		EnableCache      bool     // Whether to enable kaniko cache
 		CacheRepo        string   // Remote repository that will be used to store cached layers
@@ -189,6 +190,10 @@ func (p Plugin) Exec() error {
 		cmdArgs = append(cmdArgs, fmt.Sprintf("--snapshotMode=%s", p.Build.SnapshotMode))
 	}
 
+	if p.Build.SingleSnapshot {
+		cmdArgs = append(cmdArgs, "--single-snapshot=true")
+	}
+
 	if p.Build.EnableCache {
 		cmdArgs = append(cmdArgs, "--cache=true")
 
@@ -224,7 +229,7 @@ func (p Plugin) Exec() error {
 	if p.Build.TarPath != "" {
 		cmdArgs = append(cmdArgs, fmt.Sprintf("--tar-path=%s", p.Build.TarPath))
 	}
-	
+
 	cmd := exec.Command("/kaniko/executor", cmdArgs...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

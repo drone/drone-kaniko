@@ -147,6 +147,11 @@ func main() {
 			EnvVar: "PLUGIN_SKIP_TLS_VERIFY",
 		},
 		cli.StringFlag{
+			Name:   "single-snapshot",
+			Usage:  "Takes a single snapshot of the filesystem at the end of the build, only that will be appended to the base image",
+			EnvVar: "PLUGIN_SINGLE_SNAPSHOT",
+		},
+		cli.StringFlag{
 			Name:   "snapshot-mode",
 			Usage:  "Specify one of full, redo or time as snapshot mode",
 			EnvVar: "PLUGIN_SNAPSHOT_MODE",
@@ -241,6 +246,7 @@ func run(c *cli.Context) error {
 			Mirrors:          c.StringSlice("registry-mirrors"),
 			Labels:           c.StringSlice("custom-labels"),
 			SkipTlsVerify:    c.Bool("skip-tls-verify"),
+			SingleSnapshot:   c.Bool("single-snapshot"),
 			SnapshotMode:     c.String("snapshot-mode"),
 			EnableCache:      c.Bool("enable-cache"),
 			CacheRepo:        buildRepo(c.String("registry"), c.String("cache-repo"), c.Bool("expand-repo")),

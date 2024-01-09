@@ -120,6 +120,11 @@ func main() {
 			EnvVar: "PLUGIN_JSON_KEY",
 		},
 		cli.StringFlag{
+			Name:   "single-snapshot",
+			Usage:  "Takes a single snapshot of the filesystem at the end of the build, only that will be appended to the base image",
+			EnvVar: "PLUGIN_SINGLE_SNAPSHOT",
+		},
+		cli.StringFlag{
 			Name:   "snapshot-mode",
 			Usage:  "Specify one of full, redo or time as snapshot mode",
 			EnvVar: "PLUGIN_SNAPSHOT_MODE",
@@ -199,6 +204,7 @@ func run(c *cli.Context) error {
 			Repo:             fmt.Sprintf("%s/%s", c.String("registry"), c.String("repo")),
 			Mirrors:          c.StringSlice("registry-mirrors"),
 			Labels:           c.StringSlice("custom-labels"),
+			SingleSnapshot:   c.Bool("single-snapshot"),
 			SnapshotMode:     c.String("snapshot-mode"),
 			EnableCache:      c.Bool("enable-cache"),
 			CacheRepo:        fmt.Sprintf("%s/%s", c.String("registry"), c.String("cache-repo")),
