@@ -432,6 +432,15 @@ func getPublicUrl(token, registryUrl, subscriptionId string) (string, error) {
 	if err != nil {
 		return "", errors.Wrap(err, "failed to send request for getting container registry setting")
 	}
+
+	if len(response.Value) == 0 {
+		return "", errors.New("did not receive any registry information from /subscriptions API")
+	}
+
+	if response.Value[0].ID == "" {
+		return "", errors.New("received empty registry ID from /subscriptions API")
+	}
+
 	return finalUrl + encodeParam(response.Value[0].ID), nil
 }
 
