@@ -64,6 +64,9 @@ type (
 	}
 )
 
+// Excluded variables
+var excludeList = []string{"PLUGIN_PIPELINE", "PLUGIN_USERNAME", "PLUGIN_PASSWORD", "PLUGIN_TAGS", "PLUGIN_REGISTRY", "PLUGIN_ARTIFACT_FILE", "PLUGIN_REPO", "PLUGIN_BUILD_ARGS"}
+
 // labelsForTag returns the labels to use for the given tag, subject to the value of ExpandTag.
 //
 // Build information (e.g. +linux_amd64) is carried through to all labels.
@@ -224,7 +227,12 @@ func (p Plugin) Exec() error {
 	if p.Build.TarPath != "" {
 		cmdArgs = append(cmdArgs, fmt.Sprintf("--tar-path=%s", p.Build.TarPath))
 	}
-	
+
+	//Read all PLUGIN_ env vars
+	//parse them such that PLUGIN_ENV_ARG is set to the value of --env-arg
+	//Add the value of --env-arg to cmdArgs if it does not exist
+	cmdArgs = getPluginEnvVars(cmdArgs)
+
 	cmd := exec.Command("/kaniko/executor", cmdArgs...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -263,4 +271,61 @@ func getDigest(digestFile string) string {
 // tag so that it can be extracted and displayed in the logs.
 func trace(cmd *exec.Cmd) {
 	fmt.Fprintf(os.Stdout, "+ %s\n", strings.Join(cmd.Args, " "))
+}
+
+func getPluginEnvVars(cmdArgs []string) []string {
+	envVars := os.Environ()
+
+	// Iterate through environment variables
+	for _, envVar := range envVars {
+		// Check if the variable starts with PLUGIN_
+		if strings.HasPrefix(envVar, "PLUGIN_") && !contains(excludeList, envVar) {
+			// Split the variable into key and value
+			parts := strings.SplitN(envVar, "=", 2)
+			if len(parts) != 2 {
+				continue
+			}
+			key := parts[0]
+			value := parts[1]
+
+			// Trim the "PLUGIN_" prefix
+			flagName := strings.TrimPrefix(key, "PLUGIN_")
+
+			// Replace underscores with hyphens and convert to lowercase
+			flagName = strings.ReplaceAll(flagName, "_", "-")
+			flagName = strings.ToLower(flagName)
+
+			// Format the flag name with "--" prefix
+			flag := "--" + flagName
+
+			// Check if the flag already exists in cmdArgs
+			exists := false
+			for _, arg := range cmdArgs {
+				if strings.HasPrefix(arg, flag) {
+					exists = true
+					break
+				}
+			}
+
+			// If the flag does not exist, add it to cmdArgs
+			if !exists {
+				if value == "" {
+					cmdArgs = append(cmdArgs, flag)
+				} else {
+					cmdArgs = append(cmdArgs, fmt.Sprintf("%s=%s", flag, value))
+				}
+			}
+		}
+	}
+	return cmdArgs
+}
+
+// Function to check if a string is in a slice
+func contains(slice []string, str string) bool {
+	for _, s := range slice {
+		if strings.HasPrefix(str, s) {
+			return true
+		}
+	}
+	return false
 }
