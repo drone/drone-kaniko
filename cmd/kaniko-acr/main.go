@@ -37,6 +37,7 @@ var (
 	ACRCertPath   = "/kaniko/acr-cert.pem"
 	pluginVersion = "unknown"
 	username      = "00000000-0000-0000-0000-000000000000"
+	maxPageCount  = 1000 // maximum count of pages to cycle through before we break out
 )
 
 func main() {
@@ -407,41 +408,56 @@ func getPublicUrl(token, registryUrl, subscriptionId string) (string, error) {
 	}
 
 	registry := strings.Split(registryUrl, ".")[0]
-	burl := "https://management.azure.com/subscriptions/" +
+	baseURL := "https://management.azure.com/subscriptions/" +
 		subscriptionId + "/resources?$filter=resourceType%20eq%20'Microsoft.ContainerRegistry/registries'%20and%20name%20eq%20'" +
 		registry + "'&api-version=2021-04-01&$select=id"
 
 	method := "GET"
 	client := &http.Client{}
-	req, err := http.NewRequest(method, burl, nil)
-	if err != nil {
-		fmt.Println(err)
-		return "", errors.Wrap(err, "failed to create request for getting container registry setting")
+
+	cnt := 0
+
+	for {
+		// this is just in case we end up cycling through nextLink's infinitely.
+		// this should not happen - added as a precaution.
+		if cnt > maxPageCount {
+			break
+		}
+		cnt++
+		req, err := http.NewRequest(method, baseURL, nil)
+		if err != nil {
+			return "", errors.Wrap(err, "failed to create request for getting container registry setting")
+		}
+
+		req.Header.Add("Authorization", "Bearer "+token)
+		res, err := client.Do(req)
+		if err != nil {
+			return "", errors.Wrap(err, "failed to send request for getting container registry setting")
+		}
+		defer res.Body.Close()
+
+		var response strct
+		err = json.NewDecoder(res.Body).Decode(&response)
+		if err != nil {
+			return "", errors.Wrap(err, "failed to send request for getting container registry setting")
+		}
+
+		if len(response.Value) > 0 {
+			if response.Value[0].ID == "" { // should not happen
+				return "", errors.New("received empty registry ID from /subscriptions API")
+			}
+			return finalUrl + encodeParam(response.Value[0].ID), nil
+		}
+
+		if response.NextLink == "" {
+			// No more pages, break the loop
+			break
+		}
+
+		baseURL = response.NextLink
 	}
 
-	req.Header.Add("Authorization", "Bearer "+token)
-	res, err := client.Do(req)
-	if err != nil {
-		fmt.Println(err)
-		return "", errors.Wrap(err, "failed to send request for getting container registry setting")
-	}
-	defer res.Body.Close()
-
-	var response strct
-	err = json.NewDecoder(res.Body).Decode(&response)
-	if err != nil {
-		return "", errors.Wrap(err, "failed to send request for getting container registry setting")
-	}
-
-	if len(response.Value) == 0 {
-		return "", errors.New("did not receive any registry information from /subscriptions API")
-	}
-
-	if response.Value[0].ID == "" {
-		return "", errors.New("received empty registry ID from /subscriptions API")
-	}
-
-	return finalUrl + encodeParam(response.Value[0].ID), nil
+	return "", errors.New("did not receive any registry information from /subscriptions API")
 }
 
 func encodeParam(s string) string {
@@ -452,4 +468,5 @@ type strct struct {
 	Value []struct {
 		ID string `json:"id"`
 	} `json:"value"`
+	NextLink string `json:"nextLink"` // for pagination
 }
