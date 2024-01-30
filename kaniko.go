@@ -64,6 +64,14 @@ type (
 	}
 )
 
+const kanikoArgsEnabled = "DRONE_KANIKO_ADDIONAL_ARGS_ENABLED"
+
+// Excluded variables
+var excludeList = []string{"PLUGIN_PIPELINE", "PLUGIN_USERNAME", "PLUGIN_PASSWORD", "PLUGIN_TAGS", "PLUGIN_REGISTRY", "PLUGIN_ARTIFACT_FILE", "PLUGIN_REPO", "PLUGIN_BUILD_ARGS"}
+
+// Allowed variables
+var allowList = []string{"PLUGIN_BUILD_ARG", "PLUGIN_CACHE", "PLUGIN_CACHE_DIR", "PLUGIN_CACHE_REPO", "PLUGIN_CACHE_COPY_LAYERS", "PLUGIN_CACHE_RUN_LAYERS", "PLUGIN_CACHE_TTL", "PLUGIN_CLEANUP", "PLUGIN_COMPRESSED_CACHING", "PLUGIN_CONTEXT_SUB_PATH", "PLUGIN_CUSTOM_PLATFORM", "PLUGIN_DIGEST_FILE", "PLUGIN_DOCKERFILE", "PLUGIN_FORCE", "PLUGIN_GIT", "PLUGIN_IMAGE_NAME_WITH_DIGEST_FILE", "PLUGIN_IMAGE_NAME_TAG_WITH_DIGEST_FILE", "PLUGIN_INSECURE", "PLUGIN_INSECURE_PULL", "PLUGIN_INSECURE_REGISTRY", "PLUGIN_LABEL", "PLUGIN_LOG_FORMAT", "PLUGIN_LOG_TIMESTAMP", "PLUGIN_NO_PUSH", "PLUGIN_OCI_LAYOUT_PATH", "PLUGIN_PUSH_RETRY", "PLUGIN_REGISTRY_CERTIFICATE", "PLUGIN_REGISTRY_CLIENT_CERT", "PLUGIN_REGISTRY_MIRROR", "PLUGIN_SKIP_DEFAULT_REGISTRY_FALLBACK", "PLUGIN_REPRODUCIBLE", "PLUGIN_SINGLE_SNAPSHOT", "PLUGIN_SKIP_TLS_VERIFY", "PLUGIN_SKIP_PUSH_PERMISSION_CHECK", "PLUGIN_SKIP_TLS_VERIFY_PULL", "PLUGIN_SKIP_TLS_VERIFY_REGISTRY", "PLUGIN_SKIP_UNUSED_STAGES", "PLUGIN_SNAPSHOT_MODE", "PLUGIN_TAR_PATH", "PLUGIN_TARGET", "PLUGIN_USE_NEW_RUN", "PLUGIN_VERBOSITY", "PLUGIN_IGNORE_VAR_RUN", "PLUGIN_IGNORE_PATH", "PLUGIN_IMAGE_FS_EXTRACT_RETRY", "PLUGIN_IMAGE_DOWNLOAD_RETRY"}
+
 // labelsForTag returns the labels to use for the given tag, subject to the value of ExpandTag.
 //
 // Build information (e.g. +linux_amd64) is carried through to all labels.
@@ -224,7 +232,18 @@ func (p Plugin) Exec() error {
 	if p.Build.TarPath != "" {
 		cmdArgs = append(cmdArgs, fmt.Sprintf("--tar-path=%s", p.Build.TarPath))
 	}
-	
+
+	//Read all PLUGIN_ env vars if FF is enabled
+	//parse them such that PLUGIN_ENV_ARG is set to the value of --env-arg
+	//Add the value of --env-arg to cmdArgs if it does not exist
+	argsEnabled, ok := os.LookupEnv(kanikoArgsEnabled)
+	if ok {
+		fmt.Fprintf(os.Stdout, "%s env is set with value: %s ", kanikoArgsEnabled, argsEnabled)
+	}
+	if argsEnabled == "true" {
+		cmdArgs = getPluginEnvVars(cmdArgs)
+	}
+
 	cmd := exec.Command("/kaniko/executor", cmdArgs...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -263,4 +282,61 @@ func getDigest(digestFile string) string {
 // tag so that it can be extracted and displayed in the logs.
 func trace(cmd *exec.Cmd) {
 	fmt.Fprintf(os.Stdout, "+ %s\n", strings.Join(cmd.Args, " "))
+}
+
+func getPluginEnvVars(cmdArgs []string) []string {
+	envVars := os.Environ()
+
+	// Iterate through environment variables
+	for _, envVar := range envVars {
+		// Check if the variable starts with PLUGIN_
+		if strings.HasPrefix(envVar, "PLUGIN_") && !contains(excludeList, envVar) && contains(allowList, envVar) {
+			// Split the variable into key and value
+			parts := strings.SplitN(envVar, "=", 2)
+			if len(parts) != 2 {
+				continue
+			}
+			key := parts[0]
+			value := parts[1]
+
+			// Trim the "PLUGIN_" prefix
+			flagName := strings.TrimPrefix(key, "PLUGIN_")
+
+			// Replace underscores with hyphens and convert to lowercase
+			flagName = strings.ReplaceAll(flagName, "_", "-")
+			flagName = strings.ToLower(flagName)
+
+			// Format the flag name with "--" prefix
+			flag := "--" + flagName
+
+			// Check if the flag already exists in cmdArgs
+			exists := false
+			for _, arg := range cmdArgs {
+				if strings.HasPrefix(arg, flag) {
+					exists = true
+					break
+				}
+			}
+
+			// If the flag does not exist, add it to cmdArgs
+			if !exists {
+				if value == "" {
+					cmdArgs = append(cmdArgs, flag)
+				} else {
+					cmdArgs = append(cmdArgs, fmt.Sprintf("%s=%s", flag, value))
+				}
+			}
+		}
+	}
+	return cmdArgs
+}
+
+// Function to check if a string is in a slice
+func contains(slice []string, str string) bool {
+	for _, s := range slice {
+		if strings.HasPrefix(str, s) {
+			return true
+		}
+	}
+	return false
 }
