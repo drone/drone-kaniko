@@ -1,9 +1,13 @@
 package main
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
+
+	"github.com/drone/drone-kaniko/internal"
 
 	"github.com/joho/godotenv"
 	"github.com/pkg/errors"
@@ -164,6 +168,31 @@ func main() {
 			Usage:  "build only used stages",
 			EnvVar: "PLUGIN_SKIP_UNUSED_STAGES",
 		},
+		cli.StringFlag{
+			Name:   "oidc-token",
+			Usage:  "OIDC token to use for authentication",
+			EnvVar: "PLUGIN_OIDC_TOKEN_ID",
+		},
+		cli.StringFlag{
+			Name:   "project-number",
+			Usage:  "Google project number",
+			EnvVar: "PLUGIN_PROJECT_NUMBER",
+		},
+		cli.StringFlag{
+			Name:   "pool-id",
+			Usage:  "Google pool id",
+			EnvVar: "PLUGIN_POOL_ID",
+		},
+		cli.StringFlag{
+			Name:   "provider-id",
+			Usage:  "Google provider id",
+			EnvVar: "PLUGIN_PROVIDER_ID",
+		},
+		cli.StringFlag{
+			Name:   "service-account-email",
+			Usage:  "Google service account email",
+			EnvVar: "PLUGIN_SERVICE_ACCOUNT_EMAIL",
+		},
 	}
 
 	if err := app.Run(os.Args); err != nil {
@@ -174,13 +203,25 @@ func main() {
 func run(c *cli.Context) error {
 	noPush := c.Bool("no-push")
 	jsonKey := c.String("json-key")
-
+	idToken := c.String("oidc-token")
+	projectNumber := c.String("project-number")
+	poolId := c.String("pool-id")
+	providerId := c.String("provider-id")
+	serviceAccountEmail := c.String("service-account-email")
+	registry := c.String("registry")
 	// JSON key may not be set in the following cases:
 	// 1. Image does not need to be pushed to GAR.
 	// 2. Workload identity is set on GKE in which pod will inherit the credentials via service account.
 	if jsonKey != "" {
 		if err := setupGARAuth(jsonKey); err != nil {
 			return err
+		}
+	} else if idToken != "" {
+		accessToken := setupOIDCAuth(idToken, projectNumber, poolId, providerId, serviceAccountEmail)
+		if accessToken != "" {
+			if err := setupAccessTokenAuth(accessToken, registry); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -212,7 +253,7 @@ func run(c *cli.Context) error {
 		Artifact: kaniko.Artifact{
 			Tags:         c.StringSlice("tags"),
 			Repo:         c.String("repo"),
-			Registry:     c.String("registry"),
+			Registry:     registry,
 			ArtifactFile: c.String("artifact-file"),
 			RegistryType: artifact.GAR,
 		},
@@ -231,4 +272,42 @@ func setupGARAuth(jsonKey string) error {
 		return errors.Wrap(err, fmt.Sprintf("failed to set %s environment variable", garEnvVariable))
 	}
 	return nil
+}
+
+func setupAccessTokenAuth(accessToken, registryURL string) error {
+	dockerConfig := map[string]interface{}{
+		"auths": map[string]interface{}{
+			registryURL: map[string]string{
+				"auth": encodeAccessToken(accessToken),
+			},
+		},
+	}
+
+	dockerConfigJson, err := json.Marshal(dockerConfig)
+	if err != nil {
+		return fmt.Errorf("failed to marshal docker config: %w", err)
+	}
+
+	if err := ioutil.WriteFile("/root/.docker/config.json", dockerConfigJson, 0600); err != nil {
+		return fmt.Errorf("failed to write docker config file: %w", err)
+	}
+
+	return nil
+}
+
+func encodeAccessToken(token string) string {
+	auth := base64.StdEncoding.EncodeToString([]byte("_json_key:" + token))
+	return auth
+}
+
+func setupOIDCAuth(idToken, projectId, poolId, providerId, serviceAccountEmail string) string {
+	federalToken, err := internal.GetFederalToken(idToken, projectId, poolId, providerId)
+	if err != nil {
+		logrus.Fatalf("Error (getFederalToken): %s", err)
+	}
+	accessToken, err := internal.GetGoogleCloudAccessToken(federalToken, serviceAccountEmail)
+	if err != nil {
+		logrus.Fatalf("Error (getGoogleCloudAccessToken): %s", err)
+	}
+	return accessToken
 }

@@ -49,6 +49,7 @@ type (
 		Registry     string                    // Docker artifact registry
 		RegistryType artifact.RegistryTypeEnum // Rocker artifact registry type
 		ArtifactFile string                    // Artifact file location
+		AccessToken  string                    // Access token for registry
 	}
 
 	// Output defines content of output file
@@ -224,7 +225,7 @@ func (p Plugin) Exec() error {
 	if p.Build.TarPath != "" {
 		cmdArgs = append(cmdArgs, fmt.Sprintf("--tar-path=%s", p.Build.TarPath))
 	}
-	
+
 	cmd := exec.Command("/kaniko/executor", cmdArgs...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

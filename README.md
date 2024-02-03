@@ -44,6 +44,11 @@ docker build \
   --label org.label-schema.build-date=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
   --label org.label-schema.vcs-ref=$(git rev-parse --short HEAD) \
   --file docker/ecr/Dockerfile.linux.amd64 --tag plugins/kaniko-ecr .
+  
+  docker build \
+  --label org.label-schema.build-date=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
+  --label org.label-schema.vcs-ref=$(git rev-parse --short HEAD) \
+  --file docker/gar/Dockerfile.linux.amd64 --tag plugins/kaniko-gar .
 ```
 
 ## Usage
