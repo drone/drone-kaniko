@@ -40,6 +40,7 @@ type (
 		Platform         string   // Allows to build with another default platform than the host, similarly to docker build --platform
 		SkipUnusedStages bool     // Build only used stages
 		TarPath          string   // Set this flag to save the image as a tarball at path
+		IgnoreVarRun     string   // Set it to false to preserve /var/run/* in destination image
 	}
 
 	// Artifact defines content of artifact file
@@ -223,6 +224,10 @@ func (p Plugin) Exec() error {
 
 	if p.Build.TarPath != "" {
 		cmdArgs = append(cmdArgs, fmt.Sprintf("--tar-path=%s", p.Build.TarPath))
+	}
+
+	if p.Build.IgnoreVarRun != "" {
+		cmdArgs = append(cmdArgs, fmt.Sprintf("--ignore-var-run=%s", p.Build.IgnoreVarRun))
 	}
 	
 	cmd := exec.Command("/kaniko/executor", cmdArgs...)
