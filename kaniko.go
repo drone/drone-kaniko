@@ -214,7 +214,7 @@ func (p Plugin) Exec() error {
 	}
 
 	if p.Build.Platform != "" {
-		cmdArgs = append(cmdArgs, fmt.Sprintf("--customPlatform=%s", p.Build.Platform))
+		cmdArgs = append(cmdArgs, fmt.Sprintf("--custom-platform=%s", p.Build.Platform))
 	}
 
 	if p.Build.SkipUnusedStages {
@@ -224,7 +224,7 @@ func (p Plugin) Exec() error {
 	if p.Build.TarPath != "" {
 		cmdArgs = append(cmdArgs, fmt.Sprintf("--tar-path=%s", p.Build.TarPath))
 	}
-	
+
 	cmd := exec.Command("/kaniko/executor", cmdArgs...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
