@@ -46,7 +46,7 @@ type (
 		CacheCopyLayers             bool   // Enable or disable copying layers from the cache.
 		CacheRunLayers              bool   // Enable or disable running layers from the cache.
 		Cleanup                     bool   // Enable or disable cleanup of temporary files.
-		CompressedCaching           bool   // Enable or disable compressed caching.
+		CompressedCaching           *bool  // Enable or disable compressed caching.
 		ContextSubPath              string // Sub-path within the context to build.
 		CustomPlatform              string // Platform to use for building.
 		Force                       bool   // Force building the image even if it already exists.
@@ -72,7 +72,7 @@ type (
 		SkipTLSVerifyPull           bool   // Skip TLS verification when pulling.
 		SkipTLSVerifyRegistry       bool   // Skip TLS verification when connecting to a registry.
 		UseNewRun                   bool   // Use the new container runtime (`runc`) for builds.
-		IgnoreVarRun                bool   // Ignore `/var/run` when copying from the context.
+		IgnoreVarRun                *bool  // Ignore `/var/run` when copying from the context.
 		IgnorePath                  string // Ignore files matching the specified path pattern.
 		ImageFSExtractRetry         int    // Number of times to retry extracting the image filesystem.
 		ImageDownloadRetry          int    // Number of times to retry downloading layers.
@@ -273,9 +273,8 @@ func (p Plugin) Exec() error {
 		cmdArgs = append(cmdArgs, "--cleanup=true")
 	}
 
-	_, ok := os.LookupEnv("PLUGIN_COMPRESSED_CACHING")
-	if ok {
-		if p.Build.CompressedCaching {
+	if p.Build.CompressedCaching != nil {
+		if *p.Build.CompressedCaching {
 			cmdArgs = append(cmdArgs, "--compressed-caching=true")
 		} else {
 			cmdArgs = append(cmdArgs, "--compressed-caching=false")
@@ -370,9 +369,8 @@ func (p Plugin) Exec() error {
 		cmdArgs = append(cmdArgs, "--use-new-run")
 	}
 
-	_, ok = os.LookupEnv("PLUGIN_IGNORE_VAR_RUN")
-	if ok {
-		if p.Build.IgnoreVarRun {
+	if p.Build.IgnoreVarRun != nil {
+		if *p.Build.IgnoreVarRun {
 			cmdArgs = append(cmdArgs, "--ignore-var-run=true")
 		} else {
 			cmdArgs = append(cmdArgs, "--ignore-var-run=false")

@@ -406,7 +406,6 @@ func run(c *cli.Context) error {
 			CacheCopyLayers:             c.Bool("cache-copy-layers"),
 			CacheRunLayers:              c.Bool("cache-run-layers"),
 			Cleanup:                     c.Bool("cleanup"),
-			CompressedCaching:           c.Bool("compressed-caching"),
 			ContextSubPath:              c.String("context-sub-path"),
 			CustomPlatform:              c.String("custom-platform"),
 			Force:                       c.Bool("force"),
@@ -430,7 +429,6 @@ func run(c *cli.Context) error {
 			SkipTLSVerifyPull:           c.Bool("skip-tls-verify-pull"),
 			SkipTLSVerifyRegistry:       c.Bool("skip-tls-verify-registry"),
 			UseNewRun:                   c.Bool("use-new-run"),
-			IgnoreVarRun:                c.Bool("ignore-var-run"),
 			IgnorePath:                  c.String("ignore-path"),
 			ImageFSExtractRetry:         c.Int("image-fs-extract-retry"),
 			ImageDownloadRetry:          c.Int("image-download-retry"),
@@ -445,6 +443,14 @@ func run(c *cli.Context) error {
 		Output: kaniko.Output{
 			OutputFile: c.String("output-file"),
 		},
+	}
+	if c.IsSet("compressed-caching") {
+		flag := c.Bool("compressed-caching")
+		plugin.Build.CompressedCaching = &flag
+	}
+	if c.IsSet("ignore-var-run") {
+		flag := c.Bool("ignore-var-run")
+		plugin.Build.IgnoreVarRun = &flag
 	}
 	return plugin.Exec()
 }
