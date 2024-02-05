@@ -273,9 +273,13 @@ func (p Plugin) Exec() error {
 		cmdArgs = append(cmdArgs, "--cleanup=true")
 	}
 
-	compressedCaching, ok := os.LookupEnv("PLUGIN_COMPRESSED_CACHING")
+	_, ok := os.LookupEnv("PLUGIN_COMPRESSED_CACHING")
 	if ok {
-		cmdArgs = append(cmdArgs, "--compressed-caching=%s", compressedCaching)
+		if p.Build.CompressedCaching {
+			cmdArgs = append(cmdArgs, "--compressed-caching=true")
+		} else {
+			cmdArgs = append(cmdArgs, "--compressed-caching=false")
+		}
 	}
 
 	if p.Build.ContextSubPath != "" {
@@ -366,8 +370,13 @@ func (p Plugin) Exec() error {
 		cmdArgs = append(cmdArgs, "--use-new-run")
 	}
 
-	if p.Build.IgnoreVarRun {
-		cmdArgs = append(cmdArgs, "--ignore-var-run")
+	_, ok = os.LookupEnv("PLUGIN_IGNORE_VAR_RUN")
+	if ok {
+		if p.Build.IgnoreVarRun {
+			cmdArgs = append(cmdArgs, "--ignore-var-run=true")
+		} else {
+			cmdArgs = append(cmdArgs, "--ignore-var-run=false")
+		}
 	}
 
 	if p.Build.IgnorePath != "" {
