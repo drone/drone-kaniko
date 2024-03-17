@@ -4,6 +4,12 @@ Drone kaniko plugin uses [kaniko](https://github.com/GoogleContainerTools/kaniko
 
 Plugin images are published with 1.6.0 as well as 1.9.1 kaniko version from 1.5.1 release tag. `plugins/kaniko:<release-tag>` uses 1.6.0 version while `plugins/kaniko:<release-tag>-kaniko1.9.1` uses 1.9.1 version. Similar convention is used for plugins/kaniko-ecr & plugins/kaniko-gcr images as well.
 
+Run the following script to install git-leaks support to this repo.
+```
+chmod +x ./git-hooks/install.sh
+./git-hooks/install.sh
+```
+
 ## Build
 
 Build the binaries with the following commands:
