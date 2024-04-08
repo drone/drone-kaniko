@@ -122,9 +122,14 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:   "registry",
-			Usage:  "docker registry",
+			Usage:  "docker registry of registry to push image to",
 			Value:  v1RegistryURL,
 			EnvVar: "PLUGIN_REGISTRY",
+		},
+		cli.StringFlag{
+			Name:   "docker-registry",
+			Usage:  "docker registry for base image connector registry",
+			EnvVar: "PLUGIN_DOCKER_REGISTRY,DOCKER_REGISTRY",
 		},
 		cli.StringSliceFlag{
 			Name:   "registry-mirrors",
@@ -133,13 +138,23 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:   "username",
-			Usage:  "docker username",
+			Usage:  "docker username of registry to push image to",
 			EnvVar: "PLUGIN_USERNAME",
 		},
 		cli.StringFlag{
+			Name:   "docker-username",
+			Usage:  "docker username for base image connector registry",
+			EnvVar: "PLUGIN_DOCKER_USERNAME, DOCKER_USERNAME",
+		},
+		cli.StringFlag{
 			Name:   "password",
-			Usage:  "docker password",
+			Usage:  "docker password of registry to push image to",
 			EnvVar: "PLUGIN_PASSWORD",
+		},
+		cli.StringFlag{
+			Name:   "docker-password",
+			Usage:  "docker password for base image connector registry",
+			EnvVar: "PLUGIN_DOCKER_PASSWORD, DOCKER_PASSWORD",
 		},
 		cli.BoolFlag{
 			Name:   "skip-tls-verify",
@@ -363,6 +378,9 @@ func run(c *cli.Context) error {
 	username := c.String("username")
 	noPush := c.Bool("no-push")
 	configOverride := c.String("dockerconfig")
+	dockerUsername := c.String("docker-username")
+	dockerPassword := c.String("docker-password")
+	dockerRegistry := c.String("docker-registry")
 
 	// if configOverride is provided, use this for docker auth
 	if len(configOverride) > 0 {
@@ -371,7 +389,7 @@ func run(c *cli.Context) error {
 		}
 	} else if !noPush || username != "" {
 		// setup auth when pushing or credentials are defined and docker config override is false
-		if err := createDockerCfgFile(username, c.String("password"), c.String("registry")); err != nil {
+		if err := createDockerCfgFile(username, c.String("password"), c.String("registry"), dockerUsername, dockerPassword, dockerRegistry); err != nil {
 			return err
 		}
 	}
@@ -456,7 +474,7 @@ func run(c *cli.Context) error {
 }
 
 // Create the docker config file for authentication
-func createDockerCfgFile(username, password, registry string) error {
+func createDockerCfgFile(username, password, registry, dockerUsername, dockerPassword, dockerRegistry string) error {
 	if username == "" {
 		return fmt.Errorf("Username must be specified")
 	}
@@ -465,6 +483,9 @@ func createDockerCfgFile(username, password, registry string) error {
 	}
 	if registry == "" {
 		return fmt.Errorf("Registry must be specified")
+	}
+	if dockerRegistry == "" {
+		dockerRegistry = v1RegistryURL
 	}
 
 	if registry == v2RegistryURL || registry == v2HubRegistryURL {
@@ -475,7 +496,16 @@ func createDockerCfgFile(username, password, registry string) error {
 
 	authBytes := []byte(fmt.Sprintf("%s:%s", username, password))
 	encodedString := base64.StdEncoding.EncodeToString(authBytes)
-	jsonBytes := []byte(fmt.Sprintf(`{"auths": {"%s": {"auth": "%s"}}}`, registry, encodedString))
+	var jsonBytes []byte
+
+	if dockerRegistry != "" {
+		authBytesBase := []byte(fmt.Sprintf("%s:%s", dockerUsername, dockerPassword))
+		encodedStringBase := base64.StdEncoding.EncodeToString(authBytesBase)
+		jsonBytes = []byte(fmt.Sprintf(`{"auths": {"%s": {"auth": "%s"}}, {"%s": {"auth": "%s"}}}`,
+			registry, encodedString, dockerRegistry, encodedStringBase))
+	} else {
+		jsonBytes = []byte(fmt.Sprintf(`{"auths": {"%s": {"auth": "%s"}}}`, registry, encodedString))
+	}
 
 	if err := writeDockerCfgFile(jsonBytes); err != nil {
 		return errors.Wrap(err, "failed to write docker config file")
@@ -485,7 +515,7 @@ func createDockerCfgFile(username, password, registry string) error {
 
 // Write json bytes in the docker config file
 func writeDockerCfgFile(jsonBytes []byte) error {
-	err := os.MkdirAll(dockerPath, 0600)
+	err := os.MkdirAll(dockerPath, 600)
 	if err != nil {
 		return errors.Wrap(err, fmt.Sprintf("failed to create %s directory", dockerPath))
 	}
