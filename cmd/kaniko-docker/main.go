@@ -515,7 +515,7 @@ func createDockerCfgFile(username, password, registry, dockerUsername, dockerPas
 
 // Write json bytes in the docker config file
 func writeDockerCfgFile(jsonBytes []byte) error {
-	err := os.MkdirAll(dockerPath, 600)
+	err := os.MkdirAll(dockerPath, 0600)
 	if err != nil {
 		return errors.Wrap(err, fmt.Sprintf("failed to create %s directory", dockerPath))
 	}
