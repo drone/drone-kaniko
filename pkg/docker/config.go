@@ -12,14 +12,14 @@ type (
 
 	Config struct {
 		Auths       map[string]Auth   `json:"auths"`
-		CredHelpers map[string]string `json:"credHelpers"`
+		CredHelpers map[string]string `json:"credHelpers,omitempty"`
 	}
 )
 
 func NewConfig() *Config {
 	return &Config{
-		Auths:       map[string]Auth{},
-		CredHelpers: map[string]string{},
+		Auths:       make(map[string]Auth),
+		CredHelpers: make(map[string]string),
 	}
 }
 

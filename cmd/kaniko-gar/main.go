@@ -1,8 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 
 	"github.com/joho/godotenv"
@@ -12,10 +14,12 @@ import (
 
 	kaniko "github.com/drone/drone-kaniko"
 	"github.com/drone/drone-kaniko/pkg/artifact"
+	"github.com/drone/drone-kaniko/pkg/docker"
 )
 
 const (
 	// GAR JSON key file path
+	dockerConfigPath string = "/kaniko/.docker/config.json"
 	garKeyPath     string = "/kaniko/config.json"
 	garEnvVariable string = "GOOGLE_APPLICATION_CREDENTIALS"
 
@@ -108,6 +112,21 @@ func main() {
 			Name:   "registry",
 			Usage:  "gar registry",
 			EnvVar: "PLUGIN_REGISTRY",
+		},
+		cli.StringFlag{
+			Name:   "base-image-username",
+			Usage:  "docker username for base image connector",
+			EnvVar: "PLUGIN_DOCKER_USERNAME,DOCKER_USERNAME",
+		},
+		cli.StringFlag{
+			Name:   "base-image-password",
+			Usage:  "docker password for base image connector",
+			EnvVar: "PLUGIN_DOCKER_PASSWORD,DOCKER_PASSWORD",
+		},
+		cli.StringFlag{
+			Name:   "base-image-registry",
+			Usage:  "docker registry for base image connector",
+			EnvVar: "PLUGIN_DOCKER_REGISTRY,DOCKER_REGISTRY",
 		},
 		cli.StringSliceFlag{
 			Name:   "registry-mirrors",
@@ -325,6 +344,29 @@ func main() {
 func run(c *cli.Context) error {
 	noPush := c.Bool("no-push")
 	jsonKey := c.String("json-key")
+	log.Printf("registry %v", c.String("docker-registry"))
+	log.Printf("username %v", c.String("docker-username"))
+	log.Printf("password %v", c.String("docker-password"))
+
+	dockerConfig, err := createDockerConfig(
+		c.String("docker-registry"),
+		c.String("docker-username"),
+		c.String("docker-password"),
+	)
+
+	if err != nil {
+		return err
+	}
+
+	jsonBytes, err := json.Marshal(dockerConfig)
+	if err != nil {
+		return err
+	}
+	log.Printf("dockerConfig %v", dockerConfig)
+
+	if err := ioutil.WriteFile(dockerConfigPath, jsonBytes, 0644); err != nil {
+		return err
+	}
 
 	// JSON key may not be set in the following cases:
 	// 1. Image does not need to be pushed to GAR.
@@ -407,6 +449,19 @@ func run(c *cli.Context) error {
 		plugin.Build.IgnoreVarRun = &flag
 	}
 	return plugin.Exec()
+}
+
+func createDockerConfig(dockerRegistry, dockerUsername, dockerPassword string) (*docker.Config, error) {
+	dockerConfig := docker.NewConfig()
+
+	if dockerUsername != "" {
+		if len(dockerRegistry) == 0 {
+			dockerRegistry = docker.RegistryV1
+		}
+		dockerConfig.SetAuth(dockerRegistry, dockerUsername, dockerPassword)
+	}
+
+	return dockerConfig, nil
 }
 
 func setupGARAuth(jsonKey string) error {

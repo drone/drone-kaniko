@@ -77,17 +77,17 @@ func TestCreateDockerConfigFromGivenRegistry(t *testing.T) {
 			password:       "testpassword",
 			registry:       "https://index.docker.io/v1/",
 			dockerUsername: "dockeruser",
-			dockerPassword: "dockerpassword",
-			dockerRegistry: "",
+			dockerPassword: "",
+			dockerRegistry: "https://docker.io",
 			wantErr:        false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := createDockerCfgFile(tt.username, tt.password, tt.registry, tt.dockerUsername, tt.dockerPassword, tt.dockerRegistry)
+			err := createDockerConfig(tt.username, tt.password, tt.registry, tt.dockerUsername, tt.dockerPassword, tt.dockerRegistry)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("createDockerCfgFile() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("createDockerConfig() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 		})

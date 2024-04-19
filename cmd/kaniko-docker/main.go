@@ -1,9 +1,10 @@
 package main
 
 import (
-	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"strings"
 
@@ -14,6 +15,7 @@ import (
 
 	kaniko "github.com/drone/drone-kaniko"
 	"github.com/drone/drone-kaniko/pkg/artifact"
+	"github.com/drone/drone-kaniko/pkg/docker"
 )
 
 const (
@@ -127,8 +129,8 @@ func main() {
 			EnvVar: "PLUGIN_REGISTRY",
 		},
 		cli.StringFlag{
-			Name:   "docker-registry",
-			Usage:  "docker registry for base image connector registry",
+			Name:   "base-image-registry",
+			Usage:  "docker registry for base image connector",
 			EnvVar: "PLUGIN_DOCKER_REGISTRY,DOCKER_REGISTRY",
 		},
 		cli.StringSliceFlag{
@@ -142,8 +144,8 @@ func main() {
 			EnvVar: "PLUGIN_USERNAME",
 		},
 		cli.StringFlag{
-			Name:   "docker-username",
-			Usage:  "docker username for base image connector registry",
+			Name:   "base-image-username",
+			Usage:  "docker username for base image connector",
 			EnvVar: "PLUGIN_DOCKER_USERNAME, DOCKER_USERNAME",
 		},
 		cli.StringFlag{
@@ -152,8 +154,8 @@ func main() {
 			EnvVar: "PLUGIN_PASSWORD",
 		},
 		cli.StringFlag{
-			Name:   "docker-password",
-			Usage:  "docker password for base image connector registry",
+			Name:   "base-image-password",
+			Usage:  "docker password for base image connector",
 			EnvVar: "PLUGIN_DOCKER_PASSWORD, DOCKER_PASSWORD",
 		},
 		cli.BoolFlag{
@@ -378,18 +380,42 @@ func run(c *cli.Context) error {
 	username := c.String("username")
 	noPush := c.Bool("no-push")
 	configOverride := c.String("dockerconfig")
-	dockerUsername := c.String("docker-username")
-	dockerPassword := c.String("docker-password")
-	dockerRegistry := c.String("docker-registry")
-
+	log.Println("username %s", username)
+	log.Println("noPush %s", noPush)
+	log.Println("configOverride %s", configOverride)
 	// if configOverride is provided, use this for docker auth
 	if len(configOverride) > 0 {
-		if err := writeDockerCfgFile([]byte(configOverride)); err != nil {
+		if err := writeDockerConfig(dockerPath, "/config.json", true, []byte(configOverride)); err != nil {
 			return err
 		}
 	} else if !noPush || username != "" {
 		// setup auth when pushing or credentials are defined and docker config override is false
-		if err := createDockerCfgFile(username, c.String("password"), c.String("registry"), dockerUsername, dockerPassword, dockerRegistry); err != nil {
+		dockerConfig, dockerConfig2, err := createDockerConfig(
+			c.String("username"),
+			c.String("password"),
+			c.String("registry"),
+			c.String("base-image-username"),
+			c.String("base-image-password"),
+			c.String("base-image-registry"),
+		)
+		if err != nil {
+			return err
+		}
+
+		jsonBytes, err := json.Marshal(dockerConfig)
+		if err != nil {
+			return err
+		}
+		log.Println("Config file for docker1 looks like", dockerConfig)
+		jsonBytes2, err := json.Marshal(dockerConfig2)
+		if err != nil {
+			return err
+		}
+		log.Println("Config file for docker2 looks like", dockerConfig2)
+		if err := writeDockerConfig(dockerPath, "/config.json", true, jsonBytes); err != nil {
+			return err
+		}
+		if err := writeDockerConfig(dockerPath, "/config2.json", false, jsonBytes2); err != nil {
 			return err
 		}
 	}
@@ -448,8 +474,9 @@ func run(c *cli.Context) error {
 			SkipTLSVerifyRegistry:       c.Bool("skip-tls-verify-registry"),
 			UseNewRun:                   c.Bool("use-new-run"),
 			IgnorePath:                  c.String("ignore-path"),
-			ImageFSExtractRetry:         c.Int("image-fs-extract-retry"),
-			ImageDownloadRetry:          c.Int("image-download-retry"),
+
+			ImageFSExtractRetry: c.Int("image-fs-extract-retry"),
+			ImageDownloadRetry:  c.Int("image-download-retry"),
 		},
 		Artifact: kaniko.Artifact{
 			Tags:         c.StringSlice("tags"),
@@ -473,8 +500,8 @@ func run(c *cli.Context) error {
 	return plugin.Exec()
 }
 
-// Create the docker config file for authentication
-func createDockerCfgFile(username, password, registry, dockerUsername, dockerPassword, dockerRegistry string) error {
+// validate the docker credentials for given registry
+func validateDockerCreds(username, password, registry string) error {
 	if username == "" {
 		return fmt.Errorf("Username must be specified")
 	}
@@ -484,8 +511,13 @@ func createDockerCfgFile(username, password, registry, dockerUsername, dockerPas
 	if registry == "" {
 		return fmt.Errorf("Registry must be specified")
 	}
-	if dockerRegistry == "" {
-		dockerRegistry = v1RegistryURL
+	return nil
+}
+
+// Creates docker config for both the connectors used for authentication
+func createDockerConfig(username, password, registry, baseImageUsername, baseImagePassword, baseImageRegistry string) (*docker.Config, *docker.Config, error) {
+	if err := validateDockerCreds(username, password, registry); err != nil {
+		return nil, nil, errors.Wrap(err, "failed to write docker config file due to invalid credentials for docker registry")
 	}
 
 	if registry == v2RegistryURL || registry == v2HubRegistryURL {
@@ -494,32 +526,36 @@ func createDockerCfgFile(username, password, registry, dockerUsername, dockerPas
 		registry = v1RegistryURL
 	}
 
-	authBytes := []byte(fmt.Sprintf("%s:%s", username, password))
-	encodedString := base64.StdEncoding.EncodeToString(authBytes)
-	var jsonBytes []byte
-
-	if dockerRegistry != "" {
-		authBytesBase := []byte(fmt.Sprintf("%s:%s", dockerUsername, dockerPassword))
-		encodedStringBase := base64.StdEncoding.EncodeToString(authBytesBase)
-		jsonBytes = []byte(fmt.Sprintf(`{"auths": {"%s": {"auth": "%s"}}, {"%s": {"auth": "%s"}}}`,
-			registry, encodedString, dockerRegistry, encodedStringBase))
-	} else {
-		jsonBytes = []byte(fmt.Sprintf(`{"auths": {"%s": {"auth": "%s"}}}`, registry, encodedString))
+	if baseImageRegistry == v2RegistryURL || baseImageRegistry == v2HubRegistryURL {
+		fmt.Println("Docker v2 registry is not supported in kaniko. Refer issue: https://github.com/GoogleContainerTools/kaniko/issues/1209")
+		fmt.Printf("Using v1 registry instead: %s\n", v1RegistryURL)
+		baseImageRegistry = v1RegistryURL
 	}
 
-	if err := writeDockerCfgFile(jsonBytes); err != nil {
-		return errors.Wrap(err, "failed to write docker config file")
+	dockerConfig := docker.NewConfig()
+	dockerConfig2 := docker.NewConfig()
+	dockerConfig2.SetAuth(registry, username, password)
+
+	//skip setting auth in config if no baseImageRegistry is provided (or public registry is provided) otherwise add auth.
+	if len(baseImageRegistry) != 0 {
+		if err := validateDockerCreds(baseImageUsername, baseImagePassword, baseImageRegistry); err != nil {
+			return nil, nil, errors.Wrap(err, "failed to write docker config file due to invalid credentials for base image registry")
+		}
+		dockerConfig.SetAuth(baseImageRegistry, baseImageUsername, baseImagePassword)
+
 	}
-	return nil
+	return dockerConfig, dockerConfig2, nil
 }
 
-// Write json bytes in the docker config file
-func writeDockerCfgFile(jsonBytes []byte) error {
-	err := os.MkdirAll(dockerPath, 0600)
-	if err != nil {
-		return errors.Wrap(err, fmt.Sprintf("failed to create %s directory", dockerPath))
+func writeDockerConfig(dockerPath, configName string, createDir bool, jsonBytes []byte) error {
+	if createDir {
+		err := os.MkdirAll(dockerPath, 0600)
+		if err != nil {
+			return errors.Wrap(err, fmt.Sprintf("failed to create %s directory", dockerPath))
+		}
 	}
-	err = ioutil.WriteFile(dockerConfigPath, jsonBytes, 0644)
+	filePath := dockerPath + configName
+	err := ioutil.WriteFile(filePath, jsonBytes, 0644)
 	if err != nil {
 		return errors.Wrap(err, "failed to create docker config file")
 	}
