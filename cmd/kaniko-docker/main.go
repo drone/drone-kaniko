@@ -3,8 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"log"
 	"os"
 	"strings"
 
@@ -380,17 +378,14 @@ func run(c *cli.Context) error {
 	username := c.String("username")
 	noPush := c.Bool("no-push")
 	configOverride := c.String("dockerconfig")
-	log.Println("username %s", username)
-	log.Println("noPush %s", noPush)
-	log.Println("configOverride %s", configOverride)
 	// if configOverride is provided, use this for docker auth
 	if len(configOverride) > 0 {
-		if err := writeDockerConfig(dockerPath, "/config.json", true, []byte(configOverride)); err != nil {
+		if err := docker.WriteDockerConfig([]byte(configOverride), dockerPath); err != nil {
 			return err
 		}
 	} else if !noPush || username != "" {
 		// setup auth when pushing or credentials are defined and docker config override is false
-		dockerConfig, dockerConfig2, err := createDockerConfig(
+		dockerConfig, err := createDockerConfig(
 			c.String("username"),
 			c.String("password"),
 			c.String("registry"),
@@ -401,21 +396,11 @@ func run(c *cli.Context) error {
 		if err != nil {
 			return err
 		}
-
 		jsonBytes, err := json.Marshal(dockerConfig)
 		if err != nil {
 			return err
 		}
-		log.Println("Config file for docker1 looks like", dockerConfig)
-		jsonBytes2, err := json.Marshal(dockerConfig2)
-		if err != nil {
-			return err
-		}
-		log.Println("Config file for docker2 looks like", dockerConfig2)
-		if err := writeDockerConfig(dockerPath, "/config.json", true, jsonBytes); err != nil {
-			return err
-		}
-		if err := writeDockerConfig(dockerPath, "/config2.json", false, jsonBytes2); err != nil {
+		if err :=  docker.WriteDockerConfig(jsonBytes, dockerPath); err != nil {
 			return err
 		}
 	}
@@ -515,9 +500,9 @@ func validateDockerCreds(username, password, registry string) error {
 }
 
 // Creates docker config for both the connectors used for authentication
-func createDockerConfig(username, password, registry, baseImageUsername, baseImagePassword, baseImageRegistry string) (*docker.Config, *docker.Config, error) {
+func createDockerConfig(username, password, registry, baseImageUsername, baseImagePassword, baseImageRegistry string) (*docker.Config, error) {
 	if err := validateDockerCreds(username, password, registry); err != nil {
-		return nil, nil, errors.Wrap(err, "failed to write docker config file due to invalid credentials for docker registry")
+		return nil, errors.Wrap(err, "failed to write docker config file due to invalid credentials for docker registry")
 	}
 
 	if registry == v2RegistryURL || registry == v2HubRegistryURL {
@@ -533,33 +518,16 @@ func createDockerConfig(username, password, registry, baseImageUsername, baseIma
 	}
 
 	dockerConfig := docker.NewConfig()
-	dockerConfig2 := docker.NewConfig()
-	dockerConfig2.SetAuth(registry, username, password)
+	dockerConfig.SetAuth(registry, username, password)
 
 	//skip setting auth in config if no baseImageRegistry is provided (or public registry is provided) otherwise add auth.
 	if len(baseImageRegistry) != 0 {
 		if err := validateDockerCreds(baseImageUsername, baseImagePassword, baseImageRegistry); err != nil {
-			return nil, nil, errors.Wrap(err, "failed to write docker config file due to invalid credentials for base image registry")
+			return nil, errors.Wrap(err, "failed to write docker config file due to invalid credentials for base image registry")
 		}
 		dockerConfig.SetAuth(baseImageRegistry, baseImageUsername, baseImagePassword)
-
 	}
-	return dockerConfig, dockerConfig2, nil
-}
-
-func writeDockerConfig(dockerPath, configName string, createDir bool, jsonBytes []byte) error {
-	if createDir {
-		err := os.MkdirAll(dockerPath, 0600)
-		if err != nil {
-			return errors.Wrap(err, fmt.Sprintf("failed to create %s directory", dockerPath))
-		}
-	}
-	filePath := dockerPath + configName
-	err := ioutil.WriteFile(filePath, jsonBytes, 0644)
-	if err != nil {
-		return errors.Wrap(err, "failed to create docker config file")
-	}
-	return nil
+	return dockerConfig, nil
 }
 
 func buildRepo(registry, repo string, expandRepo bool) string {

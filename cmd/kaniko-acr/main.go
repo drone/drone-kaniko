@@ -31,6 +31,9 @@ const (
 	dockerConfigPath   string = "/kaniko/.docker"
 	defaultDigestFile  string = "/kaniko/digest-file"
 	finalUrl           string = "https://portal.azure.com/#view/Microsoft_Azure_ContainerRegistries/TagMetadataBlade/registryId/"
+	v2HubRegistryURL string = "https://registry.hub.docker.com/v2/"
+	v1RegistryURL    string = "https://index.docker.io/v1/" // Default registry
+	v2RegistryURL    string = "https://index.docker.io/v2/" // v2 registry is not supported
 )
 
 var (
@@ -121,6 +124,21 @@ func main() {
 			Name:   "registry",
 			Usage:  "ACR registry",
 			EnvVar: "PLUGIN_REGISTRY",
+		},
+		cli.StringFlag{
+			Name:   "base-image-registry",
+			Usage:  "docker registry for base image connector",
+			EnvVar: "PLUGIN_DOCKER_REGISTRY,DOCKER_REGISTRY",
+		},
+		cli.StringFlag{
+			Name:   "base-image-username",
+			Usage:  "docker username for base image connector",
+			EnvVar: "PLUGIN_DOCKER_USERNAME, DOCKER_USERNAME",
+		},
+		cli.StringFlag{
+			Name:   "base-image-password",
+			Usage:  "docker password for base image connector",
+			EnvVar: "PLUGIN_DOCKER_PASSWORD, DOCKER_PASSWORD",
 		},
 		cli.StringSliceFlag{
 			Name:   "registry-mirrors",
@@ -376,6 +394,9 @@ func run(c *cli.Context) error {
 		c.String("client-secret"),
 		c.String("subscription-id"),
 		registry,
+		c.String("base-image-username"),
+		c.String("base-image-password"),
+		c.String("base-image-registry"),
 		noPush,
 	)
 	if err != nil {
@@ -457,7 +478,7 @@ func run(c *cli.Context) error {
 }
 
 func setupAuth(tenantId, clientId, cert,
-	clientSecret, subscriptionId, registry string, noPush bool) (string, error) {
+	clientSecret, subscriptionId, registry, dockerUsername, dockerPassword, dockerRegistry string, noPush bool) (string, error) {
 	if registry == "" {
 		return "", fmt.Errorf("registry must be specified")
 	}
@@ -474,7 +495,20 @@ func setupAuth(tenantId, clientId, cert,
 		if err != nil {
 			return "", errors.Wrap(err, "failed to fetch ACR Token")
 		}
-		err = docker.CreateDockerCfgFile(username, token, registry, dockerConfigPath)
+
+		dockerConfig, err := createDockerConfig(username, token, registry, dockerUsername, dockerPassword, dockerRegistry)
+		if err != nil {
+			return "", errors.Wrap(err, "failed to create docker config")
+		}
+		jsonBytes, err := json.Marshal(dockerConfig)
+		if err != nil {
+			return "", errors.Wrap(err, "failed to read docker config")
+		}
+
+		if err := docker.WriteDockerConfig(jsonBytes, dockerConfigPath); err != nil {
+			return "", err
+		}
+
 		if err != nil {
 			return "", errors.Wrap(err, "failed to create docker config")
 		}
@@ -647,6 +681,35 @@ func getPublicUrl(token, registryUrl, subscriptionId string) (string, error) {
 	}
 
 	return "", errors.New("did not receive any registry information from /subscriptions API")
+}
+
+func createDockerConfig(username, password, registry, dockerUsername, dockerPassword, dockerRegistry string) (*docker.Config, error) {
+	if username == "" {
+		return nil, fmt.Errorf("Username must be specified")
+	}
+	if password == "" {
+		return nil, fmt.Errorf("Password must be specified")
+	}
+
+	if dockerRegistry == v2RegistryURL || dockerRegistry == v2HubRegistryURL {
+		fmt.Println("Docker v2 registry is not supported in kaniko. Refer issue: https://github.com/GoogleContainerTools/kaniko/issues/1209")
+		fmt.Printf("Using v1 registry instead: %s\n", v1RegistryURL)
+		dockerRegistry = v1RegistryURL
+	}
+
+	dockerConfig := docker.NewConfig()
+	// set docker auth if base image connector added in docker config
+	if dockerRegistry != "" {
+		if dockerUsername == "" || dockerPassword == "" {
+			return nil, fmt.Errorf("Base image connector username/password cannot be empty")
+		}
+		dockerConfig.SetAuth(dockerRegistry, dockerUsername, dockerPassword)
+	}
+
+	// set ACR auth in docker config
+	dockerConfig.SetAuth(registry, username, password)
+
+	return dockerConfig, nil
 }
 
 func encodeParam(s string) string {
