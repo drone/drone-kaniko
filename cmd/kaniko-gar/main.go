@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 
 	"github.com/joho/godotenv"
@@ -20,8 +19,8 @@ import (
 const (
 	// GAR JSON key file path
 	dockerConfigPath string = "/kaniko/.docker/config.json"
-	garKeyPath     string = "/kaniko/config.json"
-	garEnvVariable string = "GOOGLE_APPLICATION_CREDENTIALS"
+	garKeyPath       string = "/kaniko/config.json"
+	garEnvVariable   string = "GOOGLE_APPLICATION_CREDENTIALS"
 
 	defaultDigestFile string = "/kaniko/digest-file"
 )
@@ -344,9 +343,6 @@ func main() {
 func run(c *cli.Context) error {
 	noPush := c.Bool("no-push")
 	jsonKey := c.String("json-key")
-	log.Printf("registry %v", c.String("docker-registry"))
-	log.Printf("username %v", c.String("docker-username"))
-	log.Printf("password %v", c.String("docker-password"))
 
 	dockerConfig, err := createDockerConfig(
 		c.String("docker-registry"),
@@ -362,7 +358,6 @@ func run(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	log.Printf("dockerConfig %v", dockerConfig)
 
 	if err := ioutil.WriteFile(dockerConfigPath, jsonBytes, 0644); err != nil {
 		return err
