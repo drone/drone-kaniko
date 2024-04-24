@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -17,8 +16,8 @@ import (
 )
 
 const (
+	dockerConfigPath string = "/kaniko/.docker"
 	// GAR JSON key file path
-	dockerConfigPath string = "/kaniko/.docker/config.json"
 	garKeyPath       string = "/kaniko/config.json"
 	garEnvVariable   string = "GOOGLE_APPLICATION_CREDENTIALS"
 
@@ -114,17 +113,17 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:   "base-image-username",
-			Usage:  "docker username for base image connector",
+			Usage:  "docker username for base image registry",
 			EnvVar: "PLUGIN_DOCKER_USERNAME,DOCKER_USERNAME",
 		},
 		cli.StringFlag{
 			Name:   "base-image-password",
-			Usage:  "docker password for base image connector",
+			Usage:  "docker password for base image registry",
 			EnvVar: "PLUGIN_DOCKER_PASSWORD,DOCKER_PASSWORD",
 		},
 		cli.StringFlag{
 			Name:   "base-image-registry",
-			Usage:  "docker registry for base image connector",
+			Usage:  "docker registry for base image registry",
 			EnvVar: "PLUGIN_DOCKER_REGISTRY,DOCKER_REGISTRY",
 		},
 		cli.StringSliceFlag{
@@ -343,32 +342,23 @@ func main() {
 func run(c *cli.Context) error {
 	noPush := c.Bool("no-push")
 	jsonKey := c.String("json-key")
-
-	dockerConfig, err := createDockerConfig(
-		c.String("docker-registry"),
-		c.String("docker-username"),
-		c.String("docker-password"),
-	)
-
-	if err != nil {
-		return err
-	}
-
-	jsonBytes, err := json.Marshal(dockerConfig)
-	if err != nil {
-		return err
-	}
-
-	if err := ioutil.WriteFile(dockerConfigPath, jsonBytes, 0644); err != nil {
-		return err
-	}
-
 	// JSON key may not be set in the following cases:
 	// 1. Image does not need to be pushed to GAR.
 	// 2. Workload identity is set on GKE in which pod will inherit the credentials via service account.
 	if jsonKey != "" {
 		if err := setupGARAuth(jsonKey); err != nil {
 			return err
+		}
+
+		// setup docker config only when base image registry is specified
+		if c.String("base-image-registry") != ""{
+			if err := setDockerAuth(
+				c.String("base-image-username"),
+				c.String("base-image-password"),
+				c.String("base-image-registry"),
+			); err != nil {
+				return errors.Wrap(err, "failed to create docker config")
+			}
 		}
 	}
 
@@ -446,17 +436,16 @@ func run(c *cli.Context) error {
 	return plugin.Exec()
 }
 
-func createDockerConfig(dockerRegistry, dockerUsername, dockerPassword string) (*docker.Config, error) {
+func setDockerAuth(dockerUsername, dockerPassword, dockerRegistry string) (error) {
 	dockerConfig := docker.NewConfig()
-
-	if dockerUsername != "" {
-		if len(dockerRegistry) == 0 {
-			dockerRegistry = docker.RegistryV1
-		}
-		dockerConfig.SetAuth(dockerRegistry, dockerUsername, dockerPassword)
+	dockerRegistryCreds := docker.RegistryCredentials{
+		Registry: dockerRegistry,
+		Username: dockerUsername,
+		Password: dockerPassword,
 	}
+	credentials := []docker.RegistryCredentials{dockerRegistryCreds}
 
-	return dockerConfig, nil
+	return dockerConfig.CreateDockerConfig(credentials, dockerConfigPath)
 }
 
 func setupGARAuth(jsonKey string) error {

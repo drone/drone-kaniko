@@ -2,24 +2,56 @@ package main
 
 import (
 	"encoding/base64"
+	"encoding/json"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/drone/drone-kaniko/pkg/docker"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCreateDockerConfigForACR(t *testing.T) {
+const (
+	v2RegistryURL    string = "https://index.docker.io/v2/" // v2 registry is not supported
+)
+
+func TestCreateDockerConfigWithBaseRegistry(t *testing.T) {
 	username := "user1"
 	password := "pass1"
 	registry := "azurecr.io"
 	dockerUsername := "dockeruser"
 	dockerPassword := "dockerpass"
 	dockerRegistry := "https://index.docker.io/v1/"
+	privateRegistry := "privateDockerRegistry"
+	privateRegistryUsername := "priaveUsername"
+	privateRegistryPassword := "privatePassword"
 
-	// Test with valid inputs
-	config, err := createDockerConfig(username, password, registry, dockerUsername, dockerPassword, dockerRegistry)
+	credentials := []docker.RegistryCredentials{
+		{
+			Registry: registry,
+			Username: username,
+			Password: password,
+		},
+		{
+			Registry: dockerRegistry,
+			Username: dockerUsername,
+			Password: dockerPassword,
+		},
+		{
+			Registry: privateRegistry,
+			Username: privateRegistryUsername,
+			Password: privateRegistryPassword,
+		},
+	}
+
+	tempDir, err := ioutil.TempDir("", "docker-config-test")
 	assert.NoError(t, err)
-	assert.NotNil(t, config)
+	defer os.RemoveAll(tempDir)
+
+	config := docker.NewConfig()
+	err = config.CreateDockerConfig(credentials, tempDir)
+	assert.NoError(t, err)
 
 	expectedAuth := docker.Auth{Auth: base64.StdEncoding.EncodeToString([]byte(username + ":" + password))}
 	assert.Equal(t, expectedAuth, config.Auths[registry])
@@ -27,40 +59,113 @@ func TestCreateDockerConfigForACR(t *testing.T) {
 	expectedDockerAuth := docker.Auth{Auth: base64.StdEncoding.EncodeToString([]byte(dockerUsername + ":" + dockerPassword))}
 	assert.Equal(t, expectedDockerAuth, config.Auths[dockerRegistry])
 
-	// Test with empty username
-	_, err = createDockerConfig("", password, registry, dockerUsername, dockerPassword, dockerRegistry)
-	assert.EqualError(t, err, "Username must be specified")
-
-	// Test with empty password
-	_, err = createDockerConfig(username, "", registry, dockerUsername, dockerPassword, dockerRegistry)
-	assert.EqualError(t, err, "Password must be specified")
-
-	// Test with empty docker username and password
-	config, err = createDockerConfig(username, password, registry, "", "", "")
+	configPath := filepath.Join(tempDir, "config.json")
+	data, err := ioutil.ReadFile(configPath)
 	assert.NoError(t, err)
-	assert.NotNil(t, config)
-	_, exists := config.Auths[""]
-	assert.False(t, exists)
+
+	var configFromFile docker.Config
+	err = json.Unmarshal(data, &configFromFile)
+	assert.NoError(t, err)
+
+	assert.Equal(t, config.Auths, configFromFile.Auths)
+
+	err = config.CreateDockerConfig([]docker.RegistryCredentials{
+		{
+			Registry: registry,
+			Username: "",
+			Password: password,
+		},
+	}, tempDir)
+	assert.EqualError(t, err, "Username must be specified for registry: "+registry)
+
+	err = config.CreateDockerConfig([]docker.RegistryCredentials{
+		{
+			Registry: registry,
+			Username: username,
+			Password: "",
+		},
+	}, tempDir)
+	assert.EqualError(t, err, "Password must be specified for registry: "+registry)
+
+	// v1 registry but without username password
+	err = config.CreateDockerConfig([]docker.RegistryCredentials{
+		{
+			Registry: registry,
+			Username: username,
+			Password: password,
+		},
+		{
+			Registry: dockerRegistry,
+			Username: "",
+			Password: "",
+		},
+	}, tempDir)
+	assert.NoError(t, err)
+
+	// v2 registry but without username password
+	err = config.CreateDockerConfig([]docker.RegistryCredentials{
+		{
+			Registry: registry,
+			Username: username,
+			Password: password,
+		},
+		{
+			Registry: v2RegistryURL,
+			Username: "",
+			Password: "",
+		},
+	}, tempDir)
+	assert.NoError(t, err)
+
+	// private base registry without username/password
+	err = config.CreateDockerConfig([]docker.RegistryCredentials{
+		{
+			Registry: privateRegistry,
+			Username: "",
+			Password: "",
+		},
+	}, tempDir)
+	assert.EqualError(t, err, "Username must be specified for registry: "+privateRegistry)
+
 }
 
-func TestSetAuth(t *testing.T) {
-	config := docker.NewConfig()
-
-	// Set auth for a registry
-	registry := "azurecr.io"
+func TestCreateDockerConfigWithoutBaseRegistry(t *testing.T) {
 	username := "user1"
 	password := "pass1"
-	config.SetAuth(registry, username, password)
+	registry := "azurecr.io"
+
+	credentials := []docker.RegistryCredentials{
+		{
+			Registry: registry,
+			Username: username,
+			Password: password,
+		},
+	}
+
+	// Create a temporary directory
+	tempDir, err := ioutil.TempDir("", "docker-config-test")
+	assert.NoError(t, err)
+	defer os.RemoveAll(tempDir)
+
+	config := docker.NewConfig()
+	err = config.CreateDockerConfig(credentials, tempDir)
+	assert.NoError(t, err)
 
 	expectedAuth := docker.Auth{Auth: base64.StdEncoding.EncodeToString([]byte(username + ":" + password))}
 	assert.Equal(t, expectedAuth, config.Auths[registry])
 
-	registry2 := "gcr.io"
-	username2 := "user2"
-	password2 := "pass2"
-	config.SetAuth(registry2, username2, password2)
+	// Check the contents of the config.json file
+	configPath := filepath.Join(tempDir, "config.json")
+	data, err := ioutil.ReadFile(configPath)
+	assert.NoError(t, err)
 
-	assert.Equal(t, expectedAuth, config.Auths[registry])
-	expectedAuth2 := docker.Auth{Auth: base64.StdEncoding.EncodeToString([]byte(username2 + ":" + password2))}
-	assert.Equal(t, expectedAuth2, config.Auths[registry2])
+	var configFromFile docker.Config
+	err = json.Unmarshal(data, &configFromFile)
+	assert.NoError(t, err)
+
+	assert.Equal(t, config.Auths, configFromFile.Auths)
+
+	// Check if the public Docker Hub auth is not set
+	_, exists := config.Auths[""]
+	assert.False(t, exists)
 }

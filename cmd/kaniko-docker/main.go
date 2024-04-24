@@ -1,8 +1,6 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
 	"os"
 	"strings"
 
@@ -21,9 +19,7 @@ const (
 	dockerPath       string = "/kaniko/.docker"
 	dockerConfigPath string = "/kaniko/.docker/config.json"
 
-	v1RegistryURL    string = "https://index.docker.io/v1/" // Default registry
-	v2RegistryURL    string = "https://index.docker.io/v2/" // v2 registry is not supported
-	v2HubRegistryURL string = "https://registry.hub.docker.com/v2/"
+	v1RegistryURL string = "https://index.docker.io/v1/" // Default registry
 
 	defaultDigestFile string = "/kaniko/digest-file"
 )
@@ -128,7 +124,7 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:   "base-image-registry",
-			Usage:  "docker registry for base image connector",
+			Usage:  "docker registry for base image registry",
 			EnvVar: "PLUGIN_DOCKER_REGISTRY,DOCKER_REGISTRY",
 		},
 		cli.StringSliceFlag{
@@ -143,8 +139,8 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:   "base-image-username",
-			Usage:  "docker username for base image connector",
-			EnvVar: "PLUGIN_DOCKER_USERNAME, DOCKER_USERNAME",
+			Usage:  "docker username for base image registry",
+			EnvVar: "PLUGIN_DOCKER_USERNAME,DOCKER_USERNAME",
 		},
 		cli.StringFlag{
 			Name:   "password",
@@ -153,8 +149,8 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:   "base-image-password",
-			Usage:  "docker password for base image connector",
-			EnvVar: "PLUGIN_DOCKER_PASSWORD, DOCKER_PASSWORD",
+			Usage:  "docker password for base image registry",
+			EnvVar: "PLUGIN_DOCKER_PASSWORD,DOCKER_PASSWORD",
 		},
 		cli.BoolFlag{
 			Name:   "skip-tls-verify",
@@ -378,14 +374,14 @@ func run(c *cli.Context) error {
 	username := c.String("username")
 	noPush := c.Bool("no-push")
 	configOverride := c.String("dockerconfig")
-	// if configOverride is provided, use this for docker auth
+	// if configOverride is provided, use this directly to write to docker config file
 	if len(configOverride) > 0 {
 		if err := docker.WriteDockerConfig([]byte(configOverride), dockerPath); err != nil {
 			return err
 		}
 	} else if !noPush || username != "" {
-		// setup auth when pushing or credentials are defined and docker config override is false
-		dockerConfig, err := createDockerConfig(
+		// setup auth when pushing/pulling or credentials are defined and docker config override is false
+		err := setDockerAuth(
 			c.String("username"),
 			c.String("password"),
 			c.String("registry"),
@@ -394,14 +390,7 @@ func run(c *cli.Context) error {
 			c.String("base-image-registry"),
 		)
 		if err != nil {
-			return err
-		}
-		jsonBytes, err := json.Marshal(dockerConfig)
-		if err != nil {
-			return err
-		}
-		if err :=  docker.WriteDockerConfig(jsonBytes, dockerPath); err != nil {
-			return err
+			return errors.Wrap(err, "failed to create docker config")
 		}
 	}
 
@@ -485,49 +474,25 @@ func run(c *cli.Context) error {
 	return plugin.Exec()
 }
 
-// validate the docker credentials for given registry
-func validateDockerCreds(username, password, registry string) error {
-	if username == "" {
-		return fmt.Errorf("Username must be specified")
-	}
-	if password == "" {
-		return fmt.Errorf("Password must be specified")
-	}
-	if registry == "" {
-		return fmt.Errorf("Registry must be specified")
-	}
-	return nil
-}
-
-// Creates docker config for both the connectors used for authentication
-func createDockerConfig(username, password, registry, baseImageUsername, baseImagePassword, baseImageRegistry string) (*docker.Config, error) {
-	if err := validateDockerCreds(username, password, registry); err != nil {
-		return nil, errors.Wrap(err, "failed to write docker config file due to invalid credentials for docker registry")
-	}
-
-	if registry == v2RegistryURL || registry == v2HubRegistryURL {
-		fmt.Println("Docker v2 registry is not supported in kaniko. Refer issue: https://github.com/GoogleContainerTools/kaniko/issues/1209")
-		fmt.Printf("Using v1 registry instead: %s\n", v1RegistryURL)
-		registry = v1RegistryURL
-	}
-
-	if baseImageRegistry == v2RegistryURL || baseImageRegistry == v2HubRegistryURL {
-		fmt.Println("Docker v2 registry is not supported in kaniko. Refer issue: https://github.com/GoogleContainerTools/kaniko/issues/1209")
-		fmt.Printf("Using v1 registry instead: %s\n", v1RegistryURL)
-		baseImageRegistry = v1RegistryURL
-	}
-
+func setDockerAuth(username, password, registry, baseImageUsername, baseImagePassword, baseImageRegistry string) error {
 	dockerConfig := docker.NewConfig()
-	dockerConfig.SetAuth(registry, username, password)
-
-	//skip setting auth in config if no baseImageRegistry is provided (or public registry is provided) otherwise add auth.
-	if len(baseImageRegistry) != 0 {
-		if err := validateDockerCreds(baseImageUsername, baseImagePassword, baseImageRegistry); err != nil {
-			return nil, errors.Wrap(err, "failed to write docker config file due to invalid credentials for base image registry")
-		}
-		dockerConfig.SetAuth(baseImageRegistry, baseImageUsername, baseImagePassword)
+	pushToRegistryCreds := docker.RegistryCredentials{
+		Registry: registry,
+		Username: username,
+		Password: password,
 	}
-	return dockerConfig, nil
+	credentials := []docker.RegistryCredentials{pushToRegistryCreds}
+
+	if baseImageRegistry != "" {
+		pullFromRegistryCreds := docker.RegistryCredentials{
+			Registry: baseImageRegistry,
+			Username: baseImageUsername,
+			Password: baseImagePassword,
+		}
+		credentials = append(credentials, pullFromRegistryCreds)
+	}
+	// Creates docker config for both the regustries used for authentication
+	return dockerConfig.CreateDockerConfig(credentials, dockerPath)
 }
 
 func buildRepo(registry, repo string, expandRepo bool) string {
