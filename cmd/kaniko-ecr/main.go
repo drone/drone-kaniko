@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -32,8 +31,8 @@ import (
 
 const (
 	accessKeyEnv     string = "AWS_ACCESS_KEY_ID"
+	dockerConfigPath string = "/kaniko/.docker"
 	secretKeyEnv     string = "AWS_SECRET_ACCESS_KEY"
-	dockerConfigPath string = "/kaniko/.docker/config.json"
 	ecrPublicDomain  string = "public.ecr.aws"
 	kanikoVersionEnv string = "KANIKO_VERSION"
 
@@ -67,18 +66,18 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:   "docker-registry",
-			Usage:  "docker registry",
+			Usage:  "docker registry for base image registry",
 			EnvVar: "PLUGIN_DOCKER_REGISTRY,DOCKER_REGISTRY",
 		},
 		cli.StringFlag{
 			Name:   "docker-username",
-			Usage:  "docker username",
-			EnvVar: "PLUGIN_USERNAME,DOCKER_USERNAME",
+			Usage:  "docker username for base image registry",
+			EnvVar: "PLUGIN_USERNAME,PLUGIN_DOCKER_USERNAME,DOCKER_USERNAME",
 		},
 		cli.StringFlag{
 			Name:   "docker-password",
 			Usage:  "docker password",
-			EnvVar: "PLUGIN_PASSWORD,DOCKER_PASSWORD",
+			EnvVar: "PLUGIN_PASSWORD,PLUGIN_DOCKER_PASSWORD,DOCKER_PASSWORD",
 		},
 		cli.StringFlag{
 			Name:   "context",
@@ -400,7 +399,8 @@ func run(c *cli.Context) error {
 	assumeRole := c.String("assume-role")
 	externalId := c.String("external-id")
 
-	dockerConfig, err := createDockerConfig(
+	// setup docker config for azure registry and base image docker registry
+	err := setDockerAuth(
 		c.String("docker-registry"),
 		c.String("docker-username"),
 		c.String("docker-password"),
@@ -413,16 +413,7 @@ func run(c *cli.Context) error {
 		noPush,
 	)
 	if err != nil {
-		return err
-	}
-
-	jsonBytes, err := json.Marshal(dockerConfig)
-	if err != nil {
-		return err
-	}
-
-	if err := ioutil.WriteFile(dockerConfigPath, jsonBytes, 0644); err != nil {
-		return err
+		return errors.Wrap(err, "failed to create docker config")
 	}
 
 	// only create repository when pushing and create-repository is true
@@ -526,41 +517,49 @@ func run(c *cli.Context) error {
 	return plugin.Exec()
 }
 
-func createDockerConfig(dockerRegistry, dockerUsername, dockerPassword, accessKey, secretKey,
-	registry, assumeRole, externalId, region string, noPush bool) (*docker.Config, error) {
+func setDockerAuth(dockerRegistry, dockerUsername, dockerPassword, accessKey, secretKey,
+	registry, assumeRole, externalId, region string, noPush bool) error {
 	dockerConfig := docker.NewConfig()
-
-	if dockerUsername != "" {
-		// if no docker registry provided, use dockerhub by default
-		if len(dockerRegistry) == 0 {
-			dockerRegistry = docker.RegistryV1
+	credentials := []docker.RegistryCredentials{}
+	// set docker credentials for base image registry
+	if dockerRegistry != "" {
+		pullFromRegistryCreds := docker.RegistryCredentials{
+			Registry: dockerRegistry,
+			Username: dockerUsername,
+			Password: dockerPassword,
 		}
-		dockerConfig.SetAuth(dockerRegistry, dockerUsername, dockerPassword)
+		credentials = append(credentials, pullFromRegistryCreds)
 	}
 
 	if assumeRole != "" {
 		var err error
 		username, password, registry, err := getAssumeRoleCreds(region, assumeRole, externalId, "")
 		if err != nil {
-			return nil, err
+			return err
 		}
-		dockerConfig.SetAuth(registry, username, password)
+		pushToRegistryCreds := docker.RegistryCredentials{
+			Registry: registry,
+			Username: username,
+			Password: password,
+		}
+		credentials = append(credentials, pushToRegistryCreds)
+
 	} else if !noPush || accessKey != "" {
 		// only setup auth when pushing or credentials are defined
 		if registry == "" {
-			return nil, fmt.Errorf("registry must be specified")
+			return fmt.Errorf("registry must be specified")
 		}
 
 		// If IAM role is used, access key & secret key are not required
 		if accessKey != "" && secretKey != "" {
 			err := os.Setenv(accessKeyEnv, accessKey)
 			if err != nil {
-				return nil, errors.Wrap(err, fmt.Sprintf("failed to set %s environment variable", accessKeyEnv))
+				return errors.Wrap(err, fmt.Sprintf("failed to set %s environment variable", accessKeyEnv))
 			}
 
 			err = os.Setenv(secretKeyEnv, secretKey)
 			if err != nil {
-				return nil, errors.Wrap(err, fmt.Sprintf("failed to set %s environment variable", secretKeyEnv))
+				return errors.Wrap(err, fmt.Sprintf("failed to set %s environment variable", secretKeyEnv))
 			}
 		}
 
@@ -571,8 +570,7 @@ func createDockerConfig(dockerRegistry, dockerUsername, dockerPassword, accessKe
 			dockerConfig.SetCredHelper(registry, "ecr-login")
 		}
 	}
-
-	return dockerConfig, nil
+	return dockerConfig.CreateDockerConfig(credentials, dockerConfigPath)
 }
 
 func createRepository(region, repo, registry, assumeRole, externalId string) error {

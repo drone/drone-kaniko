@@ -12,12 +12,14 @@ import (
 
 	kaniko "github.com/drone/drone-kaniko"
 	"github.com/drone/drone-kaniko/pkg/artifact"
+	"github.com/drone/drone-kaniko/pkg/docker"
 )
 
 const (
+	dockerConfigPath string = "/kaniko/.docker"
 	// GCR JSON key file path
-	gcrKeyPath     string = "/kaniko/config.json"
-	gcrEnvVariable string = "GOOGLE_APPLICATION_CREDENTIALS"
+	gcrKeyPath       string = "/kaniko/config.json"
+	gcrEnvVariable   string = "GOOGLE_APPLICATION_CREDENTIALS"
 
 	defaultDigestFile string = "/kaniko/digest-file"
 )
@@ -108,7 +110,22 @@ func main() {
 			Name:   "registry",
 			Usage:  "gcr registry",
 			Value:  "gcr.io",
-			EnvVar: "PLUGIN_REGISTRY",
+			EnvVar: "PLUGIN_REGISTRY,BASE_REGISTRY",
+		},
+		cli.StringFlag{
+			Name:   "base-image-username",
+			Usage:  "docker username for base image registry",
+			EnvVar: "PLUGIN_DOCKER_USERNAME,DOCKER_USERNAME",
+		},
+		cli.StringFlag{
+			Name:   "base-image-password",
+			Usage:  "docker password for base image registry",
+			EnvVar: "PLUGIN_DOCKER_PASSWORD,DOCKER_PASSWORD",
+		},
+		cli.StringFlag{
+			Name:   "base-image-registry",
+			Usage:  "docker registry for base image registry",
+			EnvVar: "PLUGIN_DOCKER_REGISTRY,DOCKER_REGISTRY",
 		},
 		cli.StringSliceFlag{
 			Name:   "registry-mirrors",
@@ -334,6 +351,17 @@ func run(c *cli.Context) error {
 		if err := setupGCRAuth(jsonKey); err != nil {
 			return err
 		}
+
+		// setup docker config only when base image registry is specified
+		if c.String("base-image-registry") != ""{
+			if err := setDockerAuth(
+				c.String("base-image-username"),
+				c.String("base-image-password"),
+				c.String("base-image-registry"),
+			); err != nil {
+				return errors.Wrap(err, "failed to create docker config")
+			}
+		}
 	}
 
 	plugin := kaniko.Plugin{
@@ -408,6 +436,17 @@ func run(c *cli.Context) error {
 		plugin.Build.IgnoreVarRun = &flag
 	}
 	return plugin.Exec()
+}
+
+func setDockerAuth(dockerUsername, dockerPassword, dockerRegistry string) (error) {
+	dockerConfig := docker.NewConfig()
+	dockerRegistryCreds := docker.RegistryCredentials{
+		Registry: dockerRegistry,
+		Username: dockerUsername,
+		Password: dockerPassword,
+	}
+	credentials := []docker.RegistryCredentials{dockerRegistryCreds}
+	return dockerConfig.CreateDockerConfig(credentials, dockerConfigPath)
 }
 
 func setupGCRAuth(jsonKey string) error {

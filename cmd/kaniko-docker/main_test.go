@@ -35,3 +35,61 @@ func Test_buildRepo(t *testing.T) {
 		})
 	}
 }
+
+func TestCreateDockerConfigFromGivenRegistry(t *testing.T) {
+	tests := []struct {
+		name           string
+		username       string
+		password       string
+		registry       string
+		dockerUsername string
+		dockerPassword string
+		dockerRegistry string
+		wantErr        bool
+	}{
+		{
+			name:     "valid credentials",
+			username: "testuser",
+			password: "testpassword",
+			registry: "https://index.docker.io/v1/",
+			wantErr:  false,
+		},
+		{
+			name:     "v2 registry",
+			username: "testuser",
+			password: "testpassword",
+			registry: "https://index.docker.io/v2/",
+			wantErr:  false,
+		},
+		{
+			name:           "docker registry credentials",
+			username:       "testuser",
+			password:       "testpassword",
+			registry:       "https://index.docker.io/v1/",
+			dockerUsername: "dockeruser",
+			dockerPassword: "dockerpassword",
+			dockerRegistry: "https://docker.io",
+			wantErr:        false,
+		},
+		{
+			name:           "empty docker registry",
+			username:       "testuser",
+			password:       "testpassword",
+			registry:       "https://index.docker.io/v1/",
+			dockerUsername: "dockeruser",
+			dockerPassword: "",
+			dockerRegistry: "https://docker.io",
+			wantErr:        false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := createDockerConfig(tt.username, tt.password, tt.registry, tt.dockerUsername, tt.dockerPassword, tt.dockerRegistry)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("createDockerConfig() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+		})
+	}
+}
