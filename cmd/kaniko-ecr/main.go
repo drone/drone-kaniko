@@ -72,12 +72,12 @@ func main() {
 		cli.StringFlag{
 			Name:   "docker-username",
 			Usage:  "Docker username for base image registry",
-			EnvVar: "PLUGIN_USERNAME,PLUGIN_BASE_IMAGE_USERNAME,DOCKER_USERNAME",
+			EnvVar: "PLUGIN_USERNAME,PLUGIN_DOCKER_USERNAME,PLUGIN_BASE_IMAGE_USERNAME,DOCKER_USERNAME",
 		},
 		cli.StringFlag{
 			Name:   "docker-password",
 			Usage:  "Docker password for base image registry",
-			EnvVar: "PLUGIN_PASSWORD,PLUGIN_BASE_IMAGE_PASSWORD,DOCKER_PASSWORD",
+			EnvVar: "PLUGIN_PASSWORD,PLUGIN_DOCKER_PASSWORD,PLUGIN_BASE_IMAGE_PASSWORD,DOCKER_PASSWORD",
 		},
 		cli.StringFlag{
 			Name:   "context",
