@@ -124,8 +124,8 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:   "base-image-registry",
-			Usage:  "docker registry for base image registry",
-			EnvVar: "PLUGIN_DOCKER_REGISTRY,DOCKER_REGISTRY",
+			Usage:  "Docker registry for base image",
+			EnvVar: "PLUGIN_BASE_IMAGE_REGISTRY,DOCKER_REGISTRY",
 		},
 		cli.StringSliceFlag{
 			Name:   "registry-mirrors",
@@ -139,8 +139,8 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:   "base-image-username",
-			Usage:  "docker username for base image registry",
-			EnvVar: "PLUGIN_DOCKER_USERNAME,DOCKER_USERNAME",
+			Usage:  "Docker username for base image registry",
+			EnvVar: "PLUGIN_BASE_IMAGE_USERNAME,DOCKER_USERNAME",
 		},
 		cli.StringFlag{
 			Name:   "password",
@@ -149,8 +149,8 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:   "base-image-password",
-			Usage:  "docker password for base image registry",
-			EnvVar: "PLUGIN_DOCKER_PASSWORD,DOCKER_PASSWORD",
+			Usage:  "Docker password for base image registry",
+			EnvVar: "PLUGIN_BASE_IMAGE_PASSWORD,DOCKER_PASSWORD",
 		},
 		cli.BoolFlag{
 			Name:   "skip-tls-verify",
