@@ -124,17 +124,17 @@ func main() {
 		cli.StringFlag{
 			Name:   "base-image-registry",
 			Usage:  "Docker registry for base image",
-			EnvVar: "PLUGIN_BASE_IMAGE_REGISTRY,DOCKER_REGISTRY",
+			EnvVar: "PLUGIN_DOCKER_REGISTRY,PLUGIN_BASE_IMAGE_REGISTRY,DOCKER_REGISTRY",
 		},
 		cli.StringFlag{
 			Name:   "base-image-username",
 			Usage:  "Docker username for base image registry",
-			EnvVar: "PLUGIN_BASE_IMAGE_USERNAME,DOCKER_USERNAME",
+			EnvVar: "PLUGIN_DOCKER_USERNAME,PLUGIN_BASE_IMAGE_USERNAME,DOCKER_USERNAME",
 		},
 		cli.StringFlag{
 			Name:   "base-image-password",
 			Usage:  "Docker password for base image registry",
-			EnvVar: "PLUGIN_BASE_IMAGE_PASSWORD,DOCKER_PASSWORD",
+			EnvVar: "PLUGIN_DOCKER_PASSWORD,PLUGIN_BASE_IMAGE_PASSWORD,DOCKER_PASSWORD",
 		},
 		cli.StringSliceFlag{
 			Name:   "registry-mirrors",
