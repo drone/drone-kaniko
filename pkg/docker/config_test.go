@@ -53,20 +53,3 @@ func TestConfig(t *testing.T) {
 	assert.Equal(t, c.Auths, configFromFile.Auths)
 	assert.Equal(t, c.CredHelpers, configFromFile.CredHelpers)
 }
-
-func TestWriteDockerConfig(t *testing.T) {
-	tempDir, err := ioutil.TempDir("", "docker-config-test")
-	assert.NoError(t, err)
-	defer os.RemoveAll(tempDir)
-
-	data := []byte(`{"auths":{"https://index.docker.io/v1/":{"auth":"dGVzdDpwYXNzd29yZA=="}}}`)
-	err = WriteDockerConfig(data, tempDir)
-	assert.NoError(t, err)
-
-	configPath := filepath.Join(tempDir, "config.json")
-	_, err = os.Stat(configPath)
-	assert.NoError(t, err)
-
-	err = WriteDockerConfig(data, "/invalid/path")
-	assert.Error(t, err)
-}

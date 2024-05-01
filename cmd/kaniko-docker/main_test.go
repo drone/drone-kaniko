@@ -1,6 +1,12 @@
 package main
 
-import "testing"
+import (
+	"io/ioutil"
+	"os"
+	"testing"
+
+	"github.com/drone/drone-kaniko/pkg/docker"
+)
 
 func Test_buildRepo(t *testing.T) {
 	tests := []struct {
@@ -36,58 +42,80 @@ func Test_buildRepo(t *testing.T) {
 	}
 }
 
-func TestCreateDockerConfigFromGivenRegistry(t *testing.T) {
+func TestCreateDockerConfig(t *testing.T) {
+	config := docker.NewConfig()
+	tempDir, err := ioutil.TempDir("", "docker-config-test")
+	if err != nil {
+		t.Fatalf("Failed to create temporary directory: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
 	tests := []struct {
-		name           string
-		username       string
-		password       string
-		registry       string
-		dockerUsername string
-		dockerPassword string
-		dockerRegistry string
-		wantErr        bool
+		name        string
+		credentials []docker.RegistryCredentials
+		wantErr     bool
 	}{
 		{
-			name:     "valid credentials",
-			username: "testuser",
-			password: "testpassword",
-			registry: "https://index.docker.io/v1/",
-			wantErr:  false,
+			name: "valid credentials",
+			credentials: []docker.RegistryCredentials{
+				{
+					Registry: "https://index.docker.io/v1/",
+					Username: "testuser",
+					Password: "testpassword",
+				},
+			},
+			wantErr: false,
 		},
 		{
-			name:     "v2 registry",
-			username: "testuser",
-			password: "testpassword",
-			registry: "https://index.docker.io/v2/",
-			wantErr:  false,
+			name: "v2 registry",
+			credentials: []docker.RegistryCredentials{
+				{
+					Registry: "https://index.docker.io/v2/",
+					Username: "testuser",
+					Password: "testpassword",
+				},
+			},
+			wantErr: false,
 		},
 		{
-			name:           "docker registry credentials",
-			username:       "testuser",
-			password:       "testpassword",
-			registry:       "https://index.docker.io/v1/",
-			dockerUsername: "dockeruser",
-			dockerPassword: "dockerpassword",
-			dockerRegistry: "https://docker.io",
-			wantErr:        false,
+			name: "docker registry credentials",
+			credentials: []docker.RegistryCredentials{
+				{
+					Registry: "https://index.docker.io/v1/",
+					Username: "testuser",
+					Password: "testpassword",
+				},
+				{
+					Registry: "https://docker.io",
+					Username: "dockeruser",
+					Password: "dockerpassword",
+				},
+			},
+			wantErr: false,
 		},
 		{
-			name:           "empty docker registry",
-			username:       "testuser",
-			password:       "testpassword",
-			registry:       "https://index.docker.io/v1/",
-			dockerUsername: "dockeruser",
-			dockerPassword: "",
-			dockerRegistry: "https://docker.io",
-			wantErr:        false,
+			name: "empty docker registry",
+			credentials: []docker.RegistryCredentials{
+				{
+					Registry: "https://index.docker.io/v1/",
+					Username: "testuser",
+					Password: "testpassword",
+				},
+				{
+					Registry: "https://docker.io",
+					Username: "dockeruser",
+					Password: "",
+				},
+			},
+			wantErr: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := createDockerConfig(tt.username, tt.password, tt.registry, tt.dockerUsername, tt.dockerPassword, tt.dockerRegistry)
+			err := config.CreateDockerConfig(tt.credentials, tempDir)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("createDockerConfig() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("CreateDockerConfig() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 		})
