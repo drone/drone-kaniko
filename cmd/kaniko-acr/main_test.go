@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	v2RegistryURL    string = "https://index.docker.io/v2/" // v2 registry is not supported
+	v2RegistryURL string = "https://index.docker.io/v2/" // v2 registry is not supported
 )
 
 func TestCreateDockerConfigWithBaseRegistry(t *testing.T) {
@@ -100,22 +100,7 @@ func TestCreateDockerConfigWithBaseRegistry(t *testing.T) {
 			Password: "",
 		},
 	}, tempDir)
-	assert.NoError(t, err)
-
-	// v2 registry but without username password
-	err = config.CreateDockerConfig([]docker.RegistryCredentials{
-		{
-			Registry: registry,
-			Username: username,
-			Password: password,
-		},
-		{
-			Registry: v2RegistryURL,
-			Username: "",
-			Password: "",
-		},
-	}, tempDir)
-	assert.NoError(t, err)
+	assert.EqualError(t, err, "Username must be specified for registry: "+dockerRegistry)
 
 	// private base registry without username/password
 	err = config.CreateDockerConfig([]docker.RegistryCredentials{
