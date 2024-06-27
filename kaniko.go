@@ -222,7 +222,7 @@ func (p Plugin) Exec() error {
 	}
 
 	if p.Build.SnapshotMode != "" {
-		cmdArgs = append(cmdArgs, fmt.Sprintf("--snapshotMode=%s", p.Build.SnapshotMode))
+		cmdArgs = append(cmdArgs, fmt.Sprintf("--snapshot-mode=%s", p.Build.SnapshotMode))
 	}
 
 	if p.Build.EnableCache {
