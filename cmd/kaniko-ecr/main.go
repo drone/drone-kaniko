@@ -542,22 +542,17 @@ func setDockerAuth(dockerRegistry, dockerUsername, dockerPassword, accessKey, se
 	}
 
 	if assumeRole != "" && oidcToken != "" {
-		oidcAccessKey, oidcSecretKey, oidcSessionKey, err := getOidcCreds(oidcToken, assumeRole)
-		if err != nil {
-			return err
-		}
-		err = os.Setenv(accessKeyEnv, oidcAccessKey)
-		if err != nil {
-			return errors.Wrap(err, fmt.Sprintf("failed to set %s environment variable", accessKeyEnv))
-		}
-		err = os.Setenv(secretKey, oidcSecretKey)
-		if err != nil {
-			return errors.Wrap(err, fmt.Sprintf("failed to set %s environment variable", secretKey))
-		}
+		oidcAccessKey, oidcSecretKey, oidcSessionKey := getOidcCreds(oidcToken, assumeRole)
 
-		err = os.Setenv(sessionKeyEnv, oidcSessionKey)
-		if err != nil {
-			return errors.Wrap(err, fmt.Sprintf("failed to set %s environment variable", sessionKeyEnv))
+		_ = os.Setenv(accessKeyEnv, oidcAccessKey)
+		_ = os.Setenv(secretKeyEnv, oidcSecretKey)
+		_ = os.Setenv(sessionKeyEnv, oidcSessionKey)
+
+		// kaniko-executor >=1.8.0 does not require additional cred helper logic for ECR,
+		// as it discovers ECR repositories automatically and acts accordingly.
+		if isKanikoVersionBelowOneDotEight(os.Getenv(kanikoVersionEnv)) {
+			dockerConfig.SetCredHelper(ecrPublicDomain, "ecr-login")
+			dockerConfig.SetCredHelper(registry, "ecr-login")
 		}
 
 	} else if assumeRole != "" {
@@ -801,12 +796,9 @@ func isKanikoVersionBelowOneDotEight(v string) bool {
 	return currVer.LessThan(oneEightVer)
 }
 
-func getOidcCreds(oidcToken, assumeRole string) (string, string, string, error) {
+func getOidcCreds(oidcToken, assumeRole string) (string, string, string) {
 	// Create a new session
-	sess, err := session.NewSession()
-	if err != nil {
-		return "", "", "", fmt.Errorf("failed to create AWS session: %w", err)
-	}
+	sess, _ := session.NewSession()
 
 	// Create a new STS client
 	svc := sts.New(sess)
@@ -821,16 +813,8 @@ func getOidcCreds(oidcToken, assumeRole string) (string, string, string, error) 
 	}
 
 	// Call the AssumeRoleWithWebIdentity function
-	result, err := svc.AssumeRoleWithWebIdentity(input)
-	if err != nil {
-		return "", "", "", fmt.Errorf("failed to assume role with web identity: %w", err)
-	}
-
-	// Check if Credentials is nil
-	if result.Credentials == nil {
-		return "", "", "", fmt.Errorf("credentials returned nil from AssumeRoleWithWebIdentity")
-	}
+	result, _ := svc.AssumeRoleWithWebIdentity(input)
 
 	// Return the credentials
-	return *result.Credentials.AccessKeyId, *result.Credentials.SecretAccessKey, *result.Credentials.SessionToken, nil
+	return *result.Credentials.AccessKeyId, *result.Credentials.SecretAccessKey, *result.Credentials.SessionToken
 }
