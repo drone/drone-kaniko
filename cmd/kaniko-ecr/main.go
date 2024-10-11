@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -17,6 +18,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	ecrv1 "github.com/aws/aws-sdk-go/service/ecr"
 	ecrpublicv1 "github.com/aws/aws-sdk-go/service/ecrpublic"
+	"github.com/aws/aws-sdk-go/service/sts"
 	"github.com/aws/smithy-go"
 	"github.com/hashicorp/go-version"
 	"github.com/joho/godotenv"
@@ -33,6 +35,7 @@ const (
 	accessKeyEnv     string = "AWS_ACCESS_KEY_ID"
 	dockerConfigPath string = "/kaniko/.docker"
 	secretKeyEnv     string = "AWS_SECRET_ACCESS_KEY"
+	sessionKeyEnv    string = "AWS_SESSION_TOKEN"
 	ecrPublicDomain  string = "public.ecr.aws"
 	kanikoVersionEnv string = "KANIKO_VERSION"
 
@@ -384,6 +387,11 @@ func main() {
 			Usage:  "Number of retries for downloading base images.",
 			EnvVar: "PLUGIN_IMAGE_DOWNLOAD_RETRY",
 		},
+		cli.StringFlag{
+			Name:   "oidc-token-id",
+			Usage:  "OIDC token for assuming role via web identity",
+			EnvVar: "PLUGIN_OIDC_TOKEN_ID",
+		},
 	}
 
 	if err := app.Run(os.Args); err != nil {
@@ -398,6 +406,7 @@ func run(c *cli.Context) error {
 	noPush := c.Bool("no-push")
 	assumeRole := c.String("assume-role")
 	externalId := c.String("external-id")
+	oidcToken := c.String("oidc-token-id")
 
 	// setup docker config for azure registry and base image docker registry
 	err := setDockerAuth(
@@ -411,6 +420,7 @@ func run(c *cli.Context) error {
 		externalId,
 		region,
 		noPush,
+		oidcToken,
 	)
 	if err != nil {
 		return errors.Wrap(err, "failed to create docker config")
@@ -518,7 +528,7 @@ func run(c *cli.Context) error {
 }
 
 func setDockerAuth(dockerRegistry, dockerUsername, dockerPassword, accessKey, secretKey,
-	registry, assumeRole, externalId, region string, noPush bool) error {
+	registry, assumeRole, externalId, region string, noPush bool, oidcToken string) error {
 	dockerConfig := docker.NewConfig()
 	credentials := []docker.RegistryCredentials{}
 	// set docker credentials for base image registry
@@ -531,7 +541,26 @@ func setDockerAuth(dockerRegistry, dockerUsername, dockerPassword, accessKey, se
 		credentials = append(credentials, pullFromRegistryCreds)
 	}
 
-	if assumeRole != "" {
+	if assumeRole != "" && oidcToken != "" {
+		oidcAccessKey, oidcSecretKey, oidcSessionKey, err := getOidcCreds(oidcToken, assumeRole)
+		if err != nil {
+			return err
+		}
+		err = os.Setenv(accessKeyEnv, oidcAccessKey)
+		if err != nil {
+			return errors.Wrap(err, fmt.Sprintf("failed to set %s environment variable", accessKeyEnv))
+		}
+		err = os.Setenv(secretKey, oidcSecretKey)
+		if err != nil {
+			return errors.Wrap(err, fmt.Sprintf("failed to set %s environment variable", secretKey))
+		}
+
+		err = os.Setenv(sessionKeyEnv, oidcSessionKey)
+		if err != nil {
+			return errors.Wrap(err, fmt.Sprintf("failed to set %s environment variable", sessionKeyEnv))
+		}
+
+	} else if assumeRole != "" {
 		var err error
 		username, password, registry, err := getAssumeRoleCreds(region, assumeRole, externalId, "")
 		if err != nil {
@@ -770,4 +799,38 @@ func isKanikoVersionBelowOneDotEight(v string) bool {
 	}
 
 	return currVer.LessThan(oneEightVer)
+}
+
+func getOidcCreds(oidcToken, assumeRole string) (string, string, string, error) {
+	// Create a new session
+	sess, err := session.NewSession()
+	if err != nil {
+		return "", "", "", fmt.Errorf("failed to create AWS session: %w", err)
+	}
+
+	// Create a new STS client
+	svc := sts.New(sess)
+
+	// Prepare the input parameters for the STS call
+	duration := int64(time.Hour / time.Second)
+	input := &sts.AssumeRoleWithWebIdentityInput{
+		RoleArn:          aws.String(assumeRole),
+		RoleSessionName:  aws.String("kaniko-ecr-oidc"),
+		WebIdentityToken: aws.String(oidcToken),
+		DurationSeconds:  aws.Int64(duration),
+	}
+
+	// Call the AssumeRoleWithWebIdentity function
+	result, err := svc.AssumeRoleWithWebIdentity(input)
+	if err != nil {
+		return "", "", "", fmt.Errorf("failed to assume role with web identity: %w", err)
+	}
+
+	// Check if Credentials is nil
+	if result.Credentials == nil {
+		return "", "", "", fmt.Errorf("credentials returned nil from AssumeRoleWithWebIdentity")
+	}
+
+	// Return the credentials
+	return *result.Credentials.AccessKeyId, *result.Credentials.SecretAccessKey, *result.Credentials.SessionToken, nil
 }
