@@ -378,6 +378,7 @@ func run(c *cli.Context) error {
 	if oidcToken != "" && oidcPoolId != "" && oidcProjectNumber != "" && oidcServiceAccountEmail != "" && oidcProviderId != "" {
 		jsonKey, _ = gcp.WriteCredentialsToFile(oidcToken, oidcProjectNumber, oidcPoolId, oidcProviderId, oidcServiceAccountEmail)
 	}
+	fmt.Printf("JSON Key: %s\n", jsonKey)
 
 	// JSON key may not be set in the following cases:
 	// 1. Image does not need to be pushed to GCR.
@@ -485,20 +486,15 @@ func setDockerAuth(dockerUsername, dockerPassword, dockerRegistry string) error 
 }
 
 func setupGCRAuth(jsonKey string) error {
+	// Log the value of jsonKey
+	fmt.Printf("JSON Key: %s\n", jsonKey)
+
 	err := ioutil.WriteFile(gcrKeyPath, []byte(jsonKey), 0644)
 	if err != nil {
 		return errors.Wrap(err, "failed to write GCR JSON key")
 	}
 
 	err = os.Setenv(gcrEnvVariable, gcrKeyPath)
-	if err != nil {
-		return errors.Wrap(err, fmt.Sprintf("failed to set %s environment variable", gcrEnvVariable))
-	}
-	return nil
-}
-
-func setGcpAuthOIDC(accesstokens string) error {
-	err := os.Setenv(gcrEnvVariable, accesstokens)
 	if err != nil {
 		return errors.Wrap(err, fmt.Sprintf("failed to set %s environment variable", gcrEnvVariable))
 	}
