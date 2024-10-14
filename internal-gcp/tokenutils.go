@@ -3,6 +3,7 @@ package gcp
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 )
@@ -78,5 +79,12 @@ func WriteCredentialsToFile(idToken, projectNumber, workforcePoolID, providerID,
 		return "", fmt.Errorf("failed to execute 'gcloud config config-helper': %w", err)
 	}
 
-	return credsPath, nil
+	// Read and return the content of the credentials JSON file
+	credsData, err := ioutil.ReadFile(credsPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read the credentials file: %w", err)
+	}
+	fmt.Printf("credsData: %s\n", credsData)
+
+	return string(credsData), nil
 }
