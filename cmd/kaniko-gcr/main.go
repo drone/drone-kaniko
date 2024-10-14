@@ -1,9 +1,12 @@
 package main
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 
 	"github.com/joho/godotenv"
 	"github.com/pkg/errors"
@@ -376,9 +379,17 @@ func run(c *cli.Context) error {
 	oidcProviderId := c.String("oidc-provider-id")
 
 	if oidcToken != "" && oidcPoolId != "" && oidcProjectNumber != "" && oidcServiceAccountEmail != "" && oidcProviderId != "" {
-		jsonKey, _ = gcp.WriteCredentialsToFile(oidcToken, oidcProjectNumber, oidcPoolId, oidcProviderId, oidcServiceAccountEmail)
+		federatedToken, err := gcp.GetFederalToken(oidcToken, oidcProjectNumber, oidcPoolId, oidcProviderId)
+		if err != nil {
+			logrus.Fatalf("Error (getFederalToken): %s", err)
+		}
+		accessToken, err := gcp.GetGoogleCloudAccessToken(federatedToken, oidcServiceAccountEmail)
+		if err != nil {
+			logrus.Fatalf("Error getGoogleCloudAccessToken: %s", err)
+		}
+
+		err = setupGCROidcAuth(accessToken)
 	}
-	fmt.Printf("JSON Key: %s\n", jsonKey)
 
 	// JSON key may not be set in the following cases:
 	// 1. Image does not need to be pushed to GCR.
@@ -498,5 +509,42 @@ func setupGCRAuth(jsonKey string) error {
 	if err != nil {
 		return errors.Wrap(err, fmt.Sprintf("failed to set %s environment variable", gcrEnvVariable))
 	}
+	return nil
+}
+
+// setupGCRAuth will create a Docker config file to authenticate using an access token
+func setupGCROidcAuth(accessToken string) error {
+	// Encode access token to base64
+	encodedToken := base64.StdEncoding.EncodeToString([]byte("oauth2accesstoken:" + accessToken))
+
+	// Create the Docker auth config structure
+	dockerConfig := map[string]interface{}{
+		"auths": map[string]interface{}{
+			"gcr.io": map[string]string{
+				"auth": encodedToken,
+			},
+		},
+	}
+
+	// Convert Docker config to JSON
+	configJSON, err := json.Marshal(dockerConfig)
+	if err != nil {
+		return fmt.Errorf("failed to marshal Docker config: %v", err)
+	}
+
+	// Ensure the Docker config path exists
+	err = os.MkdirAll(dockerConfigPath, 0700)
+	if err != nil {
+		return fmt.Errorf("failed to create Docker config path: %v", err)
+	}
+
+	// Write the Docker config JSON to file
+	configPath := filepath.Join(dockerConfigPath, "config.json")
+	err = ioutil.WriteFile(configPath, configJSON, 0600)
+	if err != nil {
+		return fmt.Errorf("failed to write Docker config: %v", err)
+	}
+
+	fmt.Println("Docker config written to", configPath)
 	return nil
 }

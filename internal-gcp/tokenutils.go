@@ -1,95 +1,61 @@
 package gcp
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
-	"io/ioutil"
-	"os"
-	"os/exec"
+
+	"golang.org/x/oauth2"
+	"google.golang.org/api/iamcredentials/v1"
+	"google.golang.org/api/option"
+	"google.golang.org/api/sts/v1"
 )
 
-func WriteCredentialsToFile(idToken, projectNumber, workforcePoolID, providerID, serviceAccountEmail string) (string, error) {
-	homeDir := os.Getenv("DRONE_WORKSPACE")
+const (
+	dockerConfigPath string = "/kaniko/.docker"
+)
 
-	if homeDir == "" || homeDir == "/" {
-		fmt.Print("could not get home directory, using /home/harness as home directory")
-		homeDir = "/home/harness"
-	}
-
-	idTokenDir := fmt.Sprintf("%s/tmp", homeDir)
-	err := os.MkdirAll(idTokenDir, 0755)
+func GetFederalToken(idToken, projectNumber, poolId, providerId string) (string, error) {
+	ctx := context.Background()
+	stsService, err := sts.NewService(ctx, option.WithoutAuthentication())
 	if err != nil {
-		return "", fmt.Errorf("failed to create tmp directory: %w", err)
+		return "", err
 	}
-
-	// Debug: print idToken
-	fmt.Printf("idToken: %s\n", idToken)
-
-	idTokenPath := fmt.Sprintf("%s/id_token", idTokenDir)
-	if err := os.WriteFile(idTokenPath, []byte(idToken), 0644); err != nil {
-		return "", fmt.Errorf("failed to write idToken to file: %w", err)
+	audience := fmt.Sprintf("//iam.googleapis.com/projects/%s/locations/global/workloadIdentityPools/%s/providers/%s", projectNumber, poolId, providerId)
+	tokenRequest := &sts.GoogleIdentityStsV1ExchangeTokenRequest{
+		GrantType:          "urn:ietf:params:oauth:grant-type:token-exchange",
+		SubjectToken:       idToken,
+		Audience:           audience,
+		Scope:              "https://www.googleapis.com/auth/cloud-platform",
+		RequestedTokenType: "urn:ietf:params:oauth:token-type:access_token",
+		SubjectTokenType:   "urn:ietf:params:oauth:token-type:id_token",
 	}
-
-	fmt.Printf("idTokenPath: %s\n", idTokenPath)
-
-	credsDir := fmt.Sprintf("%s/.config/gcloud", homeDir)
-	err = os.MkdirAll(credsDir, 0755)
+	tokenResponse, err := stsService.V1.Token(tokenRequest).Do()
 	if err != nil {
-		return "", fmt.Errorf("failed to create gcloud directory: %w", err)
+		return "", err
 	}
 
-	// Create application default credentials file at $HOME/.config/gcloud/application_default_credentials.json
-	credsPath := fmt.Sprintf("%s/application_default_credentials.json", credsDir)
+	return tokenResponse.AccessToken, nil
+}
 
-	data := map[string]interface{}{
-		"type":                              "external_account",
-		"audience":                          fmt.Sprintf("//iam.googleapis.com/projects/%s/locations/global/workloadIdentityPools/%s/providers/%s", projectNumber, workforcePoolID, providerID),
-		"subject_token_type":                "urn:ietf:params:oauth:token-type:id_token",
-		"token_url":                         "https://sts.googleapis.com/v1/token",
-		"service_account_impersonation_url": fmt.Sprintf("https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/%s:generateAccessToken", serviceAccountEmail),
-		"credential_source": map[string]string{
-			"file": idTokenPath,
-		},
+func GetGoogleCloudAccessToken(federatedToken string, serviceAccountEmail string) (string, error) {
+	ctx := context.Background()
+	tokenSource := &staticTokenSource{
+		token: &oauth2.Token{AccessToken: federatedToken},
 	}
-
-	jsonData, err := json.MarshalIndent(data, "", "  ")
+	service, err := iamcredentials.NewService(ctx, option.WithTokenSource(tokenSource))
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal json data: %w", err)
+		return "", err
 	}
 
-	// Debug: print generated JSON
-	fmt.Printf("Generated JSON: %s\n", string(jsonData))
+	name := "projects/-/serviceAccounts/" + serviceAccountEmail
+	rb := &iamcredentials.GenerateAccessTokenRequest{
+		Scope: []string{"https://www.googleapis.com/auth/cloud-platform"},
+	}
 
-	err = os.WriteFile(credsPath, jsonData, 0644)
+	resp, err := service.Projects.ServiceAccounts.GenerateAccessToken(name, rb).Do()
 	if err != nil {
-		return "", fmt.Errorf("failed to write to credentials file: %w", err)
+		return "", err
 	}
 
-	fmt.Printf("credsPath: %s\n", credsPath)
-
-	// Run the gcloud auth login command using the generated credentials file
-	loginCmd := exec.Command("gcloud", "auth", "login", "--brief", "--cred-file", credsPath)
-	loginCmd.Stdout = os.Stdout
-	loginCmd.Stderr = os.Stderr
-	err = loginCmd.Run()
-	if err != nil {
-		return "", fmt.Errorf("failed to execute 'gcloud auth login': %w", err)
-	}
-
-	// Run the gcloud config config-helper command to get the authenticated token
-	helperCmd := exec.Command("gcloud", "config", "config-helper", "--format=json(credential)")
-	helperCmd.Stdout = os.Stdout
-	helperCmd.Stderr = os.Stderr
-	err = helperCmd.Run()
-	if err != nil {
-		return "", fmt.Errorf("failed to execute 'gcloud config config-helper': %w", err)
-	}
-
-	// Read and return the content of the credentials JSON file
-	credsData, err := ioutil.ReadFile(credsPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to read the credentials file: %w", err)
-	}
-
-	return string(credsData), nil
+	return resp.AccessToken, nil
 }
