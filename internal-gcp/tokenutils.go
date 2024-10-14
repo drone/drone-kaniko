@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 )
@@ -98,10 +97,6 @@ func WriteCredentialsToFile(idToken, projectNumber, workforcePoolID, providerID,
 	if err != nil {
 		return "", fmt.Errorf("failed to write to credentials file: %w", err)
 	}
-
-	fmt.Printf("credsPath: %s\n", credsPath)
-	log.Printf("Credentials (OIDC token) written to file: %s\n", idTokenPath)
-	log.Printf("File content (kaniko/config.json): %s\n", string(jsonData))
 
 	// Return the final JSON data
 	return string(jsonData), nil
