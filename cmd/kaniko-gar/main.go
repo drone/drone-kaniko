@@ -11,6 +11,7 @@ import (
 	"github.com/urfave/cli"
 
 	kaniko "github.com/drone/drone-kaniko"
+	gcp "github.com/drone/drone-kaniko/internal-gcp"
 	"github.com/drone/drone-kaniko/pkg/artifact"
 	"github.com/drone/drone-kaniko/pkg/docker"
 )
@@ -18,8 +19,8 @@ import (
 const (
 	dockerConfigPath string = "/kaniko/.docker"
 	// GAR JSON key file path
-	garKeyPath       string = "/kaniko/config.json"
-	garEnvVariable   string = "GOOGLE_APPLICATION_CREDENTIALS"
+	garKeyPath     string = "/kaniko/config.json"
+	garEnvVariable string = "GOOGLE_APPLICATION_CREDENTIALS"
 
 	defaultDigestFile string = "/kaniko/digest-file"
 )
@@ -332,6 +333,31 @@ func main() {
 			Usage:  "Number of retries for downloading base images.",
 			EnvVar: "PLUGIN_IMAGE_DOWNLOAD_RETRY",
 		},
+		cli.StringFlag{
+			Name:   "oidc-project-number",
+			Usage:  "OIDC GCP PROJECT NUMBER",
+			EnvVar: "PLUGIN_PROJECT_NUMBER",
+		},
+		cli.StringFlag{
+			Name:   "oidc-pool-id",
+			Usage:  "OIDC GCP WORKLOAD POOL ID",
+			EnvVar: "PLUGIN_POOL_ID",
+		},
+		cli.StringFlag{
+			Name:   "oidc-provider-id",
+			Usage:  "GCP OIDC PROVIDER ID",
+			EnvVar: "PLUGIN_PROVIDER_ID",
+		},
+		cli.StringFlag{
+			Name:   "oidc-service-account-email",
+			Usage:  "GCP OIDC SERVICE ACCOUNT EMAIL",
+			EnvVar: "PLUGIN_SERVICE_ACCOUNT_EMAIL",
+		},
+		cli.StringFlag{
+			Name:   "oidc-token-id",
+			Usage:  "OIDC token ID for assuming role with web identity",
+			EnvVar: "PLUGIN_OIDC_TOKEN_ID",
+		},
 	}
 
 	if err := app.Run(os.Args); err != nil {
@@ -342,8 +368,17 @@ func main() {
 func run(c *cli.Context) error {
 	noPush := c.Bool("no-push")
 	jsonKey := c.String("json-key")
+	oidcToken := c.String("oidc-token-id")
+	oidcServiceAccountEmail := c.String("oidc-service-account-email")
+	oidcProjectNumber := c.String("oidc-project-number")
+	oidcPoolId := c.String("oidc-pool-id")
+	oidcProviderId := c.String("oidc-provider-id")
+	if oidcToken != "" && oidcPoolId != "" && oidcProjectNumber != "" && oidcServiceAccountEmail != "" && oidcProviderId != "" {
+		jsonKey, _ = gcp.WriteCredentialsToFile(oidcToken, oidcProjectNumber, oidcPoolId, oidcProviderId, oidcServiceAccountEmail)
+	}
+
 	// JSON key may not be set in the following cases:
-	// 1. Image does not need to be pushed to GAR.
+	// 1. Image does not need to be pushed to GCR.
 	// 2. Workload identity is set on GKE in which pod will inherit the credentials via service account.
 	if jsonKey != "" {
 		if err := setupGARAuth(jsonKey); err != nil {
@@ -351,7 +386,7 @@ func run(c *cli.Context) error {
 		}
 
 		// setup docker config only when base image registry is specified
-		if c.String("base-image-registry") != ""{
+		if c.String("base-image-registry") != "" {
 			if err := setDockerAuth(
 				c.String("base-image-username"),
 				c.String("base-image-password"),
@@ -436,7 +471,7 @@ func run(c *cli.Context) error {
 	return plugin.Exec()
 }
 
-func setDockerAuth(dockerUsername, dockerPassword, dockerRegistry string) (error) {
+func setDockerAuth(dockerUsername, dockerPassword, dockerRegistry string) error {
 	dockerConfig := docker.NewConfig()
 	dockerRegistryCreds := docker.RegistryCredentials{
 		Registry: dockerRegistry,
@@ -455,6 +490,14 @@ func setupGARAuth(jsonKey string) error {
 	}
 
 	err = os.Setenv(garEnvVariable, garKeyPath)
+	if err != nil {
+		return errors.Wrap(err, fmt.Sprintf("failed to set %s environment variable", garEnvVariable))
+	}
+	return nil
+}
+
+func setGcpAuthOIDC(accesstokens string) error {
+	err := os.Setenv(garEnvVariable, accesstokens)
 	if err != nil {
 		return errors.Wrap(err, fmt.Sprintf("failed to set %s environment variable", garEnvVariable))
 	}
