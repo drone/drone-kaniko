@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 
 	"github.com/joho/godotenv"
@@ -376,6 +377,13 @@ func run(c *cli.Context) error {
 	if oidcToken != "" && oidcPoolId != "" && oidcProjectNumber != "" && oidcServiceAccountEmail != "" && oidcProviderId != "" {
 		jsonKey, _ = gcp.WriteCredentialsToFile(oidcToken, oidcProjectNumber, oidcPoolId, oidcProviderId, oidcServiceAccountEmail)
 	}
+
+	log.Printf("file is present in path %s\n", jsonKey)
+	content, err := ioutil.ReadFile(jsonKey)
+	if err != nil {
+		return err
+	}
+	log.Printf("File content: %s\n", string(content))
 
 	// JSON key may not be set in the following cases:
 	// 1. Image does not need to be pushed to GCR.

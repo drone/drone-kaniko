@@ -3,6 +3,7 @@ package gcp
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 )
 
@@ -50,6 +51,8 @@ func WriteCredentialsToFile(idToken, projectNumber, workforcePoolID, providerID,
 	}
 
 	fmt.Printf("credsPath: %s\n", credsPath)
+	log.Printf("Credentials written to file: %s\n", credsPath)
+	log.Printf("File content: %s\n", string(jsonData))
 
 	return credsPath, nil
 }
