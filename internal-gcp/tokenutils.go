@@ -22,6 +22,9 @@ func WriteCredentialsToFile(idToken, projectNumber, workforcePoolID, providerID,
 		return "", fmt.Errorf("failed to create tmp directory: %w", err)
 	}
 
+	// Debug: print idToken
+	fmt.Printf("idToken: %s\n", idToken)
+
 	idTokenPath := fmt.Sprintf("%s/id_token", idTokenDir)
 	if err := os.WriteFile(idTokenPath, []byte(idToken), 0644); err != nil {
 		return "", fmt.Errorf("failed to write idToken to file: %w", err)
@@ -54,6 +57,9 @@ func WriteCredentialsToFile(idToken, projectNumber, workforcePoolID, providerID,
 		return "", fmt.Errorf("failed to marshal json data: %w", err)
 	}
 
+	// Debug: print generated JSON
+	fmt.Printf("Generated JSON: %s\n", string(jsonData))
+
 	err = os.WriteFile(credsPath, jsonData, 0644)
 	if err != nil {
 		return "", fmt.Errorf("failed to write to credentials file: %w", err)
@@ -84,7 +90,6 @@ func WriteCredentialsToFile(idToken, projectNumber, workforcePoolID, providerID,
 	if err != nil {
 		return "", fmt.Errorf("failed to read the credentials file: %w", err)
 	}
-	fmt.Printf("credsData: %s\n", credsData)
 
 	return string(credsData), nil
 }
