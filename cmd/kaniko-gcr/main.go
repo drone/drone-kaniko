@@ -374,17 +374,9 @@ func run(c *cli.Context) error {
 	oidcProjectNumber := c.String("oidc-project-number")
 	oidcPoolId := c.String("oidc-pool-id")
 	oidcProviderId := c.String("oidc-provider-id")
-	var accessToken string
-	if oidcToken != "" && oidcPoolId != "" && oidcProjectNumber != "" && oidcServiceAccountEmail != "" && oidcProviderId != "" {
-		federated_token, err := gcp.GetFederalToken(oidcToken, oidcProjectNumber, oidcPoolId, oidcProviderId)
-		if err != nil {
-			logrus.Fatalf("Error (getFederalToken): %s", err)
-		}
-		accessToken, err = gcp.GetGoogleCloudAccessToken(federated_token, oidcServiceAccountEmail)
-		if err != nil {
-			logrus.Fatalf("Error getGoogleCloudAccessToken: %s", err)
-		}
 
+	if oidcToken != "" && oidcPoolId != "" && oidcProjectNumber != "" && oidcServiceAccountEmail != "" && oidcProviderId != "" {
+		jsonKey, _ = gcp.WriteCredentialsToFile(oidcToken, oidcProjectNumber, oidcPoolId, oidcProviderId, oidcServiceAccountEmail)
 	}
 
 	// JSON key may not be set in the following cases:
@@ -394,23 +386,16 @@ func run(c *cli.Context) error {
 		if err := setupGCRAuth(jsonKey); err != nil {
 			return err
 		}
-	}
-	if accessToken != "" {
-		if err := setGcpAuthOIDC(accessToken); err != nil {
-			return err
-		}
-	} else if jsonKey == "" {
-		logrus.Warn("Neither OIDC token nor JSON key provided for authentication.")
-	}
 
-	// setup docker config only when base image registry is specified
-	if c.String("base-image-registry") != "" {
-		if err := setDockerAuth(
-			c.String("base-image-username"),
-			c.String("base-image-password"),
-			c.String("base-image-registry"),
-		); err != nil {
-			return errors.Wrap(err, "failed to create docker config")
+		// setup docker config only when base image registry is specified
+		if c.String("base-image-registry") != "" {
+			if err := setDockerAuth(
+				c.String("base-image-username"),
+				c.String("base-image-password"),
+				c.String("base-image-registry"),
+			); err != nil {
+				return errors.Wrap(err, "failed to create docker config")
+			}
 		}
 	}
 

@@ -1,64 +1,55 @@
 package gcp
 
 import (
-	"context"
+	"encoding/json"
 	"fmt"
-
-	"golang.org/x/oauth2"
-	"google.golang.org/api/iamcredentials/v1"
-	"google.golang.org/api/option"
-	"google.golang.org/api/sts/v1"
+	"os"
 )
 
-const (
-	audienceFormat = "//iam.googleapis.com/projects/%s/locations/global/workloadIdentityPools/%s/providers/%s"
-	scopeURL       = "https://www.googleapis.com/auth/cloud-platform"
-)
+func WriteCredentialsToFile(idToken, projectNumber, workforcePoolID, providerID, serviceAccountEmail string) (string, error) {
+	homeDir := os.Getenv("DRONE_WORKSPACE")
 
-func GetFederalToken(idToken, projectNumber, poolId, providerId string) (string, error) {
-	ctx := context.Background()
-	stsService, err := sts.NewService(ctx, option.WithoutAuthentication())
+	if homeDir == "" || homeDir == "/" {
+		fmt.Print("could not get home directory, using /home/harness as home directory")
+		homeDir = "/home/harness"
+	}
+
+	idTokenDir := fmt.Sprintf("%s/tmp", homeDir)
+	err := os.MkdirAll(idTokenDir, 0755)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to create tmp directory: %w", err)
 	}
 
-	audience := fmt.Sprintf(audienceFormat, projectNumber, poolId, providerId)
-
-	tokenRequest := &sts.GoogleIdentityStsV1ExchangeTokenRequest{
-		GrantType:          "urn:ietf:params:oauth:grant-type:token-exchange",
-		SubjectToken:       idToken,
-		Audience:           audience,
-		Scope:              scopeURL,
-		RequestedTokenType: "urn:ietf:params:oauth:token-type:access_token",
-		SubjectTokenType:   "urn:ietf:params:oauth:token-type:id_token",
+	idTokenPath := fmt.Sprintf("%s/id_token", idTokenDir)
+	if err := os.WriteFile(idTokenPath, []byte(idToken), 0644); err != nil {
+		return "", fmt.Errorf("failed to write idToken to file: %w", err)
 	}
 
-	tokenResponse, err := stsService.V1.Token(tokenRequest).Do()
+	fmt.Printf("idTokenPath: %s\n", idTokenPath)
+	credsPath := "/kaniko/config.json"
+
+	data := map[string]interface{}{
+		"type":                              "external_account",
+		"audience":                          fmt.Sprintf("//iam.googleapis.com/projects/%s/locations/global/workloadIdentityPools/%s/providers/%s", projectNumber, workforcePoolID, providerID),
+		"subject_token_type":                "urn:ietf:params:oauth:token-type:id_token",
+		"token_url":                         "https://sts.googleapis.com/v1/token",
+		"service_account_impersonation_url": fmt.Sprintf("https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/%s:generateAccessToken", serviceAccountEmail),
+		"credential_source": map[string]string{
+			"file": idTokenPath,
+		},
+	}
+
+	jsonData, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to marshal json data: %w", err)
 	}
 
-	return tokenResponse.AccessToken, nil
-}
-
-func GetGoogleCloudAccessToken(federatedToken string, serviceAccountEmail string) (string, error) {
-	ctx := context.Background()
-	token := &oauth2.Token{AccessToken: federatedToken}
-	service, err := iamcredentials.NewService(ctx, option.WithTokenSource(oauth2.StaticTokenSource(token)))
+	err = os.WriteFile(credsPath, jsonData, 0644)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to write to credentials file: %w", err)
 	}
 
-	name := "projects/-/serviceAccounts/" + serviceAccountEmail
-	// rb (request body) specifies parameters for generating an access token.
-	rb := &iamcredentials.GenerateAccessTokenRequest{
-		Scope: []string{scopeURL},
-	}
-	// Generate an access token for the service account using the specified parameters
-	resp, err := service.Projects.ServiceAccounts.GenerateAccessToken(name, rb).Do()
-	if err != nil {
-		return "", err
-	}
+	fmt.Printf("credsPath: %s\n", credsPath)
 
-	return resp.AccessToken, nil
+	return credsPath, nil
 }
