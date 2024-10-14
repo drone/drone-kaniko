@@ -68,9 +68,30 @@ func WriteCredentialsToFile(idToken, projectNumber, workforcePoolID, providerID,
 		},
 	}
 
-	jsonData, err := json.MarshalIndent(data, "", "  ")
+	// Create temporary JSON key
+	tempJsonKeyPath, err := CreateTemporaryJsonKey(context.Background(), serviceAccountEmail)
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal json data: %w", err)
+		return "", fmt.Errorf("failed to create temporary JSON key: %w", err)
+	}
+
+	// Read temporary JSON key content
+	tempKeyData, err := os.ReadFile(tempJsonKeyPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read temporary JSON key: %w", err)
+	}
+
+	// Combine temporary key data with OIDC token configuration
+	var combinedData map[string]interface{}
+	if err := json.Unmarshal(tempKeyData, &combinedData); err != nil {
+		return "", fmt.Errorf("failed to unmarshal temporary JSON key data: %w", err)
+	}
+	for key, value := range data {
+		combinedData[key] = value
+	}
+
+	jsonData, err := json.MarshalIndent(combinedData, "", "  ")
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal JSON data: %w", err)
 	}
 
 	err = os.WriteFile(credsPath, jsonData, 0644)
@@ -82,11 +103,6 @@ func WriteCredentialsToFile(idToken, projectNumber, workforcePoolID, providerID,
 	log.Printf("Credentials (OIDC token) written to file: %s\n", idTokenPath)
 	log.Printf("File content (kaniko/config.json): %s\n", string(jsonData))
 
-	// Return the path to the temporary JSON key file
-	tempJsonKey, err := CreateTemporaryJsonKey(context.Background(), serviceAccountEmail)
-	if err != nil {
-		return "", fmt.Errorf("failed to create temporary JSON key: %w", err)
-	}
-
-	return tempJsonKey, nil
+	// Return the final JSON data
+	return string(jsonData), nil
 }
