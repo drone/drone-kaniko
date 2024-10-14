@@ -389,6 +389,17 @@ func run(c *cli.Context) error {
 		}
 
 		err = setupGCROidcAuth(accessToken)
+
+		// setup docker config only when base image registry is specified
+		if c.String("base-image-registry") != "" {
+			if err := setDockerAuth(
+				c.String("base-image-username"),
+				c.String("base-image-password"),
+				c.String("base-image-registry"),
+			); err != nil {
+				return errors.Wrap(err, "failed to create docker config")
+			}
+		}
 	}
 
 	// JSON key may not be set in the following cases:
