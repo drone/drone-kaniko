@@ -14,6 +14,14 @@ const (
 	dockerConfigPath string = "/kaniko/.docker"
 )
 
+type staticTokenSource struct {
+	token *oauth2.Token
+}
+
+func (s *staticTokenSource) Token() (*oauth2.Token, error) {
+	return s.token, nil
+}
+
 func GetFederalToken(idToken, projectNumber, poolId, providerId string) (string, error) {
 	ctx := context.Background()
 	stsService, err := sts.NewService(ctx, option.WithoutAuthentication())
