@@ -542,7 +542,10 @@ func setDockerAuth(dockerRegistry, dockerUsername, dockerPassword, accessKey, se
 	}
 
 	if assumeRole != "" && oidcToken != "" {
-		oidcAccessKey, oidcSecretKey, oidcSessionKey := getOidcCreds(oidcToken, assumeRole)
+		oidcAccessKey, oidcSecretKey, oidcSessionKey, err := getOidcCreds(oidcToken, assumeRole)
+		if err != nil {
+			return err
+		}
 
 		_ = os.Setenv(accessKeyEnv, oidcAccessKey)
 		_ = os.Setenv(secretKeyEnv, oidcSecretKey)
@@ -796,9 +799,12 @@ func isKanikoVersionBelowOneDotEight(v string) bool {
 	return currVer.LessThan(oneEightVer)
 }
 
-func getOidcCreds(oidcToken, assumeRole string) (string, string, string) {
+func getOidcCreds(oidcToken, assumeRole string) (string, string, string, error) {
 	// Create a new session
-	sess, _ := session.NewSession()
+	sess, err := session.NewSession()
+	if err != nil {
+		return "", "", "", fmt.Errorf("failed to create AWS session: %w", err)
+	}
 
 	// Create a new STS client
 	svc := sts.New(sess)
@@ -813,8 +819,16 @@ func getOidcCreds(oidcToken, assumeRole string) (string, string, string) {
 	}
 
 	// Call the AssumeRoleWithWebIdentity function
-	result, _ := svc.AssumeRoleWithWebIdentity(input)
+	result, err := svc.AssumeRoleWithWebIdentity(input)
+	if err != nil {
+		return "", "", "", fmt.Errorf("failed to assume role with web identity: %w", err)
+	}
+
+	// Check if credentials exist in the result
+	if result.Credentials == nil {
+		return "", "", "", errors.New("no credentials returned by AssumeRoleWithWebIdentity")
+	}
 
 	// Return the credentials
-	return *result.Credentials.AccessKeyId, *result.Credentials.SecretAccessKey, *result.Credentials.SessionToken
+	return *result.Credentials.AccessKeyId, *result.Credentials.SecretAccessKey, *result.Credentials.SessionToken, nil
 }
