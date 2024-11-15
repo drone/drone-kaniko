@@ -259,6 +259,9 @@ func (p Plugin) Exec() error {
 
 	if p.Build.TarPath != "" {
 		cmdArgs = append(cmdArgs, fmt.Sprintf("--tar-path=%s", p.Build.TarPath))
+		if err := WriteEnvToFile("PLUGIN_TAR_PATH", p.Build.TarPath); err != nil {
+			fmt.Fprintf(os.Stderr, "failed to write tar path to output: %v\n", err)
+		}
 	}
 
 	if p.Build.CacheCopyLayers {
@@ -427,4 +430,21 @@ func getDigest(digestFile string) string {
 // tag so that it can be extracted and displayed in the logs.
 func trace(cmd *exec.Cmd) {
 	fmt.Fprintf(os.Stdout, "+ %s\n", strings.Join(cmd.Args, " "))
+}
+
+func WriteEnvToFile(key, value string) error {
+	outputFile, err := os.OpenFile(os.Getenv("DRONE_OUTPUT"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to open output file: %v\n", err)
+		return err
+	}
+	defer outputFile.Close()
+
+	fmt.Fprintf(os.Stdout, "Writing %s=%s to DRONE_OUTPUT\n", key, value)
+	_, err = outputFile.WriteString(key + "=" + value + "\n")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to write to env: %v\n", err)
+		return err
+	}
+	return nil
 }
