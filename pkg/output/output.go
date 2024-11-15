@@ -6,8 +6,8 @@ import (
 
 func WritePluginOutputFile(outputFilePath, digest string, pluginTarPath string) error {
 	output := map[string]string{
-		"digest":          digest,
-		"PLUGIN_TAR_PATH": pluginTarPath,
+		"digest":   digest,
+		"tar_path": pluginTarPath,
 	}
 	return godotenv.Write(output, outputFilePath)
 }
