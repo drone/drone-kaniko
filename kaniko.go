@@ -424,7 +424,6 @@ func getTarPath(tarPath string) string {
 		fmt.Fprintf(os.Stderr, "Warning: tar path does not exist: %s\n", tarPath)
 		return ""
 	}
-	fmt.Fprintf(os.Stdout, "Debug: tar path found: %s\n", tarPath)
 	return tarPath
 }
 
