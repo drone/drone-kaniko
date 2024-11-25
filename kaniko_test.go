@@ -1,6 +1,8 @@
 package kaniko
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -147,4 +149,95 @@ func TestBuild_AutoTags(t *testing.T) {
 			t.Errorf("Expect error for invalid flags")
 		}
 	})
+}
+
+func TestTarPathValidation(t *testing.T) {
+	tests := []struct {
+		name          string
+		tarPath       string
+		setup         func(string) error
+		cleanup       func(string) error
+		expectSuccess bool
+		privileged    bool
+	}{
+		{
+			name:          "valid_path_privileged",
+			tarPath:       "/tmp/test/image.tar",
+			setup:         func(path string) error { return os.MkdirAll(filepath.Dir(path), 0755) },
+			cleanup:       func(path string) error { return os.RemoveAll(filepath.Dir(path)) },
+			expectSuccess: true,
+			privileged:    true,
+		},
+		{
+			name:          "valid_path_unprivileged",
+			tarPath:       "./test/image.tar",
+			setup:         func(path string) error { return os.MkdirAll(filepath.Dir(path), 0755) },
+			cleanup:       func(path string) error { return os.RemoveAll(filepath.Dir(path)) },
+			expectSuccess: true,
+			privileged:    false,
+		},
+		{
+			name:          "invalid_path_no_permissions",
+			tarPath:       "/root/test/image.tar",
+			setup:         func(path string) error { return nil },
+			cleanup:       func(path string) error { return nil },
+			expectSuccess: false,
+			privileged:    false,
+		},
+		{
+			name:          "empty_path",
+			tarPath:       "",
+			setup:         func(path string) error { return nil },
+			cleanup:       func(path string) error { return nil },
+			expectSuccess: false,
+			privileged:    false,
+		},
+		{
+			name:          "relative_path_dots",
+			tarPath:       "../test/image.tar",
+			setup:         func(path string) error { return os.MkdirAll(filepath.Dir(path), 0755) },
+			cleanup:       func(path string) error { return os.RemoveAll(filepath.Dir(path)) },
+			expectSuccess: true,
+			privileged:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Skip privileged tests if not running as root
+			if tt.privileged && os.Getuid() != 0 {
+				t.Skip("Skipping privileged test as not running as root")
+			}
+
+			if err := tt.setup(tt.tarPath); err != nil {
+				t.Fatalf("Setup failed: %v", err)
+			}
+			defer tt.cleanup(tt.tarPath)
+
+			p := Plugin{
+				Build: Build{
+					TarPath: tt.tarPath,
+				},
+			}
+
+			tarDir := filepath.Dir(p.Build.TarPath)
+			err := os.MkdirAll(tarDir, 0755)
+			if tt.expectSuccess {
+				if err != nil {
+					t.Errorf("Expected directory creation to succeed, got error: %v", err)
+				}
+				if _, err := os.Stat(tarDir); err != nil {
+					t.Errorf("Expected directory to exist after creation, got error: %v", err)
+				}
+			}
+
+			result := getTarPath(tt.tarPath)
+			if tt.expectSuccess && result == "" {
+				t.Error("Expected non-empty tar path, got empty string")
+			}
+			if !tt.expectSuccess && result != "" {
+				t.Error("Expected empty tar path, got non-empty string")
+			}
+		})
+	}
 }

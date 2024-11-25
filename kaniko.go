@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/drone/drone-kaniko/pkg/artifact"
@@ -420,7 +421,8 @@ func getTarPath(tarPath string) string {
 		fmt.Fprintf(os.Stderr, "Warning: tar_path is empty\n")
 		return ""
 	}
-	if _, err := os.Stat(tarPath); err != nil && os.IsNotExist(err) {
+	tarDir := filepath.Dir(tarPath)
+	if _, err := os.Stat(tarDir); err != nil && os.IsNotExist(err) {
 		fmt.Fprintf(os.Stderr, "Warning: tar path does not exist: %s\n", tarPath)
 		return ""
 	}
