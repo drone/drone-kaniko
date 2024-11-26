@@ -125,6 +125,17 @@ func main() {
 			Usage:  "build args",
 			EnvVar: "PLUGIN_BUILD_ARGS",
 		},
+		cli.GenericFlag{
+			Name:   "args-new",
+			Usage:  "build args new",
+			EnvVar: "PLUGIN_BUILD_ARGS_NEW",
+			Value:  new(CustomStringSliceFlag),
+		},
+		cli.BoolFlag{
+			Name:   "plugin-multiple-build-agrs",
+			Usage:  "plugin multiple build agrs",
+			EnvVar: "PLUGIN_MULTIPLE_BUILD_ARGS",
+		},
 		cli.StringFlag{
 			Name:   "target",
 			Usage:  "build target",
@@ -464,6 +475,8 @@ func run(c *cli.Context) error {
 			AutoTagSuffix:               c.String("auto-tag-suffix"),
 			ExpandTag:                   c.Bool("expand-tag"),
 			Args:                        c.StringSlice("args"),
+			ArgsNew:                     c.Generic("args-new").(*CustomStringSliceFlag).GetValue(),
+			IsMultipleBuildArgs:         c.Bool("plugin-multiple-build-agrs"),
 			Target:                      c.String("target"),
 			Repo:                        fmt.Sprintf("%s/%s", c.String("registry"), c.String("repo")),
 			Mirrors:                     c.StringSlice("registry-mirrors"),

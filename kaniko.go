@@ -16,30 +16,32 @@ import (
 type (
 	// Build defines Docker build parameters.
 	Build struct {
-		DroneCommitRef   string   // Drone git commit reference
-		DroneRepoBranch  string   // Drone repo branch
-		Dockerfile       string   // Docker build Dockerfile
-		Context          string   // Docker build context
-		Tags             []string // Docker build tags
-		AutoTag          bool     // Set this to auto detect tags from git commits and semver-tagged labels
-		AutoTagSuffix    string   // Suffix to append to the auto detect tags
-		ExpandTag        bool     // Set this to expand the `Tags` into semver-tagged labels
-		Args             []string // Docker build args
-		Target           string   // Docker build target
-		Repo             string   // Docker build repository
-		Mirrors          []string // Docker repository mirrors
-		Labels           []string // Label map
-		SkipTlsVerify    bool     // Docker skip tls certificate verify for registry
-		SnapshotMode     string   // Kaniko snapshot mode
-		EnableCache      bool     // Whether to enable kaniko cache
-		CacheRepo        string   // Remote repository that will be used to store cached layers
-		CacheTTL         int      // Cache timeout in hours
-		DigestFile       string   // Digest file location
-		NoPush           bool     // Set this flag if you only want to build the image, without pushing to a registry
-		Verbosity        string   // Log level
-		Platform         string   // Allows to build with another default platform than the host, similarly to docker build --platform
-		SkipUnusedStages bool     // Build only used stages
-		TarPath          string   // Set this flag to save the image as a tarball at path
+		DroneCommitRef      string   // Drone git commit reference
+		DroneRepoBranch     string   // Drone repo branch
+		Dockerfile          string   // Docker build Dockerfile
+		Context             string   // Docker build context
+		Tags                []string // Docker build tags
+		AutoTag             bool     // Set this to auto detect tags from git commits and semver-tagged labels
+		AutoTagSuffix       string   // Suffix to append to the auto detect tags
+		ExpandTag           bool     // Set this to expand the `Tags` into semver-tagged labels
+		Args                []string // Docker build args
+		ArgsNew             []string // docker build args with comma seperated values
+		IsMultipleBuildArgs bool     // env variable for fallback for docker build args
+		Target              string   // Docker build target
+		Repo                string   // Docker build repository
+		Mirrors             []string // Docker repository mirrors
+		Labels              []string // Label map
+		SkipTlsVerify       bool     // Docker skip tls certificate verify for registry
+		SnapshotMode        string   // Kaniko snapshot mode
+		EnableCache         bool     // Whether to enable kaniko cache
+		CacheRepo           string   // Remote repository that will be used to store cached layers
+		CacheTTL            int      // Cache timeout in hours
+		DigestFile          string   // Digest file location
+		NoPush              bool     // Set this flag if you only want to build the image, without pushing to a registry
+		Verbosity           string   // Log level
+		Platform            string   // Allows to build with another default platform than the host, similarly to docker build --platform
+		SkipUnusedStages    bool     // Build only used stages
+		TarPath             string   // Set this flag to save the image as a tarball at path
 
 		Cache                       bool   // Enable or disable caching during the build process.
 		CacheDir                    string // Directory to store cached layers.
@@ -202,8 +204,14 @@ func (p Plugin) Exec() error {
 	}
 
 	// Set the build arguments
-	for _, arg := range p.Build.Args {
-		cmdArgs = append(cmdArgs, fmt.Sprintf("--build-arg=%s", arg))
+	if p.Build.IsMultipleBuildArgs {
+		for _, arg := range p.Build.ArgsNew {
+			cmdArgs = append(cmdArgs, "--build-arg", arg)
+		}
+	} else {
+		for _, arg := range p.Build.Args {
+			cmdArgs = append(cmdArgs, "--build-arg", arg)
+		}
 	}
 	// Set the labels
 	for _, label := range p.Build.Labels {
