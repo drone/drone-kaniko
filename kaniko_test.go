@@ -200,7 +200,7 @@ func TestTarPathValidation(t *testing.T) {
 		},
 		{
 			name:    "invalid_path_no_permissions",
-			tarPath: "",
+			tarPath: "/test/image.tar",
 			setup: func(path string) error {
 				tmpDir, err := os.MkdirTemp("", "test-image-tar")
 				if err != nil {
@@ -265,7 +265,7 @@ func TestTarPathValidation(t *testing.T) {
 			case "valid_path_privileged", "valid_path_unprivileged":
 				tarPath = filepath.Join(tmpDir, "test", "image.tar")
 			case "invalid_path_no_permissions":
-				tarPath = filepath.Join("/root", "test", "image.tar")
+				tarPath = "/test/image.tar"
 			case "relative_path_dots":
 				tarPath = filepath.Join("..", "test", "image.tar")
 			default:
