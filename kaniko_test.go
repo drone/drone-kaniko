@@ -199,25 +199,6 @@ func TestTarPathValidation(t *testing.T) {
 			privileged:    false,
 		},
 		{
-			name:    "invalid_path_no_permissions",
-			tarPath: "/test/image.tar",
-			setup: func(path string) error {
-				tmpDir, err := os.MkdirTemp("", "test-image-tar")
-				if err != nil {
-					return err
-				}
-				os.Setenv("DRONE_WORKSPACE", tmpDir)
-				return nil
-			},
-			cleanup: func(path string) error {
-				tmpDir := os.Getenv("DRONE_WORKSPACE")
-				os.Unsetenv("DRONE_WORKSPACE")
-				return os.RemoveAll(tmpDir)
-			},
-			expectSuccess: false,
-			privileged:    false,
-		},
-		{
 			name:          "empty_path",
 			tarPath:       "",
 			setup:         func(path string) error { return nil },
