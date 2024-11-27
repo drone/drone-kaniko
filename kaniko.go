@@ -259,6 +259,12 @@ func (p Plugin) Exec() error {
 	}
 
 	if p.Build.TarPath != "" {
+		tarDir := filepath.Dir(p.Build.TarPath)
+		if _, err := os.Stat(tarDir); os.IsNotExist(err) {
+			if mkdirErr := os.MkdirAll(tarDir, 0755); mkdirErr != nil {
+				return fmt.Errorf("failed to create directory for tar path %s: %v", tarDir, mkdirErr)
+			}
+		}
 		cmdArgs = append(cmdArgs, fmt.Sprintf("--tar-path=%s", p.Build.TarPath))
 	}
 
@@ -423,11 +429,8 @@ func getTarPath(tarPath string) string {
 	}
 	tarDir := filepath.Dir(tarPath)
 	if _, err := os.Stat(tarDir); err != nil && os.IsNotExist(err) {
-		if mkdirErr := os.MkdirAll(tarDir, 0755); mkdirErr != nil {
-			fmt.Fprintf(os.Stderr, "Warning: failed to create tar path directory: %s, error: %v\n", tarDir, mkdirErr)
-			return ""
-		}
-		fmt.Fprintf(os.Stderr, "Created directory for tar path: %s\n", tarDir)
+		fmt.Fprintf(os.Stderr, "Warning: tar path does not exist: %s\n", tarPath)
+		return ""
 	}
 	return tarPath
 }
