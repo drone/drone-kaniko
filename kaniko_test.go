@@ -161,26 +161,59 @@ func TestTarPathValidation(t *testing.T) {
 		privileged    bool
 	}{
 		{
-			name:          "valid_path_privileged",
-			tarPath:       "/tmp/test/image.tar",
-			setup:         func(path string) error { return os.MkdirAll(filepath.Dir(path), 0755) },
-			cleanup:       func(path string) error { return os.RemoveAll(filepath.Dir(path)) },
+			name:    "valid_path_privileged",
+			tarPath: "",
+			setup: func(path string) error {
+				tmpDir, err := os.MkdirTemp("", "test-image-tar")
+				if err != nil {
+					return err
+				}
+				os.Setenv("DRONE_WORKSPACE", tmpDir)
+				return nil
+			},
+			cleanup: func(path string) error {
+				tmpDir := os.Getenv("DRONE_WORKSPACE")
+				os.Unsetenv("DRONE_WORKSPACE")
+				return os.RemoveAll(tmpDir)
+			},
 			expectSuccess: true,
 			privileged:    true,
 		},
 		{
-			name:          "valid_path_unprivileged",
-			tarPath:       "./test/image.tar",
-			setup:         func(path string) error { return os.MkdirAll(filepath.Dir(path), 0755) },
-			cleanup:       func(path string) error { return os.RemoveAll(filepath.Dir(path)) },
+			name:    "valid_path_unprivileged",
+			tarPath: "",
+			setup: func(path string) error {
+				tmpDir, err := os.MkdirTemp("", "test-image-tar")
+				if err != nil {
+					return err
+				}
+				os.Setenv("DRONE_WORKSPACE", tmpDir)
+				return nil
+			},
+			cleanup: func(path string) error {
+				tmpDir := os.Getenv("DRONE_WORKSPACE")
+				os.Unsetenv("DRONE_WORKSPACE")
+				return os.RemoveAll(tmpDir)
+			},
 			expectSuccess: true,
 			privileged:    false,
 		},
 		{
-			name:          "invalid_path_no_permissions",
-			tarPath:       "/root/test/image.tar",
-			setup:         func(path string) error { return nil },
-			cleanup:       func(path string) error { return nil },
+			name:    "invalid_path_no_permissions",
+			tarPath: "",
+			setup: func(path string) error {
+				tmpDir, err := os.MkdirTemp("", "test-image-tar")
+				if err != nil {
+					return err
+				}
+				os.Setenv("DRONE_WORKSPACE", tmpDir)
+				return nil
+			},
+			cleanup: func(path string) error {
+				tmpDir := os.Getenv("DRONE_WORKSPACE")
+				os.Unsetenv("DRONE_WORKSPACE")
+				return os.RemoveAll(tmpDir)
+			},
 			expectSuccess: false,
 			privileged:    false,
 		},
@@ -193,10 +226,21 @@ func TestTarPathValidation(t *testing.T) {
 			privileged:    false,
 		},
 		{
-			name:          "relative_path_dots",
-			tarPath:       "../test/image.tar",
-			setup:         func(path string) error { return os.MkdirAll(filepath.Dir(path), 0755) },
-			cleanup:       func(path string) error { return os.RemoveAll(filepath.Dir(path)) },
+			name:    "relative_path_dots",
+			tarPath: "",
+			setup: func(path string) error {
+				tmpDir, err := os.MkdirTemp("", "test-image-tar")
+				if err != nil {
+					return err
+				}
+				os.Setenv("DRONE_WORKSPACE", tmpDir)
+				return nil
+			},
+			cleanup: func(path string) error {
+				tmpDir := os.Getenv("DRONE_WORKSPACE")
+				os.Unsetenv("DRONE_WORKSPACE")
+				return os.RemoveAll(tmpDir)
+			},
 			expectSuccess: true,
 			privileged:    false,
 		},
@@ -214,9 +258,23 @@ func TestTarPathValidation(t *testing.T) {
 			}
 			defer tt.cleanup(tt.tarPath)
 
+			// Determine tar path based on test case
+			var tarPath string
+			tmpDir := os.Getenv("DRONE_WORKSPACE")
+			switch tt.name {
+			case "valid_path_privileged", "valid_path_unprivileged":
+				tarPath = filepath.Join(tmpDir, "test", "image.tar")
+			case "invalid_path_no_permissions":
+				tarPath = filepath.Join("/root", "test", "image.tar")
+			case "relative_path_dots":
+				tarPath = filepath.Join("..", "test", "image.tar")
+			default:
+				tarPath = tt.tarPath
+			}
+
 			p := Plugin{
 				Build: Build{
-					TarPath: tt.tarPath,
+					TarPath: tarPath,
 				},
 			}
 
@@ -231,7 +289,7 @@ func TestTarPathValidation(t *testing.T) {
 				}
 			}
 
-			result := getTarPath(tt.tarPath)
+			result := getTarPath(p.Build.TarPath)
 			if tt.expectSuccess && result == "" {
 				t.Error("Expected non-empty tar path, got empty string")
 			}

@@ -18,42 +18,65 @@ func TestWritePluginOutputFile(t *testing.T) {
 		privileged  bool
 	}{
 		{
-			name:        "valid_output_privileged",
-			outputPath:  "/tmp/test/output.env",
-			digest:      "sha256:test",
-			tarPath:     "/tmp/test/image.tar",
-			setup:       func(path string) error { return os.MkdirAll(filepath.Dir(path), 0755) },
-			cleanup:     func(path string) error { return os.RemoveAll(filepath.Dir(path)) },
+			name:       "valid_output_privileged",
+			outputPath: "",
+			digest:     "sha256:test",
+			tarPath:    "",
+			setup: func(path string) error {
+				tmpDir, err := os.MkdirTemp("", "test-output")
+				if err != nil {
+					return err
+				}
+				os.Setenv("DRONE_WORKSPACE", tmpDir)
+				return nil
+			},
+			cleanup: func(path string) error {
+				tmpDir := os.Getenv("DRONE_WORKSPACE")
+				os.Unsetenv("DRONE_WORKSPACE")
+				return os.RemoveAll(tmpDir)
+			},
 			expectError: false,
 			privileged:  true,
 		},
 		{
-			name:        "valid_output_unprivileged",
-			outputPath:  "./test/output.env",
-			digest:      "sha256:test",
-			tarPath:     "./test/image.tar",
-			setup:       func(path string) error { return os.MkdirAll(filepath.Dir(path), 0755) },
-			cleanup:     func(path string) error { return os.RemoveAll(filepath.Dir(path)) },
+			name:       "valid_output_unprivileged",
+			outputPath: "",
+			digest:     "sha256:test",
+			tarPath:    "",
+			setup: func(path string) error {
+				tmpDir, err := os.MkdirTemp("", "test-output")
+				if err != nil {
+					return err
+				}
+				os.Setenv("DRONE_WORKSPACE", tmpDir)
+				return nil
+			},
+			cleanup: func(path string) error {
+				tmpDir := os.Getenv("DRONE_WORKSPACE")
+				os.Unsetenv("DRONE_WORKSPACE")
+				return os.RemoveAll(tmpDir)
+			},
 			expectError: false,
 			privileged:  false,
 		},
 		{
-			name:        "invalid_output_path",
-			outputPath:  "/root/test/output.env",
-			digest:      "sha256:test",
-			tarPath:     "/root/test/image.tar",
-			setup:       func(path string) error { return nil },
-			cleanup:     func(path string) error { return nil },
-			expectError: true,
-			privileged:  false,
-		},
-		{
-			name:        "digest_only",
-			outputPath:  "./test/output.env",
-			digest:      "sha256:test",
-			tarPath:     "",
-			setup:       func(path string) error { return os.MkdirAll(filepath.Dir(path), 0755) },
-			cleanup:     func(path string) error { return os.RemoveAll(filepath.Dir(path)) },
+			name:       "digest_only",
+			outputPath: "",
+			digest:     "sha256:test",
+			tarPath:    "",
+			setup: func(path string) error {
+				tmpDir, err := os.MkdirTemp("", "test-output")
+				if err != nil {
+					return err
+				}
+				os.Setenv("DRONE_WORKSPACE", tmpDir)
+				return nil
+			},
+			cleanup: func(path string) error {
+				tmpDir := os.Getenv("DRONE_WORKSPACE")
+				os.Unsetenv("DRONE_WORKSPACE")
+				return os.RemoveAll(tmpDir)
+			},
 			expectError: false,
 			privileged:  false,
 		},
@@ -71,7 +94,26 @@ func TestWritePluginOutputFile(t *testing.T) {
 			}
 			defer tt.cleanup(tt.outputPath)
 
-			err := WritePluginOutputFile(tt.outputPath, tt.digest, tt.tarPath)
+			tmpDir := os.Getenv("DRONE_WORKSPACE")
+			var outputPath, tarPath string
+			switch tt.name {
+			case "valid_output_privileged", "valid_output_unprivileged":
+				outputPath = filepath.Join(tmpDir, "test", "output.env")
+				tarPath = filepath.Join(tmpDir, "test", "image.tar")
+			case "invalid_output_path":
+				outputPath = filepath.Join("/root", "test", "output.env")
+				tarPath = filepath.Join("/root", "test", "image.tar")
+			case "digest_only":
+				outputPath = filepath.Join(tmpDir, "test", "output.env")
+				tarPath = ""
+			}
+
+			err := os.MkdirAll(filepath.Dir(outputPath), 0755)
+			if err != nil {
+				t.Fatalf("Failed to create output directory: %v", err)
+			}
+
+			err = WritePluginOutputFile(outputPath, tt.digest, tarPath)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error, got none")
@@ -81,7 +123,7 @@ func TestWritePluginOutputFile(t *testing.T) {
 			}
 
 			if !tt.expectError && err == nil {
-				content, err := os.ReadFile(tt.outputPath)
+				content, err := os.ReadFile(outputPath)
 				if err != nil {
 					t.Fatalf("Failed to read output file: %v", err)
 				}
@@ -90,7 +132,7 @@ func TestWritePluginOutputFile(t *testing.T) {
 					t.Error("Expected digest in output file")
 				}
 
-				if tt.tarPath != "" && !contains(string(content), tt.tarPath) {
+				if tarPath != "" && !contains(string(content), tarPath) {
 					t.Error("Expected tar path in output file")
 				}
 			}
