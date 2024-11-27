@@ -423,8 +423,11 @@ func getTarPath(tarPath string) string {
 	}
 	tarDir := filepath.Dir(tarPath)
 	if _, err := os.Stat(tarDir); err != nil && os.IsNotExist(err) {
-		fmt.Fprintf(os.Stderr, "Warning: tar path does not exist: %s\n", tarPath)
-		return ""
+		if mkdirErr := os.MkdirAll(tarDir, 0755); mkdirErr != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to create tar path directory: %s, error: %v\n", tarDir, mkdirErr)
+			return ""
+		}
+		fmt.Fprintf(os.Stderr, "Created directory for tar path: %s\n", tarDir)
 	}
 	return tarPath
 }
