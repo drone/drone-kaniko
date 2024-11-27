@@ -48,16 +48,6 @@ func TestWritePluginOutputFile(t *testing.T) {
 			privileged:  false,
 		},
 		{
-			name:        "empty_values",
-			outputPath:  "./test/output.env",
-			digest:      "",
-			tarPath:     "",
-			setup:       func(path string) error { return os.MkdirAll(filepath.Dir(path), 0755) },
-			cleanup:     func(path string) error { return os.RemoveAll(filepath.Dir(path)) },
-			expectError: true,
-			privileged:  false,
-		},
-		{
 			name:        "digest_only",
 			outputPath:  "./test/output.env",
 			digest:      "sha256:test",

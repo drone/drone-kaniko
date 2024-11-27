@@ -1,7 +1,6 @@
 package output
 
 import (
-	"fmt"
 	"github.com/joho/godotenv"
 )
 
@@ -14,7 +13,6 @@ func WritePluginOutputFile(outputFilePath, digest string, pluginTarPath string) 
 	if pluginTarPath != "" {
 		output["IMAGE_TAR_PATH"] = pluginTarPath
 	}
-
 
 	return godotenv.Write(output, outputFilePath)
 }
