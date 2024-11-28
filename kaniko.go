@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/drone/drone-kaniko/pkg/artifact"
@@ -258,6 +259,12 @@ func (p Plugin) Exec() error {
 	}
 
 	if p.Build.TarPath != "" {
+		tarDir := filepath.Dir(p.Build.TarPath)
+		if _, err := os.Stat(tarDir); os.IsNotExist(err) {
+			if mkdirErr := os.MkdirAll(tarDir, 0755); mkdirErr != nil {
+				return fmt.Errorf("failed to create directory for tar path %s: %v", tarDir, mkdirErr)
+			}
+		}
 		cmdArgs = append(cmdArgs, fmt.Sprintf("--tar-path=%s", p.Build.TarPath))
 	}
 
@@ -407,12 +414,25 @@ func (p Plugin) Exec() error {
 	}
 
 	if p.Output.OutputFile != "" {
-		if err = output.WritePluginOutputFile(p.Output.OutputFile, getDigest(p.Build.DigestFile)); err != nil {
+		var tarPath string
+		if p.Build.TarPath != "" {
+			tarPath = getTarPath(p.Build.TarPath)
+		}
+		if err = output.WritePluginOutputFile(p.Output.OutputFile, getDigest(p.Build.DigestFile), tarPath); err != nil {
 			fmt.Fprintf(os.Stderr, "failed to write plugin output file at path: %s with error: %s\n", p.Output.OutputFile, err)
 		}
 	}
 
 	return nil
+}
+
+func getTarPath(tarPath string) string {
+	tarDir := filepath.Dir(tarPath)
+	if _, err := os.Stat(tarDir); err != nil && os.IsNotExist(err) {
+		fmt.Fprintf(os.Stderr, "Warning: tar path does not exist: %s\n", tarPath)
+		return ""
+	}
+	return tarPath
 }
 
 func getDigest(digestFile string) string {
