@@ -427,10 +427,6 @@ func (p Plugin) Exec() error {
 }
 
 func getTarPath(tarPath string) string {
-	if tarPath == "" {
-		fmt.Fprintf(os.Stderr, "Warning: tar_path is empty\n")
-		return ""
-	}
 	tarDir := filepath.Dir(tarPath)
 	if _, err := os.Stat(tarDir); err != nil && os.IsNotExist(err) {
 		fmt.Fprintf(os.Stderr, "Warning: tar path does not exist: %s\n", tarPath)
