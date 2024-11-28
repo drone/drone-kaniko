@@ -414,7 +414,11 @@ func (p Plugin) Exec() error {
 	}
 
 	if p.Output.OutputFile != "" {
-		if err = output.WritePluginOutputFile(p.Output.OutputFile, getDigest(p.Build.DigestFile), getTarPath(p.Build.TarPath)); err != nil {
+		var tarPath string
+		if p.Build.TarPath != "" {
+			tarPath = getTarPath(p.Build.TarPath)
+		}
+		if err = output.WritePluginOutputFile(p.Output.OutputFile, getDigest(p.Build.DigestFile), tarPath); err != nil {
 			fmt.Fprintf(os.Stderr, "failed to write plugin output file at path: %s with error: %s\n", p.Output.OutputFile, err)
 		}
 	}
