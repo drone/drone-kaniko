@@ -3,6 +3,8 @@ FROM gcr.io/kaniko-project/executor:v1.23.2
 ENV HOME /root
 ENV USER root
 
+RUN apk add --no-cache busybox
+
 RUN apk add --no-cache docker-cli
 ENV KANIKO_VERSION=1.23.2
 ADD release/linux/arm64/kaniko-docker /kaniko/
