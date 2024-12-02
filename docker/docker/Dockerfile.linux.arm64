@@ -3,9 +3,13 @@ FROM gcr.io/kaniko-project/executor:v1.23.2
 ENV HOME /root
 ENV USER root
 
-RUN apk add --no-cache busybox
+SHELL ["/busybox/sh", "-c"]
 
-RUN apk add --no-cache docker-cli
+RUN /busybox/bin/mkdir -p /tmp && \
+    /busybox/bin/wget -q -O /etc/apk/keys/sgerrand.rsa.pub https://alpine-pkgs.sgerrand.com/sgerrand.rsa.pub && \
+    /busybox/bin/wget https://github.com/sgerrand/alpine-pkg-glibc/releases/download/2.35-r0/glibc-2.35-r0.apk && \
+    /busybox/bin/apk add --no-cache /glibc-2.35-r0.apk && \
+    /busybox/bin/apk add --no-cache docker-cli
 ENV KANIKO_VERSION=1.23.2
 ADD release/linux/arm64/kaniko-docker /kaniko/
 ENTRYPOINT ["/kaniko/kaniko-docker"]
