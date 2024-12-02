@@ -363,6 +363,11 @@ func main() {
 			Usage:  "Number of retries for downloading base images.",
 			EnvVar: "PLUGIN_IMAGE_DOWNLOAD_RETRY",
 		},
+		cli.StringFlag{
+			Name:   "local-tar-path",
+			Usage:  "Set this flag to pick the local tarball image to push to registry",
+			EnvVar: "PLUGIN_LOCAL_TAR_PATH",
+		},
 	}
 
 	if err := app.Run(os.Args); err != nil {
@@ -448,6 +453,7 @@ func run(c *cli.Context) error {
 			SkipTLSVerifyRegistry:       c.Bool("skip-tls-verify-registry"),
 			UseNewRun:                   c.Bool("use-new-run"),
 			IgnorePath:                  c.String("ignore-path"),
+			LocalTarPath:                c.String("local-tar-path"),
 
 			ImageFSExtractRetry: c.Int("image-fs-extract-retry"),
 			ImageDownloadRetry:  c.Int("image-download-retry"),
