@@ -43,6 +43,7 @@ type (
 		Platform            string   // Allows to build with another default platform than the host, similarly to docker build --platform
 		SkipUnusedStages    bool     // Build only used stages
 		TarPath             string   // Set this flag to save the image as a tarball at path
+		LocalTarPath        string   // Path to the local tarball to be pushed
 
 		Cache                       bool   // Enable or disable caching during the build process.
 		CacheDir                    string // Directory to store cached layers.
@@ -172,6 +173,61 @@ func (b Build) AutoTags() (tags []string, err error) {
 func (p Plugin) Exec() error {
 	if !p.Build.NoPush && p.Build.Repo == "" {
 		return fmt.Errorf("repository name to publish image must be specified")
+	}
+
+	if p.Build.LocalTarPath != "" {
+		if p.Build.Repo == "" {
+			return fmt.Errorf("destination repository name must be specified")
+		}
+
+		// Validate local tarball exists
+		if _, err := os.Stat(p.Build.LocalTarPath); os.IsNotExist(err) {
+			return fmt.Errorf("local tarball does not exist at path: %s", p.Build.LocalTarPath)
+		}
+
+		var tags []string
+		var err error
+		if p.Build.AutoTag {
+			tags, err = p.Build.AutoTags()
+			if err != nil {
+				return err
+			}
+		} else if len(p.Build.Tags) > 0 {
+			tags = p.Build.Tags
+		} else {
+			tags = []string{"latest"}
+		}
+
+		loadCmd := exec.Command("docker", "load", "-i", p.Build.LocalTarPath)
+		loadOutput, err := loadCmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("failed to load image from tarball: %v. Output: %s", err, string(loadOutput))
+		}
+
+		loadedImageLine := strings.TrimSpace(string(loadOutput))
+		parts := strings.Split(loadedImageLine, ":")
+		if len(parts) < 2 {
+			return fmt.Errorf("unable to parse loaded image name from output: %s", loadedImageLine)
+		}
+		originalImageName := strings.TrimPrefix(strings.TrimSpace(parts[0]), "Loaded image: ")
+
+		for _, tag := range tags {
+			tagCmd := exec.Command("docker", "tag", originalImageName, fmt.Sprintf("%s:%s", p.Build.Repo, tag))
+			if err := tagCmd.Run(); err != nil {
+				return fmt.Errorf("failed to tag image: %v", err)
+			}
+
+			pushCmd := exec.Command("docker", "push", fmt.Sprintf("%s:%s", p.Build.Repo, tag))
+			pushOutput, err := pushCmd.CombinedOutput()
+			if err != nil {
+				return fmt.Errorf("failed to push image: %v. Output: %s", err, string(pushOutput))
+			}
+
+			// Print push output
+			fmt.Println(string(pushOutput))
+		}
+
+		return nil
 	}
 
 	if _, err := os.Stat(p.Build.Dockerfile); os.IsNotExist(err) {
