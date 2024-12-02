@@ -198,7 +198,7 @@ func (p Plugin) Exec() error {
 			tags = []string{"latest"}
 		}
 
-		loadCmd := exec.Command("docker", "load", "-i", p.Build.LocalTarPath)
+		loadCmd := exec.Command("docker", "load", "<", p.Build.LocalTarPath)
 		loadOutput, err := loadCmd.CombinedOutput()
 		if err != nil {
 			return fmt.Errorf("failed to load image from tarball: %v. Output: %s", err, string(loadOutput))
