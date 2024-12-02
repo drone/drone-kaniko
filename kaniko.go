@@ -11,6 +11,7 @@ import (
 	"github.com/drone/drone-kaniko/pkg/artifact"
 	"github.com/drone/drone-kaniko/pkg/output"
 	"github.com/drone/drone-kaniko/pkg/tagger"
+	"github.com/google/go-containerregistry/pkg/crane"
 	"golang.org/x/mod/semver"
 )
 
@@ -198,33 +199,22 @@ func (p Plugin) Exec() error {
 			tags = []string{"latest"}
 		}
 
-		loadCmd := exec.Command("docker", "load", "<", p.Build.LocalTarPath)
-		loadOutput, err := loadCmd.CombinedOutput()
+		// Load the image from the tarball
+		img, err := crane.Load(p.Build.LocalTarPath)
 		if err != nil {
-			return fmt.Errorf("failed to load image from tarball: %v. Output: %s", err, string(loadOutput))
+			return fmt.Errorf("failed to load image from tarball: %v", err)
 		}
-
-		loadedImageLine := strings.TrimSpace(string(loadOutput))
-		parts := strings.Split(loadedImageLine, ":")
-		if len(parts) < 2 {
-			return fmt.Errorf("unable to parse loaded image name from output: %s", loadedImageLine)
-		}
-		originalImageName := strings.TrimPrefix(strings.TrimSpace(parts[0]), "Loaded image: ")
 
 		for _, tag := range tags {
-			tagCmd := exec.Command("docker", "tag", originalImageName, fmt.Sprintf("%s:%s", p.Build.Repo, tag))
-			if err := tagCmd.Run(); err != nil {
-				return fmt.Errorf("failed to tag image: %v", err)
-			}
+			dest := fmt.Sprintf("%s:%s", p.Build.Repo, tag)
 
-			pushCmd := exec.Command("docker", "push", fmt.Sprintf("%s:%s", p.Build.Repo, tag))
-			pushOutput, err := pushCmd.CombinedOutput()
+			// Push the image to the destination
+			err := crane.Push(img, dest)
 			if err != nil {
-				return fmt.Errorf("failed to push image: %v. Output: %s", err, string(pushOutput))
+				return fmt.Errorf("failed to push image to %s: %v", dest, err)
 			}
 
-			// Print push output
-			fmt.Println(string(pushOutput))
+			fmt.Printf("Successfully pushed %s\n", dest)
 		}
 
 		return nil
