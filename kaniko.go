@@ -2,6 +2,7 @@ package kaniko
 
 import (
 	"fmt"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -102,6 +103,10 @@ type (
 		Build    Build    // Docker build configuration
 		Artifact Artifact // Artifact file content
 		Output   Output   // Output file content
+
+		// parameters for UTs to mock crane functionality
+		LoadImageFromTarball func(string) (v1.Image, error)
+		PushImageToRegistry  func(v1.Image, string) error
 	}
 )
 
