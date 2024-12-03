@@ -18,33 +18,33 @@ import (
 type (
 	// Build defines Docker build parameters.
 	Build struct {
-		DroneCommitRef      string   // Drone git commit reference
-		DroneRepoBranch     string   // Drone repo branch
-		Dockerfile          string   // Docker build Dockerfile
-		Context             string   // Docker build context
-		Tags                []string // Docker build tags
-		AutoTag             bool     // Set this to auto detect tags from git commits and semver-tagged labels
-		AutoTagSuffix       string   // Suffix to append to the auto detect tags
-		ExpandTag           bool     // Set this to expand the `Tags` into semver-tagged labels
 		Args                []string // Docker build args
 		ArgsNew             []string // docker build args with comma seperated values
-		IsMultipleBuildArgs bool     // env variable for fallback for docker build args
-		Target              string   // Docker build target
-		Repo                string   // Docker build repository
-		Mirrors             []string // Docker repository mirrors
-		Labels              []string // Label map
-		SkipTlsVerify       bool     // Docker skip tls certificate verify for registry
-		SnapshotMode        string   // Kaniko snapshot mode
-		EnableCache         bool     // Whether to enable kaniko cache
+		AutoTag             bool     // Set this to auto detect tags from git commits and semver-tagged labels
+		AutoTagSuffix       string   // Suffix to append to the auto detect tags
 		CacheRepo           string   // Remote repository that will be used to store cached layers
 		CacheTTL            int      // Cache timeout in hours
+		Context             string   // Docker build context
 		DigestFile          string   // Digest file location
+		Dockerfile          string   // Docker build Dockerfile
+		DroneCommitRef      string   // Drone git commit reference
+		DroneRepoBranch     string   // Drone repo branch
+		EnableCache         bool     // Whether to enable kaniko cache
+		ExpandTag           bool     // Set this to expand the `Tags` into semver-tagged labels
+		ImageTarPath        string   // Path to the local tarball to be pushed
+		IsMultipleBuildArgs bool     // env variable for fallback for docker build args
+		Labels              []string // Label map
+		Mirrors             []string // Docker repository mirrors
 		NoPush              bool     // Set this flag if you only want to build the image, without pushing to a registry
-		Verbosity           string   // Log level
 		Platform            string   // Allows to build with another default platform than the host, similarly to docker build --platform
+		Repo                string   // Docker build repository
+		SkipTlsVerify       bool     // Docker skip tls certificate verify for registry
 		SkipUnusedStages    bool     // Build only used stages
+		SnapshotMode        string   // Kaniko snapshot mode
+		Tags                []string // Docker build tags
 		TarPath             string   // Set this flag to save the image as a tarball at path
-		LocalTarPath        string   // Path to the local tarball to be pushed
+		Target              string   // Docker build target
+		Verbosity           string   // Log level
 
 		Cache                       bool   // Enable or disable caching during the build process.
 		CacheDir                    string // Directory to store cached layers.
@@ -176,14 +176,14 @@ func (p Plugin) Exec() error {
 		return fmt.Errorf("repository name to publish image must be specified")
 	}
 
-	if p.Build.LocalTarPath != "" {
+	if p.Build.ImageTarPath != "" {
 		if p.Build.Repo == "" {
 			return fmt.Errorf("destination repository name must be specified")
 		}
 
 		// Validate local tarball exists
-		if _, err := os.Stat(p.Build.LocalTarPath); os.IsNotExist(err) {
-			return fmt.Errorf("local tarball does not exist at path: %s", p.Build.LocalTarPath)
+		if _, err := os.Stat(p.Build.ImageTarPath); os.IsNotExist(err) {
+			return fmt.Errorf("image tarball does not exist at path: %s", p.Build.ImageTarPath)
 		}
 
 		var tags []string
@@ -200,7 +200,7 @@ func (p Plugin) Exec() error {
 		}
 
 		// Load the image from the tarball
-		img, err := crane.Load(p.Build.LocalTarPath)
+		img, err := crane.Load(p.Build.ImageTarPath)
 		if err != nil {
 			return fmt.Errorf("failed to load image from tarball: %v", err)
 		}
@@ -214,7 +214,7 @@ func (p Plugin) Exec() error {
 				return fmt.Errorf("failed to push image to %s: %v", dest, err)
 			}
 
-			fmt.Printf("Successfully pushed %s\n", dest)
+			fmt.Printf("Successfully pushed '%s' image to %s\n", img, dest)
 		}
 
 		return nil

@@ -364,9 +364,9 @@ func main() {
 			EnvVar: "PLUGIN_IMAGE_DOWNLOAD_RETRY",
 		},
 		cli.StringFlag{
-			Name:   "local-tar-path",
+			Name:   "image-tar-path",
 			Usage:  "Set this flag to pick the local tarball image to push to registry",
-			EnvVar: "PLUGIN_LOCAL_TAR_PATH",
+			EnvVar: "PLUGIN_IMAGE_TAR_PATH",
 		},
 	}
 
@@ -434,6 +434,7 @@ func run(c *cli.Context) error {
 			Force:                       c.Bool("force"),
 			ImageNameWithDigestFile:     c.String("image-name-with-digest-file"),
 			ImageNameTagWithDigestFile:  c.String("image-name-tag-with-digest-file"),
+			ImageTarPath:                c.String("image-tar-path"),
 			Insecure:                    c.Bool("insecure"),
 			InsecurePull:                c.Bool("insecure-pull"),
 			InsecureRegistry:            c.String("insecure-registry"),
@@ -453,7 +454,6 @@ func run(c *cli.Context) error {
 			SkipTLSVerifyRegistry:       c.Bool("skip-tls-verify-registry"),
 			UseNewRun:                   c.Bool("use-new-run"),
 			IgnorePath:                  c.String("ignore-path"),
-			LocalTarPath:                c.String("local-tar-path"),
 
 			ImageFSExtractRetry: c.Int("image-fs-extract-retry"),
 			ImageDownloadRetry:  c.Int("image-download-retry"),
