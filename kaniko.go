@@ -214,7 +214,7 @@ func (p Plugin) Exec() error {
 				return fmt.Errorf("failed to push image to %s: %v", dest, err)
 			}
 
-			fmt.Printf("Successfully pushed '%s' image to %s\n", img, dest)
+			fmt.Printf("Successfully pushed image - '%s\n' to %s\n", dest, p.Build.Repo)
 		}
 
 		return nil
