@@ -203,10 +203,7 @@ func (p Plugin) Exec() error {
 		}
 
 		// If no tags are specified, use 'latest'
-		tags := []string{"latest"}
-		if len(p.Build.Tags) > 0 {
-			tags = p.Build.Tags
-		}
+		tags := p.Build.Tags
 
 		for _, tag := range tags {
 			dest := fmt.Sprintf("%s:%s", p.Build.Repo, tag)
