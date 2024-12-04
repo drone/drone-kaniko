@@ -193,7 +193,7 @@ func (p Plugin) Exec() error {
 		}
 
 		if p.Build.Repo == "" {
-			return fmt.Errorf("destination repository name must be specified when push-only is set")
+			return fmt.Errorf("missing required destination repository for push-only operation"")
 		}
 
 		// Load the image from the tarball
