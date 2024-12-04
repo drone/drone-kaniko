@@ -190,7 +190,7 @@ func main() {
 		cli.StringFlag{
 			Name:   "tar-path",
 			Usage:  "Set this flag to save the image as a tarball at path",
-			EnvVar: "PLUGIN_TAR_PATH",
+			EnvVar: "PLUGIN_TAR_PATH, PLUGIN_DESTINATION_TAR_PATH",
 		},
 		cli.StringFlag{
 			Name:   "verbosity",
@@ -364,9 +364,14 @@ func main() {
 			EnvVar: "PLUGIN_IMAGE_DOWNLOAD_RETRY",
 		},
 		cli.StringFlag{
-			Name:   "image-tar-path",
-			Usage:  "Set this flag to pick the local tarball image to push to registry",
-			EnvVar: "PLUGIN_IMAGE_TAR_PATH",
+			Name:   "source-tar-path",
+			Usage:  "Set this flag for the source tarball during push operations.",
+			EnvVar: "PLUGIN_SOURCE_TAR_PATH",
+		},
+		cli.BoolFlag{
+			Name:   "push-only",
+			Usage:  "Specify if the operation is push-only",
+			EnvVar: "PLUGIN_PUSH_ONLY",
 		},
 	}
 
@@ -424,6 +429,7 @@ func run(c *cli.Context) error {
 			TarPath:                     c.String("tar-path"),
 			Verbosity:                   c.String("verbosity"),
 			Platform:                    c.String("platform"),
+			PushOnly:                    c.Bool("push-only"),
 			SkipUnusedStages:            c.Bool("skip-unused-stages"),
 			CacheDir:                    c.String("cache-dir"),
 			CacheCopyLayers:             c.Bool("cache-copy-layers"),
@@ -434,7 +440,6 @@ func run(c *cli.Context) error {
 			Force:                       c.Bool("force"),
 			ImageNameWithDigestFile:     c.String("image-name-with-digest-file"),
 			ImageNameTagWithDigestFile:  c.String("image-name-tag-with-digest-file"),
-			ImageTarPath:                c.String("image-tar-path"),
 			Insecure:                    c.Bool("insecure"),
 			InsecurePull:                c.Bool("insecure-pull"),
 			InsecureRegistry:            c.String("insecure-registry"),
@@ -452,6 +457,7 @@ func run(c *cli.Context) error {
 			SkipPushPermissionCheck:     c.Bool("skip-push-permission-check"),
 			SkipTLSVerifyPull:           c.Bool("skip-tls-verify-pull"),
 			SkipTLSVerifyRegistry:       c.Bool("skip-tls-verify-registry"),
+			SourceTarPath:               c.String("source-tar-path"),
 			UseNewRun:                   c.Bool("use-new-run"),
 			IgnorePath:                  c.String("ignore-path"),
 

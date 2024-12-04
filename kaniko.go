@@ -32,16 +32,17 @@ type (
 		DroneRepoBranch     string   // Drone repo branch
 		EnableCache         bool     // Whether to enable kaniko cache
 		ExpandTag           bool     // Set this to expand the `Tags` into semver-tagged labels
-		ImageTarPath        string   // Path to the local tarball to be pushed
 		IsMultipleBuildArgs bool     // env variable for fallback for docker build args
 		Labels              []string // Label map
 		Mirrors             []string // Docker repository mirrors
 		NoPush              bool     // Set this flag if you only want to build the image, without pushing to a registry
 		Platform            string   // Allows to build with another default platform than the host, similarly to docker build --platform
+		PushOnly            bool     // Specify if the operation is push-only.
 		Repo                string   // Docker build repository
 		SkipTlsVerify       bool     // Docker skip tls certificate verify for registry
 		SkipUnusedStages    bool     // Build only used stages
 		SnapshotMode        string   // Kaniko snapshot mode
+		SourceTarPath       string   // Path to the local tarball to be pushed
 		Tags                []string // Docker build tags
 		TarPath             string   // Set this flag to save the image as a tarball at path
 		Target              string   // Docker build target
@@ -181,33 +182,30 @@ func (p Plugin) Exec() error {
 		return fmt.Errorf("repository name to publish image must be specified")
 	}
 
-	if p.Build.ImageTarPath != "" {
+	if p.Build.PushOnly {
+		// When push-only is set, source_tar_path MUST be provided
+		if p.Build.SourceTarPath == "" {
+			return fmt.Errorf("source_tar_path is required when push_only is set. Please provide a valid tarball path.")
+		}
+
+		if _, err := os.Stat(p.Build.SourceTarPath); os.IsNotExist(err) {
+			return fmt.Errorf("image tarball does not exist at path: %s", p.Build.SourceTarPath)
+		}
+
 		if p.Build.Repo == "" {
-			return fmt.Errorf("destination repository name must be specified")
-		}
-
-		// Validate local tarball exists
-		if _, err := os.Stat(p.Build.ImageTarPath); os.IsNotExist(err) {
-			return fmt.Errorf("image tarball does not exist at path: %s", p.Build.ImageTarPath)
-		}
-
-		var tags []string
-		var err error
-		if p.Build.AutoTag {
-			tags, err = p.Build.AutoTags()
-			if err != nil {
-				return err
-			}
-		} else if len(p.Build.Tags) > 0 {
-			tags = p.Build.Tags
-		} else {
-			tags = []string{"latest"}
+			return fmt.Errorf("destination repository name must be specified when push-only is set")
 		}
 
 		// Load the image from the tarball
-		img, err := crane.Load(p.Build.ImageTarPath)
+		img, err := crane.Load(p.Build.SourceTarPath)
 		if err != nil {
 			return fmt.Errorf("failed to load image from tarball: %v", err)
+		}
+
+		// If no tags are specified, use 'latest'
+		tags := []string{"latest"}
+		if len(p.Build.Tags) > 0 {
+			tags = p.Build.Tags
 		}
 
 		for _, tag := range tags {
@@ -219,7 +217,7 @@ func (p Plugin) Exec() error {
 				return fmt.Errorf("failed to push image to %s: %v", dest, err)
 			}
 
-			fmt.Printf("Successfully pushed image - '%s\n' to %s\n", dest, p.Build.Repo)
+			fmt.Printf("Successfully pushed image - '%s'\n to %s\n", dest, p.Build.Repo)
 		}
 
 		return nil

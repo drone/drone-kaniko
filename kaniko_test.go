@@ -357,7 +357,7 @@ func TestLocalTarballPush(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockPlugin := Plugin{
 				Build: Build{
-					ImageTarPath:    tt.localTarPath,
+					SourceTarPath:   tt.localTarPath,
 					Repo:            tt.repo,
 					Tags:            tt.tags,
 					AutoTag:         tt.autoTag,
