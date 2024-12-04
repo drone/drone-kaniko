@@ -214,7 +214,7 @@ func (p Plugin) Exec() error {
 			// Push the image to the destination
 			err := crane.Push(img, dest)
 			if err != nil {
-				return fmt.Errorf("failed to push image to %s: %v", dest, err)
+				return fmt.Errorf("failed to push image from tarball [%s] to destination [%s]: %v", p.Build.SourceTarPath, dest, err)
 			}
 
 			fmt.Printf("Successfully pushed image - '%s'\n to %s\n", dest, p.Build.Repo)
