@@ -53,6 +53,35 @@ docker build \
 ```
 
 ## Usage
+
+### Operation Modes
+
+Default Mode (Build and Push):
+
+When neither `no_push` nor `push_only` is provided. Plugin builds and pushes the Docker image to a container registry.
+
+
+Build-Only Mode (no-push):
+
+When `no_push` is true and `destination_tar_path` is defined. 
+Plugin performs only the image build operation and saves the resulting image tarball to the specified `destination_tar_path`
+It does not push the image to any registry.
+
+
+Push-Only Mode (push-only):
+
+When `push_only` is true and `source_tar_path` is defined.
+Plugin loads an existing image tarball from the specified `source_tar_path`
+and pushes the loaded image to a Container Registry.
+It skips the build process.
+
+### Mutually Exclusive Inputs
+
+If both `no_push` and `push_only` inputs are provided, the plugin will:
+
+Terminate the operation and
+throw an error with the message: "Inputs no-push and push-only cannot be used together. Please define only one."
+
 ### Manual Tagging
 
 ```console

@@ -178,6 +178,11 @@ func (b Build) AutoTags() (tags []string, err error) {
 
 // Exec executes the plugin step
 func (p Plugin) Exec() error {
+
+	if p.Build.NoPush && p.Build.PushOnly {
+		return fmt.Errorf("inputs no-push and push-only cannot be used together. please define only one")
+	}
+
 	if !p.Build.NoPush && p.Build.Repo == "" {
 		return fmt.Errorf("repository name to publish image must be specified")
 	}
@@ -185,7 +190,7 @@ func (p Plugin) Exec() error {
 	if p.Build.PushOnly {
 		// When push-only is set, source_tar_path MUST be provided
 		if p.Build.SourceTarPath == "" {
-			return fmt.Errorf("source_tar_path is required when push_only is set. Please provide a valid tarball path.")
+			return fmt.Errorf("source_tar_path is required when push_only is set. please provide a valid tarball path")
 		}
 
 		if _, err := os.Stat(p.Build.SourceTarPath); os.IsNotExist(err) {
@@ -193,7 +198,7 @@ func (p Plugin) Exec() error {
 		}
 
 		if p.Build.Repo == "" {
-			return fmt.Errorf("missing required destination repository for push-only operation"")
+			return fmt.Errorf("missing required destination repository for push-only operation")
 		}
 
 		// Load the image from the tarball

@@ -3,8 +3,6 @@ package kaniko
 import (
 	"archive/tar"
 	"fmt"
-	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/google/go-containerregistry/pkg/v1/types"
 	"os"
 	"path/filepath"
 	"testing"
@@ -285,10 +283,10 @@ func TestTarPathValidation(t *testing.T) {
 	}
 }
 
-func TestLocalTarballPush(t *testing.T) {
+func TestSourceTarballPush(t *testing.T) {
 	tests := []struct {
 		name          string
-		localTarPath  string
+		sourceTarPath string
 		repo          string
 		autoTag       bool
 		tags          []string
@@ -301,26 +299,26 @@ func TestLocalTarballPush(t *testing.T) {
 	}{
 		{
 			name:          "empty_repo_fails",
-			localTarPath:  "/path/to/image.tar",
+			sourceTarPath: "/path/to/image.tar",
 			repo:          "",
 			expectedError: true,
 		},
 		{
 			name:          "nonexistent_tarball_fails",
-			localTarPath:  "/path/that/does/not/exist/image.tar",
+			sourceTarPath: "/path/that/does/not/exist/image.tar",
 			repo:          "test-repo",
 			expectedError: true,
 		},
 		{
 			name:          "load_image_fails",
-			localTarPath:  createTestTarball(t),
+			sourceTarPath: createTestTarball(t),
 			repo:          "test-repo",
 			expectedError: true,
 			mockLoadErr:   fmt.Errorf("load failed"),
 		},
 		{
 			name:          "push_image_fails",
-			localTarPath:  createTestTarball(t),
+			sourceTarPath: createTestTarball(t),
 			repo:          "test-repo",
 			expectedError: true,
 			expectedTags:  []string{"latest"},
@@ -332,25 +330,15 @@ func TestLocalTarballPush(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockPlugin := Plugin{
 				Build: Build{
-					SourceTarPath:   tt.localTarPath,
+					SourceTarPath:   tt.sourceTarPath,
 					Repo:            tt.repo,
 					Tags:            tt.tags,
 					AutoTag:         tt.autoTag,
 					DroneCommitRef:  tt.commitRef,
 					DroneRepoBranch: tt.repoBranch,
 				},
-				LoadImageFromTarball: func(path string) (v1.Image, error) {
-					if tt.mockLoadErr != nil {
-						return nil, tt.mockLoadErr
-					}
-					return &mockImage{}, nil
-				},
-				PushImageToRegistry: func(img v1.Image, dest string) error {
-					if tt.mockPushErr != nil {
-						return tt.mockPushErr
-					}
-					return nil
-				},
+				LoadImageFromTarball: MockCraneLoad(tt.sourceTarPath, tt.mockLoadErr),
+				PushImageToRegistry:  MockCranePush(tt.mockPushErr),
 			}
 
 			err := mockPlugin.Exec()
@@ -366,53 +354,6 @@ func TestLocalTarballPush(t *testing.T) {
 			}
 		})
 	}
-}
-
-// Mock image type to simulate v1.Image
-type mockImage struct{}
-
-func (m *mockImage) Size() (int64, error) {
-	return 0, nil
-}
-
-func (m *mockImage) RawConfigFile() ([]byte, error) {
-	return nil, nil
-}
-
-func (m *mockImage) Digest() (v1.Hash, error) {
-	return v1.Hash{}, nil
-}
-
-func (m *mockImage) Manifest() (*v1.Manifest, error) {
-	return nil, nil
-}
-
-func (m *mockImage) RawManifest() ([]byte, error) {
-	return nil, nil
-}
-
-func (m *mockImage) LayerByDigest(hash v1.Hash) (v1.Layer, error) {
-	return nil, nil
-}
-
-func (m *mockImage) LayerByDiffID(hash v1.Hash) (v1.Layer, error) {
-	return nil, nil
-}
-
-func (m *mockImage) Layers() ([]v1.Layer, error) {
-	return nil, nil
-}
-
-func (m *mockImage) MediaType() (types.MediaType, error) {
-	return "", nil
-}
-
-func (m *mockImage) ConfigFile() (*v1.ConfigFile, error) {
-	return nil, nil
-}
-
-func (m *mockImage) ConfigName() (v1.Hash, error) {
-	return v1.Hash{}, nil
 }
 
 // Helper function to create a test tarball
