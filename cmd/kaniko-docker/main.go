@@ -190,7 +190,7 @@ func main() {
 		cli.StringFlag{
 			Name:   "tar-path",
 			Usage:  "Set this flag to save the image as a tarball at path",
-			EnvVar: "PLUGIN_TAR_PATH",
+			EnvVar: "PLUGIN_TAR_PATH, PLUGIN_DESTINATION_TAR_PATH",
 		},
 		cli.StringFlag{
 			Name:   "verbosity",
@@ -363,6 +363,16 @@ func main() {
 			Usage:  "Number of retries for downloading base images.",
 			EnvVar: "PLUGIN_IMAGE_DOWNLOAD_RETRY",
 		},
+		cli.StringFlag{
+			Name:   "source-tar-path",
+			Usage:  "Set this flag for the source tarball during push operations.",
+			EnvVar: "PLUGIN_SOURCE_TAR_PATH",
+		},
+		cli.BoolFlag{
+			Name:   "push-only",
+			Usage:  "Specify if the operation is push-only",
+			EnvVar: "PLUGIN_PUSH_ONLY",
+		},
 	}
 
 	if err := app.Run(os.Args); err != nil {
@@ -419,6 +429,7 @@ func run(c *cli.Context) error {
 			TarPath:                     c.String("tar-path"),
 			Verbosity:                   c.String("verbosity"),
 			Platform:                    c.String("platform"),
+			PushOnly:                    c.Bool("push-only"),
 			SkipUnusedStages:            c.Bool("skip-unused-stages"),
 			CacheDir:                    c.String("cache-dir"),
 			CacheCopyLayers:             c.Bool("cache-copy-layers"),
@@ -446,6 +457,7 @@ func run(c *cli.Context) error {
 			SkipPushPermissionCheck:     c.Bool("skip-push-permission-check"),
 			SkipTLSVerifyPull:           c.Bool("skip-tls-verify-pull"),
 			SkipTLSVerifyRegistry:       c.Bool("skip-tls-verify-registry"),
+			SourceTarPath:               c.String("source-tar-path"),
 			UseNewRun:                   c.Bool("use-new-run"),
 			IgnorePath:                  c.String("ignore-path"),
 
