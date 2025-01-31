@@ -209,7 +209,7 @@ pipeline:
                             repo: plugins/kaniko<+matrix.image>
                             tags:
                               - linux-amd64
-                            caching: true
+                            caching: false
                             dockerfile: docker/<+matrix.repo>/Dockerfile.linux.amd64
                           when:
                             stageStatus: Success
@@ -279,7 +279,7 @@ pipeline:
                             repo: plugins/kaniko<+matrix.image>
                             tags:
                               - linux-amd64-kaniko1.9.1
-                            caching: true
+                            caching: false
                             dockerfile: docker/<+matrix.repo>/Dockerfile.linux.amd64.kaniko1.9.1
                           when:
                             stageStatus: Success
@@ -494,7 +494,7 @@ pipeline:
                             repo: plugins/kaniko<+matrix.image>
                             tags:
                               - linux-arm64
-                            caching: true
+                            caching: false
                             dockerfile: docker/<+matrix.repo>/Dockerfile.linux.arm64
                           when:
                             stageStatus: Success
@@ -564,7 +564,7 @@ pipeline:
                             repo: plugins/kaniko<+matrix.image>
                             tags:
                               - linux-arm64-kaniko1.9.1
-                            caching: true
+                            caching: false
                             dockerfile: docker/<+matrix.repo>/Dockerfile.linux.arm64.kaniko1.9.1
                           when:
                             stageStatus: Success
