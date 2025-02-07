@@ -353,7 +353,7 @@ func main() {
 			Usage:  "Path to ignore during the build.",
 			EnvVar: "PLUGIN_IGNORE_PATH",
 		},
-		cli.StringFlag{
+		cli.StringSliceFlag{
 			Name:   "ignore-paths",
 			Usage:  "Path to ignore during the build.",
 			EnvVar: "PLUGIN_IGNORE_PATHS",
