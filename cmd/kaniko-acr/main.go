@@ -451,6 +451,7 @@ func run(c *cli.Context) error {
 			SkipTLSVerifyRegistry:       c.Bool("skip-tls-verify-registry"),
 			UseNewRun:                   c.Bool("use-new-run"),
 			IgnorePath:                  c.String("ignore-path"),
+			IgnorePaths:                 c.StringSlice("ignore-paths"),
 			ImageFSExtractRetry:         c.Int("image-fs-extract-retry"),
 			ImageDownloadRetry:          c.Int("image-download-retry"),
 		},
