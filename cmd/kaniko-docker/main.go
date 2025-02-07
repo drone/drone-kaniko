@@ -353,6 +353,11 @@ func main() {
 			Usage:  "Path to ignore during the build.",
 			EnvVar: "PLUGIN_IGNORE_PATH",
 		},
+		cli.StringFlag{
+			Name:   "ignore-paths",
+			Usage:  "Path to ignore during the build.",
+			EnvVar: "PLUGIN_IGNORE_PATHS",
+		},
 		cli.IntFlag{
 			Name:   "image-fs-extract-retry",
 			Usage:  "Number of retries for extracting filesystem layers.",
@@ -460,6 +465,7 @@ func run(c *cli.Context) error {
 			SourceTarPath:               c.String("source-tar-path"),
 			UseNewRun:                   c.Bool("use-new-run"),
 			IgnorePath:                  c.String("ignore-path"),
+			IgnorePaths:                 c.StringSlice("ignore-paths"),
 
 			ImageFSExtractRetry: c.Int("image-fs-extract-retry"),
 			ImageDownloadRetry:  c.Int("image-download-retry"),
