@@ -49,41 +49,42 @@ type (
 		Target              string   // Docker build target
 		Verbosity           string   // Log level
 
-		Cache                       bool   // Enable or disable caching during the build process.
-		CacheDir                    string // Directory to store cached layers.
-		CacheCopyLayers             bool   // Enable or disable copying layers from the cache.
-		CacheRunLayers              bool   // Enable or disable running layers from the cache.
-		Cleanup                     bool   // Enable or disable cleanup of temporary files.
-		CompressedCaching           *bool  // Enable or disable compressed caching.
-		ContextSubPath              string // Sub-path within the context to build.
-		CustomPlatform              string // Platform to use for building.
-		Force                       bool   // Force building the image even if it already exists.
-		Git                         bool   // Branch to clone if build context is a git repository .
-		ImageNameWithDigestFile     string // Write image name with digest to a file.
-		ImageNameTagWithDigestFile  string // Write image name with tag and digest to a file.
-		Insecure                    bool   // Allow connecting to registries without TLS.
-		InsecurePull                bool   // Allow insecure pulls from the registry.
-		InsecureRegistry            string // Use plain HTTP for registry communication.
-		Label                       string // Add metadata to an image.
-		LogFormat                   string // Set the log format for build output.
-		LogTimestamp                bool   // Show timestamps in build output.
-		OCILayoutPath               string // Directory to store OCI layout.
-		PushRetry                   int    // Number of times to retry pushing an image.
-		RegistryCertificate         string // Path to a file containing a registry certificate.
-		RegistryClientCert          string // Path to a file containing a registry client certificate.
-		RegistryMirror              string // Mirror for registry pulls.
-		SkipDefaultRegistryFallback bool   // Skip Docker Hub and default registry fallback.
-		Reproducible                bool   // Create a reproducible image.
-		SingleSnapshot              bool   // Only create a single snapshot of the image.
-		SkipTLSVerify               bool   // Skip TLS verification when connecting to the registry.
-		SkipPushPermissionCheck     bool   // Skip permission check when pushing.
-		SkipTLSVerifyPull           bool   // Skip TLS verification when pulling.
-		SkipTLSVerifyRegistry       bool   // Skip TLS verification when connecting to a registry.
-		UseNewRun                   bool   // Use the new container runtime (`runc`) for builds.
-		IgnoreVarRun                *bool  // Ignore `/var/run` when copying from the context.
-		IgnorePath                  string // Ignore files matching the specified path pattern.
-		ImageFSExtractRetry         int    // Number of times to retry extracting the image filesystem.
-		ImageDownloadRetry          int    // Number of times to retry downloading layers.
+		Cache                       bool     // Enable or disable caching during the build process.
+		CacheDir                    string   // Directory to store cached layers.
+		CacheCopyLayers             bool     // Enable or disable copying layers from the cache.
+		CacheRunLayers              bool     // Enable or disable running layers from the cache.
+		Cleanup                     bool     // Enable or disable cleanup of temporary files.
+		CompressedCaching           *bool    // Enable or disable compressed caching.
+		ContextSubPath              string   // Sub-path within the context to build.
+		CustomPlatform              string   // Platform to use for building.
+		Force                       bool     // Force building the image even if it already exists.
+		Git                         bool     // Branch to clone if build context is a git repository .
+		ImageNameWithDigestFile     string   // Write image name with digest to a file.
+		ImageNameTagWithDigestFile  string   // Write image name with tag and digest to a file.
+		Insecure                    bool     // Allow connecting to registries without TLS.
+		InsecurePull                bool     // Allow insecure pulls from the registry.
+		InsecureRegistry            string   // Use plain HTTP for registry communication.
+		Label                       string   // Add metadata to an image.
+		LogFormat                   string   // Set the log format for build output.
+		LogTimestamp                bool     // Show timestamps in build output.
+		OCILayoutPath               string   // Directory to store OCI layout.
+		PushRetry                   int      // Number of times to retry pushing an image.
+		RegistryCertificate         string   // Path to a file containing a registry certificate.
+		RegistryClientCert          string   // Path to a file containing a registry client certificate.
+		RegistryMirror              string   // Mirror for registry pulls.
+		SkipDefaultRegistryFallback bool     // Skip Docker Hub and default registry fallback.
+		Reproducible                bool     // Create a reproducible image.
+		SingleSnapshot              bool     // Only create a single snapshot of the image.
+		SkipTLSVerify               bool     // Skip TLS verification when connecting to the registry.
+		SkipPushPermissionCheck     bool     // Skip permission check when pushing.
+		SkipTLSVerifyPull           bool     // Skip TLS verification when pulling.
+		SkipTLSVerifyRegistry       bool     // Skip TLS verification when connecting to a registry.
+		UseNewRun                   bool     // Use the new container runtime (`runc`) for builds.
+		IgnoreVarRun                *bool    // Ignore `/var/run` when copying from the context.
+		IgnorePath                  string   // Ignore files matching the specified path pattern.
+		IgnorePaths                 []string // Ignore files matching the specified path pattern.
+		ImageFSExtractRetry         int      // Number of times to retry extracting the image filesystem.
+		ImageDownloadRetry          int      // Number of times to retry downloading layers.
 	}
 
 	// Artifact defines content of artifact file
@@ -446,6 +447,15 @@ func (p Plugin) Exec() error {
 
 	if p.Build.IgnorePath != "" {
 		cmdArgs = append(cmdArgs, fmt.Sprintf("--ignore-path=%s", p.Build.IgnorePath))
+	}
+
+	if p.Build.IgnorePaths != nil {
+		for _, path := range p.Build.IgnorePaths {
+			trimmed := strings.TrimSpace(path)
+			if trimmed != "" {
+				cmdArgs = append(cmdArgs, fmt.Sprintf("--ignore-path=%s", trimmed))
+			}
+		}
 	}
 
 	if p.Build.ImageFSExtractRetry != 0 {
