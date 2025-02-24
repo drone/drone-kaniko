@@ -482,17 +482,14 @@ func (p Plugin) Exec() error {
 			fmt.Fprintf(os.Stderr, "failed to write plugin artifact file at path: %s with error: %s\n", p.Artifact.ArtifactFile, err)
 		}
 	}
-	if p.Output.OutputFile == "" {
-		p.Output.OutputFile = os.Getenv("DRONE_OUTPUT")
+
+	p.Output.OutputFile = os.Getenv("DRONE_OUTPUT")
+	var tarPath string
+	if p.Build.TarPath != "" {
+		tarPath = getTarPath(p.Build.TarPath)
 	}
-	if p.Output.OutputFile != "" {
-		var tarPath string
-		if p.Build.TarPath != "" {
-			tarPath = getTarPath(p.Build.TarPath)
-		}
-		if err = output.WritePluginOutputFile(p.Output.OutputFile, getDigest(p.Build.DigestFile), tarPath); err != nil {
-			fmt.Fprintf(os.Stderr, "failed to write plugin output file at path: %s with error: %s\n", p.Output.OutputFile, err)
-		}
+	if err = output.WritePluginOutputFile(p.Output.OutputFile, getDigest(p.Build.DigestFile), tarPath); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to write plugin output file at path: %s with error: %s\n", p.Output.OutputFile, err)
 	}
 
 	return nil
