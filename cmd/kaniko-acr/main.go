@@ -480,25 +480,32 @@ func setupAuth(tenantId, clientId, cert,
 		return "", fmt.Errorf("registry must be specified")
 	}
 
-	if noPush {
-		return "", nil
-	}
-
 	// case of client secret or cert based auth
 	if clientId != "" {
 		// only setup auth when pushing or credentials are defined
 
 		token, publicUrl, err := getACRToken(subscriptionId, tenantId, clientId, clientSecret, cert, registry)
 		if err != nil {
+			if noPush {
+				logrus.Warnf("NO_PUSH mode: failed to fetch ACR Token: %v", err)
+				return "", nil
+			}
 			return "", errors.Wrap(err, "failed to fetch ACR Token")
 		}
 
 		// setup docker config for azure registry and base image docker registry
 		if err := setDockerAuth(username, token, registry, dockerUsername, dockerPassword, dockerRegistry); err != nil {
+			if noPush {
+				logrus.Warnf("NO_PUSH mode: failed to create docker config: %v", err)
+				return "", nil
+			}
 			return "", errors.Wrap(err, "failed to create docker config")
 		}
 		return publicUrl, nil
 	} else {
+		if noPush {
+			return "", nil
+		}
 		return "", fmt.Errorf("managed authentication is not supported")
 	}
 }
