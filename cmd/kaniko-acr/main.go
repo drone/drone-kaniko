@@ -480,31 +480,25 @@ func setupAuth(tenantId, clientId, cert,
 		return "", fmt.Errorf("registry must be specified")
 	}
 
-	if !noPush {
-		// When pushing is enabled, do the full token-based authentication.
-		if clientId != "" {
-			token, publicUrl, err := getACRToken(subscriptionId, tenantId, clientId, clientSecret, cert, registry)
-			if err != nil {
-				return "", errors.Wrap(err, "failed to fetch ACR Token")
-			}
+	// case of client secret or cert based auth
+	if clientId != "" {
+		// only setup auth when pushing or credentials are defined
 
-			// Set up docker config with credentials for both push and pull.
-			if err := setDockerAuth(username, token, registry, dockerUsername, dockerPassword, dockerRegistry); err != nil {
-				return "", errors.Wrap(err, "failed to create docker config")
-			}
-			return publicUrl, nil
-		} else {
-			return "", fmt.Errorf("managed authentication is not supported")
+		token, publicUrl, err := getACRToken(subscriptionId, tenantId, clientId, clientSecret, cert, registry)
+		if err != nil {
+			return "", errors.Wrap(err, "failed to fetch ACR Token")
 		}
+
+		// setup docker config for azure registry and base image docker registry
+		if err := setDockerAuth(username, token, registry, dockerUsername, dockerPassword, dockerRegistry); err != nil {
+			return "", errors.Wrap(err, "failed to create docker config")
+		}
+		return publicUrl, nil
 	} else {
-		// When no-push is enabled, we still need to set up pull credentials.
-		// If no push, we set the push credentials to empty values and still pull the base image using the provided credentials.
-		if err := setDockerAuth("", "", registry, dockerUsername, dockerPassword, dockerRegistry); err != nil {
-			return "", errors.Wrap(err, "failed to create docker config for pulling base image")
-		}
-		return "", nil
+		return "", fmt.Errorf("managed authentication is not supported")
 	}
 }
+
 
 func getACRToken(subscriptionId, tenantId, clientId, clientSecret, cert, registry string) (string, string, error) {
 	if tenantId == "" {
