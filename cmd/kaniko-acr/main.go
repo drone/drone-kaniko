@@ -487,7 +487,7 @@ func setupAuth(tenantId, clientId, cert,
 		token, publicUrl, err := getACRToken(subscriptionId, tenantId, clientId, clientSecret, cert, registry)
 		if err != nil {
 			if noPush {
-				logrus.Warnf("failed to fetch ACR Token: %v", err)
+				logrus.Warnf("NO_PUSH mode: failed to fetch ACR Token: %v", err)
 				return "", nil
 			}
 			return "", errors.Wrap(err, "failed to fetch ACR Token")
@@ -496,7 +496,7 @@ func setupAuth(tenantId, clientId, cert,
 		// setup docker config for azure registry and base image docker registry
 		if err := setDockerAuth(username, token, registry, dockerUsername, dockerPassword, dockerRegistry); err != nil {
 			if noPush {
-				logrus.Warnf("failed to create docker config: %v", err)
+				logrus.Warnf("NO_PUSH mode: failed to create docker config: %v", err)
 				return "", nil
 			}
 			return "", errors.Wrap(err, "failed to create docker config")
@@ -504,7 +504,6 @@ func setupAuth(tenantId, clientId, cert,
 		return publicUrl, nil
 	} else {
 		if noPush {
-			logrus.Warn("managed authentication is not supported")
 			return "", nil
 		}
 		return "", fmt.Errorf("managed authentication is not supported")
