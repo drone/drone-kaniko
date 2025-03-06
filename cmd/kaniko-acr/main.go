@@ -498,8 +498,8 @@ func setupAuth(tenantId, clientId, cert,
 		}
 	} else {
 		// When no-push is enabled, we still need to set up pull credentials.
-		// We do not fetch a token (since we are not pushing) so we pass an empty string for push credentials.
-		if err := setDockerAuth(username, "", registry, dockerUsername, dockerPassword, dockerRegistry); err != nil {
+		// If no push, we set the push credentials to empty values and still pull the base image using the provided credentials.
+		if err := setDockerAuth("", "", registry, dockerUsername, dockerPassword, dockerRegistry); err != nil {
 			return "", errors.Wrap(err, "failed to create docker config for pulling base image")
 		}
 		return "", nil
