@@ -403,6 +403,21 @@ func main() {
 			Usage:  "OIDC token for assuming role via web identity",
 			EnvVar: "PLUGIN_OIDC_TOKEN_ID",
 		},
+		cli.StringFlag{
+			Name:   "tar-path",
+			Usage:  "Set this flag to save the image as a tarball at path",
+			EnvVar: "PLUGIN_TAR_PATH, PLUGIN_DESTINATION_TAR_PATH",
+		},
+		cli.StringFlag{
+			Name:   "source-tar-path",
+			Usage:  "Set this flag for the source tarball during push operations.",
+			EnvVar: "PLUGIN_SOURCE_TAR_PATH",
+		},
+		cli.BoolFlag{
+			Name:   "push-only",
+			Usage:  "Specify if the operation is push-only",
+			EnvVar: "PLUGIN_PUSH_ONLY",
+		},
 	}
 
 	if err := app.Run(os.Args); err != nil {
@@ -521,6 +536,9 @@ func run(c *cli.Context) error {
 			IgnorePaths:                 c.StringSlice("ignore-paths"),
 			ImageFSExtractRetry:         c.Int("image-fs-extract-retry"),
 			ImageDownloadRetry:          c.Int("image-download-retry"),
+			TarPath:                     c.String("tar-path"),
+			SourceTarPath:               c.String("source-tar-path"),
+			PushOnly:                    c.Bool("push-only"),
 		},
 		Artifact: kaniko.Artifact{
 			Tags:         c.StringSlice("tags"),
