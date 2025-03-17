@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ecr"
 	"github.com/aws/aws-sdk-go-v2/service/ecrpublic"
 	awsv1 "github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/aws/session"
 	ecrv1 "github.com/aws/aws-sdk-go/service/ecr"
@@ -29,6 +30,8 @@ import (
 	kaniko "github.com/drone/drone-kaniko"
 	"github.com/drone/drone-kaniko/pkg/artifact"
 	"github.com/drone/drone-kaniko/pkg/docker"
+	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/crane"
 )
 
 const (
@@ -430,9 +433,20 @@ func run(c *cli.Context) error {
 	registry := c.String("registry")
 	region := c.String("region")
 	noPush := c.Bool("no-push")
+	pushOnly := c.Bool("push-only")
 	assumeRole := c.String("assume-role")
 	externalId := c.String("external-id")
 	oidcToken := c.String("oidc-token-id")
+
+	// Validate flags
+	if noPush && pushOnly {
+		return fmt.Errorf("no-push and push-only flags cannot be used together")
+	}
+
+	// Handle push-only operation
+	if pushOnly {
+		return handlePushOnly(c)
+	}
 
 	// setup docker config for azure registry and base image docker registry
 	err := setDockerAuth(
@@ -863,4 +877,74 @@ func getOidcCreds(oidcToken, assumeRole string) (string, string, string, error) 
 
 	// Return the credentials
 	return *result.Credentials.AccessKeyId, *result.Credentials.SecretAccessKey, *result.Credentials.SessionToken, nil
+}
+
+func handlePushOnly(c *cli.Context) error {
+	sourceTarPath := c.String("source-tar-path")
+	if sourceTarPath == "" {
+		return fmt.Errorf("source_tar_path is required when push_only is set")
+	}
+
+	if _, err := os.Stat(sourceTarPath); os.IsNotExist(err) {
+		return fmt.Errorf("image tarball does not exist at path: %s", sourceTarPath)
+	}
+
+	repo := c.String("repo")
+	registry := c.String("registry")
+	if repo == "" || registry == "" {
+		return fmt.Errorf("repository and registry must be specified for push-only operation")
+	}
+
+	// Load the image from the tarball
+	img, err := crane.Load(sourceTarPath)
+	if err != nil {
+		return fmt.Errorf("failed to load image from tarball: %v", err)
+	}
+
+	// Get ECR credentials using existing auth methods
+	var username, password string
+	if oidcToken := c.String("oidc-token-id"); oidcToken != "" && c.String("assume-role") != "" {
+		username, password, _, err = getOidcCreds(oidcToken, c.String("assume-role"))
+	} else if assumeRole := c.String("assume-role"); assumeRole != "" {
+		username, password, _, err = getAssumeRoleCreds(c.String("region"), assumeRole, c.String("external-id"), "")
+	} else {
+		// Use direct credentials or IAM role
+		sess := session.Must(session.NewSession(&awsv1.Config{
+			Region: awsv1.String(c.String("region")),
+			Credentials: credentials.NewStaticCredentials(
+				c.String("access-key"),
+				c.String("secret-key"),
+				"",
+			),
+		}))
+		svc := ecrv1.New(sess)
+		username, password, _, err = getAuthInfo(svc)
+	}
+	if err != nil {
+		return fmt.Errorf("failed to get ECR credentials: %v", err)
+	}
+
+	// Setup crane auth
+	opts := []crane.Option{
+		crane.WithAuth(&authn.Basic{
+			Username: username,
+			Password: password,
+		}),
+	}
+
+	// Push for each tag
+	tags := c.StringSlice("tags")
+	if len(tags) == 0 {
+		tags = []string{"latest"}
+	}
+
+	for _, tag := range tags {
+		dest := fmt.Sprintf("%s/%s:%s", registry, repo, tag)
+		if err := crane.Push(img, dest, opts...); err != nil {
+			return fmt.Errorf("failed to push image to %s: %v", dest, err)
+		}
+		fmt.Printf("Successfully pushed image to %s\n", dest)
+	}
+
+	return nil
 }
