@@ -12,32 +12,6 @@ pipeline:
         build: <+input>
         sparseCheckout: []
   stages:
-    - stage:
-        name: Manager Approval
-        identifier: Manager_Approval
-        description: ""
-        type: Approval
-        spec:
-          execution:
-            steps:
-              - step:
-                  name: CI Manager Approval
-                  identifier: CI_Manager_Approval
-                  type: HarnessApproval
-                  timeout: 1d
-                  spec:
-                    approvalMessage: |-
-                      Please review the following information
-                      and approve the pipeline progression
-                    includePipelineExecutionHistory: true
-                    approvers:
-                      minimumCount: 1
-                      disallowPipelineExecutor: false
-                      userGroups:
-                        - CI_Manager
-                    isAutoRejectEnabled: false
-                    approverInputs: []
-        tags: {}
     - parallel:
         - stage:
             name: linux-amd64
