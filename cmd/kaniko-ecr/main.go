@@ -903,10 +903,37 @@ func handlePushOnly(c *cli.Context) error {
 
 	// Get ECR credentials using existing auth methods
 	var username, password string
+	var svc *ecrv1.ECR
 	if oidcToken := c.String("oidc-token-id"); oidcToken != "" && c.String("assume-role") != "" {
-		username, password, _, err = getOidcCreds(oidcToken, c.String("assume-role"))
+		accessKey, secretKey, sessionToken, err := getOidcCreds(oidcToken, c.String("assume-role"))
+		if err != nil {
+			return fmt.Errorf("failed to get OIDC credentials: %v", err)
+		}
+		
+		sess := session.Must(session.NewSession(&awsv1.Config{
+			Region: awsv1.String(c.String("region")),
+			Credentials: credentials.NewStaticCredentials(
+				accessKey,
+				secretKey,
+				sessionToken,
+			),
+		}))
+		svc = ecrv1.New(sess)
 	} else if assumeRole := c.String("assume-role"); assumeRole != "" {
-		username, password, _, err = getAssumeRoleCreds(c.String("region"), assumeRole, c.String("external-id"), "")
+		accessKey, secretKey, sessionToken, err := getAssumeRoleCreds(c.String("region"), assumeRole, c.String("external-id"), "")
+		if err != nil {
+			return fmt.Errorf("failed to get assume role credentials: %v", err)
+		}
+		
+		sess := session.Must(session.NewSession(&awsv1.Config{
+			Region: awsv1.String(c.String("region")),
+			Credentials: credentials.NewStaticCredentials(
+				accessKey,
+				secretKey,
+				sessionToken,
+			),
+		}))
+		svc = ecrv1.New(sess)
 	} else {
 		// Use direct credentials or IAM role
 		sess := session.Must(session.NewSession(&awsv1.Config{
@@ -917,9 +944,11 @@ func handlePushOnly(c *cli.Context) error {
 				"",
 			),
 		}))
-		svc := ecrv1.New(sess)
-		username, password, _, err = getAuthInfo(svc)
+		svc = ecrv1.New(sess)
 	}
+	
+	// Get ECR auth token using the configured session
+	username, password, _, err = getAuthInfo(svc)
 	if err != nil {
 		return fmt.Errorf("failed to get ECR credentials: %v", err)
 	}
