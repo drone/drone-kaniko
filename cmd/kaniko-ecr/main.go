@@ -879,6 +879,18 @@ func getOidcCreds(oidcToken, assumeRole string) (string, string, string, error) 
 	return *result.Credentials.AccessKeyId, *result.Credentials.SecretAccessKey, *result.Credentials.SessionToken, nil
 }
 
+func createECRSession(region, accessKey, secretKey, sessionToken string) *ecrv1.ECR {
+	sess := session.Must(session.NewSession(&awsv1.Config{
+		Region: awsv1.String(region),
+		Credentials: credentials.NewStaticCredentials(
+			accessKey,
+			secretKey,
+			sessionToken,
+		),
+	}))
+	return ecrv1.New(sess)
+}
+
 func handlePushOnly(c *cli.Context) error {
 	sourceTarPath := c.String("source-tar-path")
 	if sourceTarPath == "" {
@@ -909,31 +921,15 @@ func handlePushOnly(c *cli.Context) error {
 		if err != nil {
 			return fmt.Errorf("failed to get OIDC credentials: %v", err)
 		}
-		
-		sess := session.Must(session.NewSession(&awsv1.Config{
-			Region: awsv1.String(c.String("region")),
-			Credentials: credentials.NewStaticCredentials(
-				accessKey,
-				secretKey,
-				sessionToken,
-			),
-		}))
-		svc = ecrv1.New(sess)
+
+		svc = createECRSession(c.String("region"), accessKey, secretKey, sessionToken)
 	} else if assumeRole := c.String("assume-role"); assumeRole != "" {
 		accessKey, secretKey, sessionToken, err := getAssumeRoleCreds(c.String("region"), assumeRole, c.String("external-id"), "")
 		if err != nil {
 			return fmt.Errorf("failed to get assume role credentials: %v", err)
 		}
-		
-		sess := session.Must(session.NewSession(&awsv1.Config{
-			Region: awsv1.String(c.String("region")),
-			Credentials: credentials.NewStaticCredentials(
-				accessKey,
-				secretKey,
-				sessionToken,
-			),
-		}))
-		svc = ecrv1.New(sess)
+
+		svc = createECRSession(c.String("region"), accessKey, secretKey, sessionToken)
 	} else {
 		// Use direct credentials or IAM role
 		sess := session.Must(session.NewSession(&awsv1.Config{
