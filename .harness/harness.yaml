@@ -629,13 +629,13 @@ pipeline:
                           nodeName: manifest_<+matrix.repo>
                   - step:
                       type: Plugin
-                      name: Manifest_kaniko
+                      name: Manifest_kaniko191
                       identifier: Manifest_kaniko
                       spec:
                         connectorRef: Plugins_Docker_Hub_Connector
                         image: plugins/manifest
                         settings:
-                          auto_tag: "true"
+                          auto_tag: "false"
                           spec: docker/<+matrix.repo>/manifest-kaniko1.9.1.tmpl
                           username: drone
                           password: <+secrets.getValue("Plugins_Docker_Hub_Pat")>
@@ -653,3 +653,4 @@ pipeline:
                           nodeName: manifest_<+matrix.repo>
         when:
           pipelineStatus: Success
+  allowStageExecutions: true
