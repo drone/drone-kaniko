@@ -891,6 +891,60 @@ func createECRSession(region, accessKey, secretKey, sessionToken string) *ecrv1.
 	return ecrv1.New(sess)
 }
 
+func getECRCredentials(region, registry, assumeRole, externalId, accessKey, secretKey, oidcToken string) (string, string, error) {
+	if assumeRole != "" && oidcToken != "" {
+		// For OIDC auth with assume role
+		awsAccessKey, awsSecretKey, awsSessionToken, err := getOidcCreds(oidcToken, assumeRole)
+		if err != nil {
+			return "", "", fmt.Errorf("failed to get OIDC credentials: %w", err)
+		}
+
+		// Create ECR session and get auth info
+		svc := createECRSession(region, awsAccessKey, awsSecretKey, awsSessionToken)
+		username, password, _, err := getAuthInfo(svc)
+		if err != nil {
+			return "", "", fmt.Errorf("failed to get ECR credentials: %w", err)
+		}
+		return username, password, nil
+	} else if assumeRole != "" {
+		// For assume role auth
+		username, password, _, err := getAssumeRoleCreds(region, assumeRole, externalId, "")
+		if err != nil {
+			return "", "", fmt.Errorf("failed to get ECR credentials: %w", err)
+		}
+		return username, password, nil
+	} else if accessKey != "" && secretKey != "" {
+		// For direct credentials
+		sess := session.Must(session.NewSession(&awsv1.Config{
+			Region: awsv1.String(region),
+			Credentials: credentials.NewStaticCredentials(
+				accessKey,
+				secretKey,
+				"",
+			),
+		}))
+		svc := ecrv1.New(sess)
+
+		username, password, _, err := getAuthInfo(svc)
+		if err != nil {
+			return "", "", fmt.Errorf("failed to get ECR credentials: %w", err)
+		}
+		return username, password, nil
+	} else {
+		// For IAM role auth (default credentials)
+		sess := session.Must(session.NewSession(&awsv1.Config{
+			Region: awsv1.String(region),
+		}))
+		svc := ecrv1.New(sess)
+
+		username, password, _, err := getAuthInfo(svc)
+		if err != nil {
+			return "", "", fmt.Errorf("failed to get ECR credentials: %w", err)
+		}
+		return username, password, nil
+	}
+}
+
 func handlePushOnly(c *cli.Context) error {
 	sourceTarPath := c.String("source-tar-path")
 	if sourceTarPath == "" {
@@ -913,40 +967,18 @@ func handlePushOnly(c *cli.Context) error {
 		return fmt.Errorf("failed to load image from tarball: %v", err)
 	}
 
-	// Get ECR credentials using existing auth methods
-	var username, password string
-	var svc *ecrv1.ECR
-	if oidcToken := c.String("oidc-token-id"); oidcToken != "" && c.String("assume-role") != "" {
-		accessKey, secretKey, sessionToken, err := getOidcCreds(oidcToken, c.String("assume-role"))
-		if err != nil {
-			return fmt.Errorf("failed to get OIDC credentials: %v", err)
-		}
-
-		svc = createECRSession(c.String("region"), accessKey, secretKey, sessionToken)
-	} else if assumeRole := c.String("assume-role"); assumeRole != "" {
-		accessKey, secretKey, sessionToken, err := getAssumeRoleCreds(c.String("region"), assumeRole, c.String("external-id"), "")
-		if err != nil {
-			return fmt.Errorf("failed to get assume role credentials: %v", err)
-		}
-
-		svc = createECRSession(c.String("region"), accessKey, secretKey, sessionToken)
-	} else {
-		// Use direct credentials or IAM role
-		sess := session.Must(session.NewSession(&awsv1.Config{
-			Region: awsv1.String(c.String("region")),
-			Credentials: credentials.NewStaticCredentials(
-				c.String("access-key"),
-				c.String("secret-key"),
-				"",
-			),
-		}))
-		svc = ecrv1.New(sess)
-	}
-	
-	// Get ECR auth token using the configured session
-	username, password, _, err = getAuthInfo(svc)
+	// Get ECR credentials using the common function
+	username, password, err := getECRCredentials(
+		c.String("region"),
+		registry,
+		c.String("assume-role"),
+		c.String("external-id"),
+		c.String("access-key"),
+		c.String("secret-key"),
+		c.String("oidc-token-id"),
+	)
 	if err != nil {
-		return fmt.Errorf("failed to get ECR credentials: %v", err)
+		return err
 	}
 
 	// Setup crane auth
