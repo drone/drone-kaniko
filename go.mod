@@ -10,6 +10,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ecrpublic v1.13.8
 	github.com/aws/smithy-go v1.12.0
 	github.com/coreos/go-semver v0.3.0
+	github.com/golang-jwt/jwt/v4 v4.5.2
 	github.com/google/go-cmp v0.5.9
 	github.com/google/go-containerregistry v0.20.2
 	github.com/hashicorp/go-version v1.6.0
@@ -59,4 +60,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-go 1.22.4
+go 1.23
