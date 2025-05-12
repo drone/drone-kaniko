@@ -13,13 +13,14 @@ import (
 	kaniko "github.com/drone/drone-kaniko"
 	"github.com/drone/drone-kaniko/pkg/artifact"
 	"github.com/drone/drone-kaniko/pkg/docker"
+	"github.com/google/go-containerregistry/pkg/crane"
 )
 
 const (
 	dockerConfigPath string = "/kaniko/.docker"
 	// GAR JSON key file path
-	garKeyPath       string = "/kaniko/config.json"
-	garEnvVariable   string = "GOOGLE_APPLICATION_CREDENTIALS"
+	garKeyPath     string = "/kaniko/config.json"
+	garEnvVariable string = "GOOGLE_APPLICATION_CREDENTIALS"
 
 	defaultDigestFile string = "/kaniko/digest-file"
 )
@@ -165,6 +166,21 @@ func main() {
 			Name:   "no-push",
 			Usage:  "Set this flag if you only want to build the image, without pushing to a registry",
 			EnvVar: "PLUGIN_NO_PUSH",
+		},
+		cli.BoolFlag{
+			Name:   "push-only",
+			Usage:  "Set this flag if you only want to push a pre-built image from a tarball",
+			EnvVar: "PLUGIN_PUSH_ONLY",
+		},
+		cli.StringFlag{
+			Name:   "source-tar-path",
+			Usage:  "Path to the local tarball to be pushed when push-only is set",
+			EnvVar: "PLUGIN_SOURCE_TAR_PATH",
+		},
+		cli.StringFlag{
+			Name:   "tar-path",
+			Usage:  "Set this flag to save the image as a tarball at path",
+			EnvVar: "PLUGIN_TAR_PATH,PLUGIN_DESTINATION_TAR_PATH",
 		},
 		cli.StringFlag{
 			Name:   "verbosity",
@@ -340,6 +356,11 @@ func main() {
 }
 
 func run(c *cli.Context) error {
+	// Check if this is a push-only operation
+	if c.Bool("push-only") {
+		return handlePushOnly(c)
+	}
+
 	noPush := c.Bool("no-push")
 	jsonKey := c.String("json-key")
 	// JSON key may not be set in the following cases:
@@ -351,7 +372,7 @@ func run(c *cli.Context) error {
 		}
 
 		// setup docker config only when base image registry is specified
-		if c.String("base-image-registry") != ""{
+		if c.String("base-image-registry") != "" {
 			if err := setDockerAuth(
 				c.String("base-image-username"),
 				c.String("base-image-password"),
@@ -383,6 +404,9 @@ func run(c *cli.Context) error {
 			CacheTTL:                    c.Int("cache-ttl"),
 			DigestFile:                  defaultDigestFile,
 			NoPush:                      noPush,
+			PushOnly:                    c.Bool("push-only"),
+			SourceTarPath:               c.String("source-tar-path"),
+			TarPath:                     c.String("tar-path"),
 			Verbosity:                   c.String("verbosity"),
 			Platform:                    c.String("platform"),
 			SkipUnusedStages:            c.Bool("skip-unused-stages"),
@@ -437,7 +461,7 @@ func run(c *cli.Context) error {
 	return plugin.Exec()
 }
 
-func setDockerAuth(dockerUsername, dockerPassword, dockerRegistry string) (error) {
+func setDockerAuth(dockerUsername, dockerPassword, dockerRegistry string) error {
 	dockerConfig := docker.NewConfig()
 	dockerRegistryCreds := docker.RegistryCredentials{
 		Registry: dockerRegistry,
@@ -459,5 +483,64 @@ func setupGARAuth(jsonKey string) error {
 	if err != nil {
 		return errors.Wrap(err, fmt.Sprintf("failed to set %s environment variable", garEnvVariable))
 	}
+	return nil
+}
+
+func handlePushOnly(c *cli.Context) error {
+	// Validate inputs for push-only operation
+	sourceTarPath := c.String("source-tar-path")
+	if sourceTarPath == "" {
+		return fmt.Errorf("source_tar_path is required when push_only is set")
+	}
+
+	if _, err := os.Stat(sourceTarPath); os.IsNotExist(err) {
+		return fmt.Errorf("image tarball does not exist at path: %s", sourceTarPath)
+	}
+
+	repo := c.String("repo")
+	registry := c.String("registry")
+	if repo == "" || registry == "" {
+		return fmt.Errorf("repository and registry must be specified for push-only operation")
+	}
+
+	// Setup GAR authentication
+	jsonKey := c.String("json-key")
+	var opts []crane.Option
+
+	// Configure GAR authentication if JSON key is provided
+	if jsonKey != "" {
+		if err := setupGARAuth(jsonKey); err != nil {
+			return err
+		}
+
+		// When using GAR with a service account key, the GOOGLE_APPLICATION_CREDENTIALS
+		// environment variable is set, which crane will automatically use
+		logrus.Info("Using Google Application Credentials for authentication")
+	}
+
+	// Load the image from the tarball
+	logrus.Infof("Loading image from tarball: %s", sourceTarPath)
+	img, err := crane.Load(sourceTarPath)
+	if err != nil {
+		return fmt.Errorf("failed to load image from tarball: %v", err)
+	}
+
+	// Push for each tag
+	tags := c.StringSlice("tags")
+	if len(tags) == 0 {
+		tags = []string{"latest"}
+	}
+
+	for _, tag := range tags {
+		dest := fmt.Sprintf("%s/%s:%s", registry, repo, tag)
+		logrus.Infof("Pushing image to: %s", dest)
+
+		if err := crane.Push(img, dest, opts...); err != nil {
+			return fmt.Errorf("failed to push image to %s: %v", dest, err)
+		}
+
+		logrus.Infof("Successfully pushed image to %s", dest)
+	}
+
 	return nil
 }
