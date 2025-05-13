@@ -505,17 +505,16 @@ func handlePushOnly(c *cli.Context) error {
 
 	// Setup GAR authentication
 	jsonKey := c.String("json-key")
-	var opts []crane.Option
-
-	// Configure GAR authentication if JSON key is provided
 	if jsonKey != "" {
+		// Setup GAR auth using the service account key file
+		// This sets GOOGLE_APPLICATION_CREDENTIALS which will be used by crane
+		// through Application Default Credentials (ADC)
 		if err := setupGARAuth(jsonKey); err != nil {
 			return err
 		}
-
-		// When using GAR with a service account key, the GOOGLE_APPLICATION_CREDENTIALS
-		// environment variable is set, which crane will automatically use
 		logrus.Info("Using Google Application Credentials for authentication")
+	} else {
+		logrus.Warn("No JSON key provided, authentication may fail if not running with workload identity")
 	}
 
 	// Load the image from the tarball
@@ -534,11 +533,13 @@ func handlePushOnly(c *cli.Context) error {
 	for _, tag := range tags {
 		dest := fmt.Sprintf("%s/%s:%s", registry, repo, tag)
 		logrus.Infof("Pushing image to: %s", dest)
-
-		if err := crane.Push(img, dest, opts...); err != nil {
+		
+		// crane uses Google's Application Default Credentials flow
+		// which automatically picks up GOOGLE_APPLICATION_CREDENTIALS
+		if err := crane.Push(img, dest); err != nil {
 			return fmt.Errorf("failed to push image to %s: %v", dest, err)
 		}
-
+		
 		logrus.Infof("Successfully pushed image to %s", dest)
 	}
 
