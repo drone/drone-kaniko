@@ -513,13 +513,11 @@ func handlePushOnly(c *cli.Context) error {
 	// Setup GAR authentication
 	jsonKey := c.String("json-key")
 	if jsonKey != "" {
-		// Setup standard env variable auth which didn't work
 		if err := setupGARAuth(jsonKey); err != nil {
 			return err
 		}
-		
-		// Try an alternative approach: create a Docker config.json with GAR credentials
-		logrus.Info("Setting up Docker config authentication for GAR")
+
+		logrus.Info("Setting up authentication for GAR")
 
 		// Create Docker config directory if it doesn't exist
 		dockerConfigDir := "/kaniko/.docker"
@@ -568,7 +566,6 @@ func handlePushOnly(c *cli.Context) error {
 		if err := os.Setenv("DOCKER_CONFIG", dockerConfigDir); err != nil {
 			return fmt.Errorf("failed to set DOCKER_CONFIG environment variable: %v", err)
 		}
-		logrus.Infof("Set DOCKER_CONFIG to %s", dockerConfigDir)
 
 		// Set up crane to use basic auth with docker config
 		opts = append(opts, crane.WithAuthFromKeychain(authn.DefaultKeychain))
@@ -592,11 +589,11 @@ func handlePushOnly(c *cli.Context) error {
 	for _, tag := range tags {
 		dest := fmt.Sprintf("%s/%s:%s", registry, repo, tag)
 		logrus.Infof("Pushing image to: %s", dest)
-		
+
 		if err := crane.Push(img, dest, opts...); err != nil {
 			return fmt.Errorf("failed to push image to %s: %v", dest, err)
 		}
-		
+
 		logrus.Infof("Successfully pushed image to %s", dest)
 	}
 
