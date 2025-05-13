@@ -1,9 +1,12 @@
 package main
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 
 	"github.com/joho/godotenv"
 	"github.com/pkg/errors"
@@ -13,6 +16,7 @@ import (
 	kaniko "github.com/drone/drone-kaniko"
 	"github.com/drone/drone-kaniko/pkg/artifact"
 	"github.com/drone/drone-kaniko/pkg/docker"
+	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/crane"
 )
 
@@ -503,16 +507,71 @@ func handlePushOnly(c *cli.Context) error {
 		return fmt.Errorf("repository and registry must be specified for push-only operation")
 	}
 
+	// Authentication options for crane
+	var opts []crane.Option
+
 	// Setup GAR authentication
 	jsonKey := c.String("json-key")
 	if jsonKey != "" {
-		// Setup GAR auth using the service account key file
-		// This sets GOOGLE_APPLICATION_CREDENTIALS which will be used by crane
-		// through Application Default Credentials (ADC)
+		// Setup standard env variable auth which didn't work
 		if err := setupGARAuth(jsonKey); err != nil {
 			return err
 		}
-		logrus.Info("Using Google Application Credentials for authentication")
+		
+		// Try an alternative approach: create a Docker config.json with GAR credentials
+		logrus.Info("Setting up Docker config authentication for GAR")
+
+		// Create Docker config directory if it doesn't exist
+		dockerConfigDir := "/kaniko/.docker"
+		if err := os.MkdirAll(dockerConfigDir, 0755); err != nil {
+			return fmt.Errorf("failed to create Docker config directory: %v", err)
+		}
+
+		// Generate a Docker config with GAR auth
+		type DockerAuth struct {
+			Username string `json:"username"`
+			Password string `json:"password"`
+			Auth     string `json:"auth"`
+		}
+
+		type DockerConfig struct {
+			Auths map[string]DockerAuth `json:"auths"`
+		}
+
+		// Create proper Auth field (base64 encoded username:password)
+		username := "_json_key"
+		authString := base64.StdEncoding.EncodeToString([]byte(username + ":" + jsonKey))
+
+		// Use _json_key as username and the key content as password for GAR
+		config := DockerConfig{
+			Auths: map[string]DockerAuth{
+				registry: {
+					Username: username,
+					Password: jsonKey,
+					Auth:     authString,
+				},
+			},
+		}
+
+		// Write the Docker config
+		configBytes, err := json.Marshal(config)
+		if err != nil {
+			return fmt.Errorf("failed to marshal Docker config: %v", err)
+		}
+
+		dockerConfigPath := filepath.Join(dockerConfigDir, "config.json")
+		if err := ioutil.WriteFile(dockerConfigPath, configBytes, 0644); err != nil {
+			return fmt.Errorf("failed to write Docker config: %v", err)
+		}
+
+		// Explicitly set DOCKER_CONFIG environment variable to ensure crane finds the config
+		if err := os.Setenv("DOCKER_CONFIG", dockerConfigDir); err != nil {
+			return fmt.Errorf("failed to set DOCKER_CONFIG environment variable: %v", err)
+		}
+		logrus.Infof("Set DOCKER_CONFIG to %s", dockerConfigDir)
+
+		// Set up crane to use basic auth with docker config
+		opts = append(opts, crane.WithAuthFromKeychain(authn.DefaultKeychain))
 	} else {
 		logrus.Warn("No JSON key provided, authentication may fail if not running with workload identity")
 	}
@@ -534,9 +593,7 @@ func handlePushOnly(c *cli.Context) error {
 		dest := fmt.Sprintf("%s/%s:%s", registry, repo, tag)
 		logrus.Infof("Pushing image to: %s", dest)
 		
-		// crane uses Google's Application Default Credentials flow
-		// which automatically picks up GOOGLE_APPLICATION_CREDENTIALS
-		if err := crane.Push(img, dest); err != nil {
+		if err := crane.Push(img, dest, opts...); err != nil {
 			return fmt.Errorf("failed to push image to %s: %v", dest, err)
 		}
 		
