@@ -13,6 +13,8 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
+	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
@@ -206,6 +208,21 @@ func main() {
 			Usage:  "Set this flag if you only want to build the image, without pushing to a registry",
 			EnvVar: "PLUGIN_NO_PUSH",
 		},
+		cli.BoolFlag{
+			Name:   "push-only",
+			Usage:  "Set this flag if you only want to push a pre-built image from a tarball",
+			EnvVar: "PLUGIN_PUSH_ONLY",
+		},
+		cli.StringFlag{
+			Name:   "source-tar-path",
+			Usage:  "Path to the local tarball to be pushed when push-only is set",
+			EnvVar: "PLUGIN_SOURCE_TAR_PATH",
+		},
+		cli.StringFlag{
+			Name:   "tar-path",
+			Usage:  "Set this flag to save the image as a tarball at path",
+			EnvVar: "PLUGIN_TAR_PATH,PLUGIN_DESTINATION_TAR_PATH",
+		},
 		cli.StringFlag{
 			Name:   "verbosity",
 			Usage:  "Set this flag with value as oneof <panic|fatal|error|warn|info|debug|trace> to set the logging level for kaniko. Defaults to info.",
@@ -380,6 +397,11 @@ func main() {
 }
 
 func run(c *cli.Context) error {
+	// Check if push-only flag is set
+	if c.Bool("push-only") {
+		return handlePushOnly(c)
+	}
+
 	registry := c.String("registry")
 	noPush := c.Bool("no-push")
 
@@ -471,6 +493,12 @@ func run(c *cli.Context) error {
 		flag := c.Bool("ignore-var-run")
 		plugin.Build.IgnoreVarRun = &flag
 	}
+
+	// Set tar-path if provided
+	if c.IsSet("tar-path") {
+		plugin.Build.TarPath = c.String("tar-path")
+	}
+
 	return plugin.Exec()
 }
 
@@ -696,6 +724,94 @@ func setDockerAuth(username, password, registry, dockerUsername, dockerPassword,
 
 func encodeParam(s string) string {
 	return url.QueryEscape(s)
+}
+
+func handlePushOnly(c *cli.Context) error {
+	// Validate inputs for push-only operation
+	sourceTarPath := c.String("source-tar-path")
+	if sourceTarPath == "" {
+		return fmt.Errorf("source_tar_path is required when push_only is set")
+	}
+
+	if _, err := os.Stat(sourceTarPath); os.IsNotExist(err) {
+		return fmt.Errorf("image tarball does not exist at path: %s", sourceTarPath)
+	}
+
+	repo := c.String("repo")
+	registry := c.String("registry")
+	if repo == "" || registry == "" {
+		return fmt.Errorf("repository and registry must be specified for push-only operation")
+	}
+
+	// Setup ACR authentication
+	publicUrl, err := setupAuth(
+		c.String("tenant-id"),
+		c.String("client-id"),
+		c.String("client-cert"),
+		c.String("client-secret"),
+		c.String("subscription-id"),
+		registry,
+		c.String("base-image-username"),
+		c.String("base-image-password"),
+		c.String("base-image-registry"),
+		false, // We want to push in push-only mode
+	)
+	if err != nil {
+		return err
+	}
+
+	// Load the image from the tarball
+	logrus.Infof("Loading image from tarball: %s", sourceTarPath)
+
+	img, err := crane.Load(sourceTarPath)
+	if err != nil {
+		return fmt.Errorf("failed to load image from tarball: %v", err)
+	}
+
+	// Check if the Docker config directory exists (should have been created by setupAuth)
+	if _, err := os.Stat(dockerConfigPath); os.IsNotExist(err) {
+		return fmt.Errorf("Docker config directory does not exist: %v", err)
+	} else if err != nil {
+		return fmt.Errorf("error checking Docker config directory: %v", err)
+	}
+
+	// Explicitly set DOCKER_CONFIG environment variable to ensure crane finds the config
+	if err := os.Setenv("DOCKER_CONFIG", dockerConfigPath); err != nil {
+		return fmt.Errorf("failed to set DOCKER_CONFIG environment variable: %v", err)
+	}
+
+	// Setup crane options
+	opts := []crane.Option{
+		crane.WithAuthFromKeychain(authn.DefaultKeychain),
+	}
+
+	// Push for each tag
+	tags := c.StringSlice("tags")
+	if len(tags) == 0 {
+		tags = []string{"latest"}
+	}
+
+	// Use the registry from setupAuth if publicUrl is available, otherwise use the provided registry
+	pushRegistry := registry
+	if publicUrl != "" {
+		logrus.Infof("Using public URL for pushing: %s", publicUrl)
+		// Extract just the registry part from the full URL if needed
+		// This depends on the format of publicUrl, adjust parsing as needed
+		pushRegistry = publicUrl
+	}
+
+	for _, tag := range tags {
+		dest := fmt.Sprintf("%s/%s:%s", pushRegistry, repo, tag)
+		logrus.Infof("Pushing image to: %s", dest)
+
+		if err := crane.Push(img, dest, opts...); err != nil {
+			return fmt.Errorf("failed to push image to %s: %v", dest, err)
+		}
+
+		logrus.Infof("Successfully pushed image to %s", dest)
+	}
+
+	return nil
 }
 
 type strct struct {
