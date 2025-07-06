@@ -4,5 +4,5 @@ ENV HOME /root
 ENV USER root
 ENV KANIKO_VERSION=1.25.0
 
-ADD release/linux/arm64/kaniko-ecr /kaniko/
-ENTRYPOINT ["/kaniko/kaniko-ecr"]
+ADD release/linux/arm64/kaniko-gar /kaniko/
+ENTRYPOINT ["/kaniko/kaniko-gar"]

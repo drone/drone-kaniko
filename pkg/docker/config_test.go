@@ -2,24 +2,54 @@ package docker
 
 import (
 	"encoding/json"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestConfig(t *testing.T) {
 	c := NewConfig()
+	assert.NotNil(t, c.Auths)
+	assert.NotNil(t, c.CredHelpers)
 
 	c.SetAuth(RegistryV1, "test", "password")
+	expectedAuth := Auth{Auth: "dGVzdDpwYXNzd29yZA=="}
+	assert.Equal(t, expectedAuth, c.Auths[RegistryV1])
+
 	c.SetCredHelper(RegistryECRPublic, "ecr-login")
+	assert.Equal(t, "ecr-login", c.CredHelpers[RegistryECRPublic])
 
-	bytes, err := json.Marshal(c)
-	if err != nil {
-		t.Error("json marshal failed")
+	tempDir, err := ioutil.TempDir("", "docker-config-test")
+	assert.NoError(t, err)
+	defer os.RemoveAll(tempDir)
+
+	credentials := []RegistryCredentials{
+		{
+			Registry: "https://index.docker.io/v1/",
+			Username: "user1",
+			Password: "pass1",
+		},
+		{
+			Registry: "gcr.io",
+			Username: "user2",
+			Password: "pass2",
+		},
 	}
 
-	want := `{"auths":{"https://index.docker.io/v1/":{"auth":"dGVzdDpwYXNzd29yZA=="}},"credHelpers":{"public.ecr.aws":"ecr-login"}}`
-	got := string(bytes)
+	err = c.CreateDockerConfig(credentials, tempDir)
+	assert.NoError(t, err)
 
-	if want != got {
-		t.Errorf("unexpected json output:\n  want: %s\n   got: %s", want, got)
-	}
+	configPath := filepath.Join(tempDir, "config.json")
+	data, err := ioutil.ReadFile(configPath)
+	assert.NoError(t, err)
+
+	var configFromFile Config
+	err = json.Unmarshal(data, &configFromFile)
+	assert.NoError(t, err)
+
+	assert.Equal(t, c.Auths, configFromFile.Auths)
+	assert.Equal(t, c.CredHelpers, configFromFile.CredHelpers)
 }

@@ -3,21 +3,23 @@ package main
 import (
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ecr"
 	"github.com/aws/aws-sdk-go-v2/service/ecrpublic"
 	awsv1 "github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/aws/session"
 	ecrv1 "github.com/aws/aws-sdk-go/service/ecr"
 	ecrpublicv1 "github.com/aws/aws-sdk-go/service/ecrpublic"
+	"github.com/aws/aws-sdk-go/service/sts"
 	"github.com/aws/smithy-go"
 	"github.com/hashicorp/go-version"
 	"github.com/joho/godotenv"
@@ -28,14 +30,17 @@ import (
 	kaniko "github.com/drone/drone-kaniko"
 	"github.com/drone/drone-kaniko/pkg/artifact"
 	"github.com/drone/drone-kaniko/pkg/docker"
+	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/crane"
 )
 
 const (
 	accessKeyEnv     string = "AWS_ACCESS_KEY_ID"
+	dockerConfigPath string = "/kaniko/.docker"
 	secretKeyEnv     string = "AWS_SECRET_ACCESS_KEY"
-	dockerConfigPath string = "/kaniko/.docker/config.json"
 	ecrPublicDomain  string = "public.ecr.aws"
 	kanikoVersionEnv string = "KANIKO_VERSION"
+	sessionKeyEnv    string = "AWS_SESSION_TOKEN"
 
 	oneDotEightVersion string = "1.8.0"
 	defaultDigestFile  string = "/kaniko/digest-file"
@@ -67,18 +72,18 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:   "docker-registry",
-			Usage:  "docker registry",
-			EnvVar: "PLUGIN_DOCKER_REGISTRY,DOCKER_REGISTRY",
+			Usage:  "Docker registry for base image",
+			EnvVar: "PLUGIN_DOCKER_REGISTRY,DOCKER_REGISTRY,PLUGIN_BASE_IMAGE_REGISTRY",
 		},
 		cli.StringFlag{
 			Name:   "docker-username",
-			Usage:  "docker username",
-			EnvVar: "PLUGIN_USERNAME,DOCKER_USERNAME",
+			Usage:  "Docker username for base image registry",
+			EnvVar: "PLUGIN_USERNAME,PLUGIN_DOCKER_USERNAME,PLUGIN_BASE_IMAGE_USERNAME,DOCKER_USERNAME",
 		},
 		cli.StringFlag{
 			Name:   "docker-password",
-			Usage:  "docker password",
-			EnvVar: "PLUGIN_PASSWORD,DOCKER_PASSWORD",
+			Usage:  "Docker password for base image registry",
+			EnvVar: "PLUGIN_PASSWORD,PLUGIN_DOCKER_PASSWORD,PLUGIN_BASE_IMAGE_PASSWORD,DOCKER_PASSWORD",
 		},
 		cli.StringFlag{
 			Name:   "context",
@@ -123,10 +128,16 @@ func main() {
 			Usage:  "build args",
 			EnvVar: "PLUGIN_BUILD_ARGS",
 		},
-		cli.StringSliceFlag{
-			Name:   "args-from-env",
-			Usage:  "build args from env",
-			EnvVar: "PLUGIN_BUILD_ARGS_FROM_ENV",
+		cli.GenericFlag{
+			Name:   "args-new",
+			Usage:  "build args new",
+			EnvVar: "PLUGIN_BUILD_ARGS_NEW",
+			Value:  new(CustomStringSliceFlag),
+		},
+		cli.BoolFlag{
+			Name:   "plugin-multiple-build-agrs",
+			Usage:  "plugin multiple build agrs",
+			EnvVar: "PLUGIN_MULTIPLE_BUILD_ARGS",
 		},
 		cli.StringFlag{
 			Name:   "target",
@@ -239,6 +250,177 @@ func main() {
 			Usage:  "build only used stages",
 			EnvVar: "PLUGIN_SKIP_UNUSED_STAGES",
 		},
+		cli.StringFlag{
+			Name:   "cache-dir",
+			Usage:  "Set this flag to specify a local directory cache for base images",
+			EnvVar: "PLUGIN_CACHE_DIR",
+		},
+
+		cli.BoolFlag{
+			Name:   "cache-copy-layers",
+			Usage:  "Enable or disable copying layers from the cache.",
+			EnvVar: "PLUGIN_CACHE_COPY_LAYERS",
+		},
+		cli.BoolFlag{
+			Name:   "cache-run-layers",
+			Usage:  "Enable or disable running layers from the cache.",
+			EnvVar: "PLUGIN_CACHE_RUN_LAYERS",
+		},
+		cli.BoolFlag{
+			Name:   "cleanup",
+			Usage:  "Enable or disable cleanup of temporary files.",
+			EnvVar: "PLUGIN_CLEANUP",
+		},
+		cli.BoolFlag{
+			Name:   "compressed-caching",
+			Usage:  "Enable or disable compressed caching.",
+			EnvVar: "PLUGIN_COMPRESSED_CACHING",
+		},
+		cli.StringFlag{
+			Name:   "context-sub-path",
+			Usage:  "Sub-path within the context to build.",
+			EnvVar: "PLUGIN_CONTEXT_SUB_PATH",
+		},
+		cli.StringFlag{
+			Name:   "custom-platform",
+			Usage:  "Platform to use for building.",
+			EnvVar: "PLUGIN_CUSTOM_PLATFORM",
+		},
+		cli.BoolFlag{
+			Name:   "force",
+			Usage:  "Force building the image even if it already exists.",
+			EnvVar: "PLUGIN_FORCE",
+		},
+		cli.StringFlag{
+			Name:   "image-name-with-digest-file",
+			Usage:  "Write image name with digest to a file.",
+			EnvVar: "PLUGIN_IMAGE_NAME_WITH_DIGEST_FILE",
+		},
+		cli.StringFlag{
+			Name:   "image-name-tag-with-digest-file",
+			Usage:  "Write image name with tag and digest to a file.",
+			EnvVar: "PLUGIN_IMAGE_NAME_TAG_WITH_DIGEST_FILE",
+		},
+		cli.BoolFlag{
+			Name:   "insecure",
+			Usage:  "Allow connecting to registries without TLS.",
+			EnvVar: "PLUGIN_INSECURE",
+		},
+		cli.BoolFlag{
+			Name:   "insecure-pull",
+			Usage:  "Allow insecure pulls from the registry.",
+			EnvVar: "PLUGIN_INSECURE_PULL",
+		},
+		cli.StringFlag{
+			Name:   "insecure-registry",
+			Usage:  "Use plain HTTP for registry communication.",
+			EnvVar: "PLUGIN_INSECURE_REGISTRY",
+		},
+		cli.StringFlag{
+			Name:   "log-format",
+			Usage:  "Set the log format for build output.",
+			EnvVar: "PLUGIN_LOG_FORMAT",
+		},
+		cli.BoolFlag{
+			Name:   "log-timestamp",
+			Usage:  "Show timestamps in build output.",
+			EnvVar: "PLUGIN_LOG_TIMESTAMP",
+		},
+		cli.StringFlag{
+			Name:   "oci-layout-path",
+			Usage:  "Directory to store OCI layout.",
+			EnvVar: "PLUGIN_OCI_LAYOUT_PATH",
+		},
+		cli.IntFlag{
+			Name:   "push-retry",
+			Usage:  "Number of times to retry pushing an image.",
+			EnvVar: "PLUGIN_PUSH_RETRY",
+		},
+		cli.StringFlag{
+			Name:   "registry-certificate",
+			Usage:  "Path to a file containing a registry certificate.",
+			EnvVar: "PLUGIN_REGISTRY_CERTIFICATE",
+		},
+		cli.StringFlag{
+			Name:   "registry-client-cert",
+			Usage:  "Path to a file containing a registry client certificate.",
+			EnvVar: "PLUGIN_REGISTRY_CLIENT_CERT",
+		},
+		cli.BoolFlag{
+			Name:   "skip-default-registry-fallback",
+			Usage:  "Skip Docker Hub and default registry fallback.",
+			EnvVar: "PLUGIN_SKIP_DEFAULT_REGISTRY_FALLBACK",
+		},
+		cli.BoolFlag{
+			Name:   "reproducible",
+			Usage:  "Create a reproducible image.",
+			EnvVar: "PLUGIN_REPRODUCIBLE",
+		},
+		cli.BoolFlag{
+			Name:   "single-snapshot",
+			Usage:  "Only create a single snapshot of the image.",
+			EnvVar: "PLUGIN_SINGLE_SNAPSHOT",
+		},
+		cli.BoolFlag{
+			Name:   "skip-push-permission-check",
+			Usage:  "Skip permission check when pushing.",
+			EnvVar: "PLUGIN_SKIP_PUSH_PERMISSION_CHECK",
+		},
+		cli.BoolFlag{
+			Name:   "skip-tls-verify-pull",
+			Usage:  "Skip TLS verification when pulling.",
+			EnvVar: "PLUGIN_SKIP_TLS_VERIFY_PULL",
+		},
+		cli.BoolFlag{
+			Name:   "skip-tls-verify-registry",
+			Usage:  "Skip TLS verification when connecting to a registry.",
+			EnvVar: "PLUGIN_SKIP_TLS_VERIFY_REGISTRY",
+		},
+		cli.BoolFlag{
+			Name:   "use-new-run",
+			Usage:  "Skip TLS verification when connecting to a registry.",
+			EnvVar: "PLUGIN_USE_NEW_RUN",
+		},
+		cli.BoolFlag{
+			Name:   "ignore-var-run",
+			Usage:  "Ignore the /var/run directory during build.",
+			EnvVar: "PLUGIN_IGNORE_VAR_RUN",
+		},
+		cli.StringFlag{
+			Name:   "ignore-path",
+			Usage:  "Path to ignore during the build.",
+			EnvVar: "PLUGIN_IGNORE_PATH",
+		},
+		cli.IntFlag{
+			Name:   "image-fs-extract-retry",
+			Usage:  "Number of retries for extracting filesystem layers.",
+			EnvVar: "PLUGIN_IMAGE_FS_EXTRACT_RETRY",
+		},
+		cli.IntFlag{
+			Name:   "image-download-retry",
+			Usage:  "Number of retries for downloading base images.",
+			EnvVar: "PLUGIN_IMAGE_DOWNLOAD_RETRY",
+		},
+		cli.StringFlag{
+			Name:   "oidc-token-id",
+			Usage:  "OIDC token for assuming role via web identity",
+			EnvVar: "PLUGIN_OIDC_TOKEN_ID",
+		},
+		cli.StringFlag{
+			Name:   "tar-path",
+			Usage:  "Set this flag to save the image as a tarball at path",
+			EnvVar: "PLUGIN_TAR_PATH, PLUGIN_DESTINATION_TAR_PATH",
+		},
+		cli.StringFlag{
+			Name:   "source-tar-path",
+			Usage:  "Set this flag for the source tarball during push operations.",
+			EnvVar: "PLUGIN_SOURCE_TAR_PATH",
+		},
+		cli.BoolFlag{
+			Name:   "push-only",
+			Usage:  "Specify if the operation is push-only",
+			EnvVar: "PLUGIN_PUSH_ONLY",
+		},
 	}
 
 	if err := app.Run(os.Args); err != nil {
@@ -251,10 +433,23 @@ func run(c *cli.Context) error {
 	registry := c.String("registry")
 	region := c.String("region")
 	noPush := c.Bool("no-push")
+	pushOnly := c.Bool("push-only")
 	assumeRole := c.String("assume-role")
 	externalId := c.String("external-id")
+	oidcToken := c.String("oidc-token-id")
 
-	dockerConfig, err := createDockerConfig(
+	// Validate flags
+	if noPush && pushOnly {
+		return fmt.Errorf("no-push and push-only flags cannot be used together")
+	}
+
+	// Handle push-only operation
+	if pushOnly {
+		return handlePushOnly(c)
+	}
+
+	// setup docker config for azure registry and base image docker registry
+	err := setDockerAuth(
 		c.String("docker-registry"),
 		c.String("docker-username"),
 		c.String("docker-password"),
@@ -265,18 +460,10 @@ func run(c *cli.Context) error {
 		externalId,
 		region,
 		noPush,
+		oidcToken,
 	)
 	if err != nil {
-		return err
-	}
-
-	jsonBytes, err := json.Marshal(dockerConfig)
-	if err != nil {
-		return err
-	}
-
-	if err := ioutil.WriteFile(dockerConfigPath, jsonBytes, 0644); err != nil {
-		return err
+		return errors.Wrap(err, "failed to create docker config")
 	}
 
 	// only create repository when pushing and create-repository is true
@@ -308,6 +495,7 @@ func run(c *cli.Context) error {
 
 	plugin := kaniko.Plugin{
 		Build: kaniko.Build{
+<<<<<<< HEAD
 			DroneCommitRef:   c.String("drone-commit-ref"),
 			DroneRepoBranch:  c.String("drone-repo-branch"),
 			Dockerfile:       c.String("dockerfile"),
@@ -331,6 +519,66 @@ func run(c *cli.Context) error {
 			Verbosity:        c.String("verbosity"),
 			Platform:         c.String("platform"),
 			SkipUnusedStages: c.Bool("skip-unused-stages"),
+=======
+			DroneCommitRef:              c.String("drone-commit-ref"),
+			DroneRepoBranch:             c.String("drone-repo-branch"),
+			Dockerfile:                  c.String("dockerfile"),
+			Context:                     c.String("context"),
+			Tags:                        c.StringSlice("tags"),
+			AutoTag:                     c.Bool("auto-tag"),
+			AutoTagSuffix:               c.String("auto-tag-suffix"),
+			ExpandTag:                   c.Bool("expand-tag"),
+			Args:                        c.StringSlice("args"),
+			ArgsNew:                     c.Generic("args-new").(*CustomStringSliceFlag).GetValue(),
+			IsMultipleBuildArgs:         c.Bool("plugin-multiple-build-agrs"),
+			Target:                      c.String("target"),
+			Repo:                        fmt.Sprintf("%s/%s", c.String("registry"), c.String("repo")),
+			Mirrors:                     c.StringSlice("registry-mirrors"),
+			Labels:                      c.StringSlice("custom-labels"),
+			SnapshotMode:                c.String("snapshot-mode"),
+			EnableCache:                 c.Bool("enable-cache"),
+			CacheRepo:                   fmt.Sprintf("%s/%s", c.String("registry"), c.String("cache-repo")),
+			CacheTTL:                    c.Int("cache-ttl"),
+			DigestFile:                  defaultDigestFile,
+			NoPush:                      noPush,
+			Verbosity:                   c.String("verbosity"),
+			Platform:                    c.String("platform"),
+			SkipUnusedStages:            c.Bool("skip-unused-stages"),
+			CacheDir:                    c.String("cache-dir"),
+			CacheCopyLayers:             c.Bool("cache-copy-layers"),
+			CacheRunLayers:              c.Bool("cache-run-layers"),
+			Cleanup:                     c.Bool("cleanup"),
+			ContextSubPath:              c.String("context-sub-path"),
+			CustomPlatform:              c.String("custom-platform"),
+			Force:                       c.Bool("force"),
+			ImageNameWithDigestFile:     c.String("image-name-with-digest-file"),
+			ImageNameTagWithDigestFile:  c.String("image-name-tag-with-digest-file"),
+			Insecure:                    c.Bool("insecure"),
+			InsecurePull:                c.Bool("insecure-pull"),
+			InsecureRegistry:            c.String("insecure-registry"),
+			Label:                       c.String("label"),
+			LogFormat:                   c.String("log-format"),
+			LogTimestamp:                c.Bool("log-timestamp"),
+			OCILayoutPath:               c.String("oci-layout-path"),
+			PushRetry:                   c.Int("push-retry"),
+			RegistryCertificate:         c.String("registry-certificate"),
+			RegistryClientCert:          c.String("registry-client-cert"),
+			SkipDefaultRegistryFallback: c.Bool("skip-default-registry-fallback"),
+			Reproducible:                c.Bool("reproducible"),
+			SingleSnapshot:              c.Bool("single-snapshot"),
+			SkipTLSVerify:               c.Bool("skip-tls-verify"),
+			SkipPushPermissionCheck:     c.Bool("skip-push-permission-check"),
+			SkipTLSVerifyPull:           c.Bool("skip-tls-verify-pull"),
+			SkipTLSVerifyRegistry:       c.Bool("skip-tls-verify-registry"),
+			UseNewRun:                   c.Bool("use-new-run"),
+			IgnorePath:                  c.String("ignore-path"),
+			IgnorePaths:                 c.StringSlice("ignore-paths"),
+			ImageFSExtractRetry:         c.Int("image-fs-extract-retry"),
+			ImageDownloadRetry:          c.Int("image-download-retry"),
+			TarPath:                     c.String("tar-path"),
+			SourceTarPath:               c.String("source-tar-path"),
+			PushOnly:                    c.Bool("push-only"),
+>>>>>>> upstream
 		},
 		Artifact: kaniko.Artifact{
 			Tags:         c.StringSlice("tags"),
@@ -340,44 +588,77 @@ func run(c *cli.Context) error {
 			RegistryType: artifact.ECR,
 		},
 	}
+	if c.IsSet("compressed-caching") {
+		flag := c.Bool("compressed-caching")
+		plugin.Build.CompressedCaching = &flag
+	}
+	if c.IsSet("ignore-var-run") {
+		flag := c.Bool("ignore-var-run")
+		plugin.Build.IgnoreVarRun = &flag
+	}
 	return plugin.Exec()
 }
 
-func createDockerConfig(dockerRegistry, dockerUsername, dockerPassword, accessKey, secretKey,
-	registry, assumeRole, externalId, region string, noPush bool) (*docker.Config, error) {
+func setDockerAuth(dockerRegistry, dockerUsername, dockerPassword, accessKey, secretKey,
+	registry, assumeRole, externalId, region string, noPush bool, oidcToken string) error {
 	dockerConfig := docker.NewConfig()
-
-	if dockerUsername != "" {
-		// if no docker registry provided, use dockerhub by default
-		if len(dockerRegistry) == 0 {
-			dockerRegistry = docker.RegistryV1
+	credentials := []docker.RegistryCredentials{}
+	// set docker credentials for base image registry
+	if dockerRegistry != "" {
+		pullFromRegistryCreds := docker.RegistryCredentials{
+			Registry: dockerRegistry,
+			Username: dockerUsername,
+			Password: dockerPassword,
 		}
-		dockerConfig.SetAuth(dockerRegistry, dockerUsername, dockerPassword)
+		credentials = append(credentials, pullFromRegistryCreds)
 	}
 
-	if assumeRole != "" {
+	if assumeRole != "" && oidcToken != "" {
+		oidcAccessKey, oidcSecretKey, oidcSessionKey, err := getOidcCreds(oidcToken, assumeRole)
+		if err != nil {
+			return err
+		}
+
+		_ = os.Setenv(accessKeyEnv, oidcAccessKey)
+		_ = os.Setenv(secretKeyEnv, oidcSecretKey)
+		_ = os.Setenv(sessionKeyEnv, oidcSessionKey)
+
+		// kaniko-executor >=1.8.0 does not require additional cred helper logic for ECR,
+		// as it discovers ECR repositories automatically and acts accordingly.
+		if isKanikoVersionBelowOneDotEight(os.Getenv(kanikoVersionEnv)) {
+			dockerConfig.SetCredHelper(ecrPublicDomain, "ecr-login")
+			dockerConfig.SetCredHelper(registry, "ecr-login")
+		}
+
+	} else if assumeRole != "" {
 		var err error
 		username, password, registry, err := getAssumeRoleCreds(region, assumeRole, externalId, "")
 		if err != nil {
-			return nil, err
+			return err
 		}
-		dockerConfig.SetAuth(registry, username, password)
+		pushToRegistryCreds := docker.RegistryCredentials{
+			Registry: registry,
+			Username: username,
+			Password: password,
+		}
+		credentials = append(credentials, pushToRegistryCreds)
+
 	} else if !noPush || accessKey != "" {
 		// only setup auth when pushing or credentials are defined
 		if registry == "" {
-			return nil, fmt.Errorf("registry must be specified")
+			return fmt.Errorf("registry must be specified")
 		}
 
 		// If IAM role is used, access key & secret key are not required
 		if accessKey != "" && secretKey != "" {
 			err := os.Setenv(accessKeyEnv, accessKey)
 			if err != nil {
-				return nil, errors.Wrap(err, fmt.Sprintf("failed to set %s environment variable", accessKeyEnv))
+				return errors.Wrap(err, fmt.Sprintf("failed to set %s environment variable", accessKeyEnv))
 			}
 
 			err = os.Setenv(secretKeyEnv, secretKey)
 			if err != nil {
-				return nil, errors.Wrap(err, fmt.Sprintf("failed to set %s environment variable", secretKeyEnv))
+				return errors.Wrap(err, fmt.Sprintf("failed to set %s environment variable", secretKeyEnv))
 			}
 		}
 
@@ -388,8 +669,7 @@ func createDockerConfig(dockerRegistry, dockerUsername, dockerPassword, accessKe
 			dockerConfig.SetCredHelper(registry, "ecr-login")
 		}
 	}
-
-	return dockerConfig, nil
+	return dockerConfig.CreateDockerConfig(credentials, dockerConfigPath)
 }
 
 func createRepository(region, repo, registry, assumeRole, externalId string) error {
@@ -589,4 +869,165 @@ func isKanikoVersionBelowOneDotEight(v string) bool {
 	}
 
 	return currVer.LessThan(oneEightVer)
+}
+
+func getOidcCreds(oidcToken, assumeRole string) (string, string, string, error) {
+	// Create a new session
+	sess, err := session.NewSession()
+	if err != nil {
+		return "", "", "", fmt.Errorf("failed to create AWS session: %w", err)
+	}
+
+	// Create a new STS client
+	svc := sts.New(sess)
+
+	// Prepare the input parameters for the STS call
+	duration := int64(time.Hour / time.Second)
+	input := &sts.AssumeRoleWithWebIdentityInput{
+		RoleArn:          aws.String(assumeRole),
+		RoleSessionName:  aws.String("kaniko-ecr-oidc"),
+		WebIdentityToken: aws.String(oidcToken),
+		DurationSeconds:  aws.Int64(duration),
+	}
+
+	// Call the AssumeRoleWithWebIdentity function
+	result, err := svc.AssumeRoleWithWebIdentity(input)
+	if err != nil {
+		return "", "", "", fmt.Errorf("failed to assume role with web identity: %w", err)
+	}
+
+	// Check if credentials exist in the result
+	if result.Credentials == nil {
+		return "", "", "", errors.New("no credentials returned by AssumeRoleWithWebIdentity")
+	}
+
+	// Return the credentials
+	return *result.Credentials.AccessKeyId, *result.Credentials.SecretAccessKey, *result.Credentials.SessionToken, nil
+}
+
+func createECRSession(region, accessKey, secretKey, sessionToken string) *ecrv1.ECR {
+	sess := session.Must(session.NewSession(&awsv1.Config{
+		Region: awsv1.String(region),
+		Credentials: credentials.NewStaticCredentials(
+			accessKey,
+			secretKey,
+			sessionToken,
+		),
+	}))
+	return ecrv1.New(sess)
+}
+
+func getECRCredentials(region, registry, assumeRole, externalId, accessKey, secretKey, oidcToken string) (string, string, error) {
+	if assumeRole != "" && oidcToken != "" {
+		// For OIDC auth with assume role
+		awsAccessKey, awsSecretKey, awsSessionToken, err := getOidcCreds(oidcToken, assumeRole)
+		if err != nil {
+			return "", "", fmt.Errorf("failed to get OIDC credentials: %w", err)
+		}
+
+		// Create ECR session and get auth info
+		svc := createECRSession(region, awsAccessKey, awsSecretKey, awsSessionToken)
+		username, password, _, err := getAuthInfo(svc)
+		if err != nil {
+			return "", "", fmt.Errorf("failed to get ECR credentials: %w", err)
+		}
+		return username, password, nil
+	} else if assumeRole != "" {
+		// For assume role auth
+		username, password, _, err := getAssumeRoleCreds(region, assumeRole, externalId, "")
+		if err != nil {
+			return "", "", fmt.Errorf("failed to get ECR credentials: %w", err)
+		}
+		return username, password, nil
+	} else if accessKey != "" && secretKey != "" {
+		// For direct credentials
+		sess := session.Must(session.NewSession(&awsv1.Config{
+			Region: awsv1.String(region),
+			Credentials: credentials.NewStaticCredentials(
+				accessKey,
+				secretKey,
+				"",
+			),
+		}))
+		svc := ecrv1.New(sess)
+
+		username, password, _, err := getAuthInfo(svc)
+		if err != nil {
+			return "", "", fmt.Errorf("failed to get ECR credentials: %w", err)
+		}
+		return username, password, nil
+	} else {
+		// For IAM role auth (default credentials)
+		sess := session.Must(session.NewSession(&awsv1.Config{
+			Region: awsv1.String(region),
+		}))
+		svc := ecrv1.New(sess)
+
+		username, password, _, err := getAuthInfo(svc)
+		if err != nil {
+			return "", "", fmt.Errorf("failed to get ECR credentials: %w", err)
+		}
+		return username, password, nil
+	}
+}
+
+func handlePushOnly(c *cli.Context) error {
+	sourceTarPath := c.String("source-tar-path")
+	if sourceTarPath == "" {
+		return fmt.Errorf("source_tar_path is required when push_only is set")
+	}
+
+	if _, err := os.Stat(sourceTarPath); os.IsNotExist(err) {
+		return fmt.Errorf("image tarball does not exist at path: %s", sourceTarPath)
+	}
+
+	repo := c.String("repo")
+	registry := c.String("registry")
+	if repo == "" || registry == "" {
+		return fmt.Errorf("repository and registry must be specified for push-only operation")
+	}
+
+	// Load the image from the tarball
+	img, err := crane.Load(sourceTarPath)
+	if err != nil {
+		return fmt.Errorf("failed to load image from tarball: %v", err)
+	}
+
+	// Get ECR credentials using the common function
+	username, password, err := getECRCredentials(
+		c.String("region"),
+		registry,
+		c.String("assume-role"),
+		c.String("external-id"),
+		c.String("access-key"),
+		c.String("secret-key"),
+		c.String("oidc-token-id"),
+	)
+	if err != nil {
+		return err
+	}
+
+	// Setup crane auth
+	opts := []crane.Option{
+		crane.WithAuth(&authn.Basic{
+			Username: username,
+			Password: password,
+		}),
+	}
+
+	// Push for each tag
+	tags := c.StringSlice("tags")
+	if len(tags) == 0 {
+		tags = []string{"latest"}
+	}
+
+	for _, tag := range tags {
+		dest := fmt.Sprintf("%s/%s:%s", registry, repo, tag)
+		if err := crane.Push(img, dest, opts...); err != nil {
+			return fmt.Errorf("failed to push image to %s: %v", dest, err)
+		}
+		fmt.Printf("Successfully pushed image to %s\n", dest)
+	}
+
+	return nil
 }

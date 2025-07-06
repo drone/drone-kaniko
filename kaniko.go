@@ -5,42 +5,86 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
+
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 
 	"github.com/drone/drone-kaniko/pkg/artifact"
 	"github.com/drone/drone-kaniko/pkg/output"
 	"github.com/drone/drone-kaniko/pkg/tagger"
+	"github.com/google/go-containerregistry/pkg/crane"
 	"golang.org/x/mod/semver"
 )
 
 type (
 	// Build defines Docker build parameters.
 	Build struct {
-		DroneCommitRef   string   // Drone git commit reference
-		DroneRepoBranch  string   // Drone repo branch
-		Dockerfile       string   // Docker build Dockerfile
-		Context          string   // Docker build context
-		Tags             []string // Docker build tags
-		AutoTag          bool     // Set this to auto detect tags from git commits and semver-tagged labels
-		AutoTagSuffix    string   // Suffix to append to the auto detect tags
-		ExpandTag        bool     // Set this to expand the `Tags` into semver-tagged labels
-		Args             []string // Docker build args
-		ArgsFromEnv      []string // Docker build args from env
-		Target           string   // Docker build target
-		Repo             string   // Docker build repository
-		Mirrors          []string // Docker repository mirrors
-		Labels           []string // Label map
-		SkipTlsVerify    bool     // Docker skip tls certificate verify for registry
-		SnapshotMode     string   // Kaniko snapshot mode
-		EnableCache      bool     // Whether to enable kaniko cache
-		CacheRepo        string   // Remote repository that will be used to store cached layers
-		CacheTTL         int      // Cache timeout in hours
-		DigestFile       string   // Digest file location
-		NoPush           bool     // Set this flag if you only want to build the image, without pushing to a registry
-		Verbosity        string   // Log level
-		Platform         string   // Allows to build with another default platform than the host, similarly to docker build --platform
-		SkipUnusedStages bool     // Build only used stages
-		TarPath          string   // Set this flag to save the image as a tarball at path
+		Args                []string // Docker build args
+		ArgsNew             []string // docker build args with comma seperated values
+		AutoTag             bool     // Set this to auto detect tags from git commits and semver-tagged labels
+		AutoTagSuffix       string   // Suffix to append to the auto detect tags
+		CacheRepo           string   // Remote repository that will be used to store cached layers
+		CacheTTL            int      // Cache timeout in hours
+		Context             string   // Docker build context
+		DigestFile          string   // Digest file location
+		Dockerfile          string   // Docker build Dockerfile
+		DroneCommitRef      string   // Drone git commit reference
+		DroneRepoBranch     string   // Drone repo branch
+		EnableCache         bool     // Whether to enable kaniko cache
+		ExpandTag           bool     // Set this to expand the `Tags` into semver-tagged labels
+		IsMultipleBuildArgs bool     // env variable for fallback for docker build args
+		Labels              []string // Label map
+		Mirrors             []string // Docker repository mirrors
+		NoPush              bool     // Set this flag if you only want to build the image, without pushing to a registry
+		Platform            string   // Allows to build with another default platform than the host, similarly to docker build --platform
+		PushOnly            bool     // Specify if the operation is push-only.
+		Repo                string   // Docker build repository
+		SkipTlsVerify       bool     // Docker skip tls certificate verify for registry
+		SkipUnusedStages    bool     // Build only used stages
+		SnapshotMode        string   // Kaniko snapshot mode
+		SourceTarPath       string   // Path to the local tarball to be pushed
+		Tags                []string // Docker build tags
+		TarPath             string   // Set this flag to save the image as a tarball at path
+		Target              string   // Docker build target
+		Verbosity           string   // Log level
+
+		Cache                       bool     // Enable or disable caching during the build process.
+		CacheDir                    string   // Directory to store cached layers.
+		CacheCopyLayers             bool     // Enable or disable copying layers from the cache.
+		CacheRunLayers              bool     // Enable or disable running layers from the cache.
+		Cleanup                     bool     // Enable or disable cleanup of temporary files.
+		CompressedCaching           *bool    // Enable or disable compressed caching.
+		ContextSubPath              string   // Sub-path within the context to build.
+		CustomPlatform              string   // Platform to use for building.
+		Force                       bool     // Force building the image even if it already exists.
+		Git                         bool     // Branch to clone if build context is a git repository .
+		ImageNameWithDigestFile     string   // Write image name with digest to a file.
+		ImageNameTagWithDigestFile  string   // Write image name with tag and digest to a file.
+		Insecure                    bool     // Allow connecting to registries without TLS.
+		InsecurePull                bool     // Allow insecure pulls from the registry.
+		InsecureRegistry            string   // Use plain HTTP for registry communication.
+		Label                       string   // Add metadata to an image.
+		LogFormat                   string   // Set the log format for build output.
+		LogTimestamp                bool     // Show timestamps in build output.
+		OCILayoutPath               string   // Directory to store OCI layout.
+		PushRetry                   int      // Number of times to retry pushing an image.
+		RegistryCertificate         string   // Path to a file containing a registry certificate.
+		RegistryClientCert          string   // Path to a file containing a registry client certificate.
+		RegistryMirror              string   // Mirror for registry pulls.
+		SkipDefaultRegistryFallback bool     // Skip Docker Hub and default registry fallback.
+		Reproducible                bool     // Create a reproducible image.
+		SingleSnapshot              bool     // Only create a single snapshot of the image.
+		SkipTLSVerify               bool     // Skip TLS verification when connecting to the registry.
+		SkipPushPermissionCheck     bool     // Skip permission check when pushing.
+		SkipTLSVerifyPull           bool     // Skip TLS verification when pulling.
+		SkipTLSVerifyRegistry       bool     // Skip TLS verification when connecting to a registry.
+		UseNewRun                   bool     // Use the new container runtime (`runc`) for builds.
+		IgnoreVarRun                *bool    // Ignore `/var/run` when copying from the context.
+		IgnorePath                  string   // Ignore files matching the specified path pattern.
+		IgnorePaths                 []string // Ignore files matching the specified path pattern.
+		ImageFSExtractRetry         int      // Number of times to retry extracting the image filesystem.
+		ImageDownloadRetry          int      // Number of times to retry downloading layers.
 	}
 
 	// Artifact defines content of artifact file
@@ -62,6 +106,10 @@ type (
 		Build    Build    // Docker build configuration
 		Artifact Artifact // Artifact file content
 		Output   Output   // Output file content
+
+		// parameters for UTs to mock crane functionality
+		LoadImageFromTarball func(string) (v1.Image, error)
+		PushImageToRegistry  func(v1.Image, string) error
 	}
 )
 
@@ -132,8 +180,51 @@ func (b Build) AutoTags() (tags []string, err error) {
 
 // Exec executes the plugin step
 func (p Plugin) Exec() error {
+
+	if p.Build.NoPush && p.Build.PushOnly {
+		return fmt.Errorf("inputs no-push and push-only cannot be used together. please define only one")
+	}
+
 	if !p.Build.NoPush && p.Build.Repo == "" {
 		return fmt.Errorf("repository name to publish image must be specified")
+	}
+
+	if p.Build.PushOnly {
+		// When push-only is set, source_tar_path MUST be provided
+		if p.Build.SourceTarPath == "" {
+			return fmt.Errorf("source_tar_path is required when push_only is set. please provide a valid tarball path")
+		}
+
+		if _, err := os.Stat(p.Build.SourceTarPath); os.IsNotExist(err) {
+			return fmt.Errorf("image tarball does not exist at path: %s", p.Build.SourceTarPath)
+		}
+
+		if p.Build.Repo == "" {
+			return fmt.Errorf("missing required destination repository for push-only operation")
+		}
+
+		// Load the image from the tarball
+		img, err := crane.Load(p.Build.SourceTarPath)
+		if err != nil {
+			return fmt.Errorf("failed to load image from tarball: %v", err)
+		}
+
+		// If no tags are specified, use 'latest'
+		tags := p.Build.Tags
+
+		for _, tag := range tags {
+			dest := fmt.Sprintf("%s:%s", p.Build.Repo, tag)
+
+			// Push the image to the destination
+			err := crane.Push(img, dest)
+			if err != nil {
+				return fmt.Errorf("failed to push image from tarball [%s] to destination [%s]: %v", p.Build.SourceTarPath, dest, err)
+			}
+
+			fmt.Printf("Successfully pushed image - '%s'\n to %s\n", dest, p.Build.Repo)
+		}
+
+		return nil
 	}
 
 	if _, err := os.Stat(p.Build.Dockerfile); os.IsNotExist(err) {
@@ -167,8 +258,14 @@ func (p Plugin) Exec() error {
 	}
 
 	// Set the build arguments
-	for _, arg := range p.Build.Args {
-		cmdArgs = append(cmdArgs, fmt.Sprintf("--build-arg=%s", arg))
+	if p.Build.IsMultipleBuildArgs {
+		for _, arg := range p.Build.ArgsNew {
+			cmdArgs = append(cmdArgs, "--build-arg", arg)
+		}
+	} else {
+		for _, arg := range p.Build.Args {
+			cmdArgs = append(cmdArgs, "--build-arg", arg)
+		}
 	}
 	for _, argName := range p.Build.ArgsFromEnv {
 		argKey := fmt.Sprintf("PLUGIN_BUILD_ARG_%s", argName)
@@ -192,7 +289,7 @@ func (p Plugin) Exec() error {
 	}
 
 	if p.Build.SnapshotMode != "" {
-		cmdArgs = append(cmdArgs, fmt.Sprintf("--snapshotMode=%s", p.Build.SnapshotMode))
+		cmdArgs = append(cmdArgs, fmt.Sprintf("--snapshot-mode=%s", p.Build.SnapshotMode))
 	}
 
 	if p.Build.EnableCache {
@@ -228,7 +325,150 @@ func (p Plugin) Exec() error {
 	}
 
 	if p.Build.TarPath != "" {
+		tarDir := filepath.Dir(p.Build.TarPath)
+		if _, err := os.Stat(tarDir); os.IsNotExist(err) {
+			if mkdirErr := os.MkdirAll(tarDir, 0755); mkdirErr != nil {
+				return fmt.Errorf("failed to create directory for tar path %s: %v", tarDir, mkdirErr)
+			}
+		}
 		cmdArgs = append(cmdArgs, fmt.Sprintf("--tar-path=%s", p.Build.TarPath))
+	}
+
+	if p.Build.CacheCopyLayers {
+		cmdArgs = append(cmdArgs, "--cache-copy-layers")
+	}
+
+	if p.Build.CacheRunLayers {
+		cmdArgs = append(cmdArgs, "--cache-run-layers=true")
+	}
+
+	if p.Build.Cleanup {
+		cmdArgs = append(cmdArgs, "--cleanup=true")
+	}
+
+	if p.Build.CompressedCaching != nil {
+		if *p.Build.CompressedCaching {
+			cmdArgs = append(cmdArgs, "--compressed-caching=true")
+		} else {
+			cmdArgs = append(cmdArgs, "--compressed-caching=false")
+		}
+	}
+
+	if p.Build.ContextSubPath != "" {
+		cmdArgs = append(cmdArgs, fmt.Sprintf("--context-sub-path=%s", p.Build.ContextSubPath))
+	}
+
+	if p.Build.CustomPlatform != "" {
+		cmdArgs = append(cmdArgs, fmt.Sprintf("--custom-platform=%s", p.Build.CustomPlatform))
+	}
+
+	if p.Build.Force {
+		cmdArgs = append(cmdArgs, "--force")
+	}
+
+	if p.Build.Git {
+		cmdArgs = append(cmdArgs, "--git")
+	}
+
+	if p.Build.ImageNameWithDigestFile != "" {
+		cmdArgs = append(cmdArgs, fmt.Sprintf("--image-name-with-digest-file=%s", p.Build.ImageNameWithDigestFile))
+	}
+
+	if p.Build.ImageNameTagWithDigestFile != "" {
+		cmdArgs = append(cmdArgs, fmt.Sprintf("--image-name-tag-with-digest-file=%s", p.Build.ImageNameTagWithDigestFile))
+	}
+
+	if p.Build.Insecure {
+		cmdArgs = append(cmdArgs, "--insecure")
+	}
+
+	if p.Build.InsecurePull {
+		cmdArgs = append(cmdArgs, "--insecure-pull")
+	}
+
+	if p.Build.InsecureRegistry != "" {
+		cmdArgs = append(cmdArgs, fmt.Sprintf("--insecure-registry=%s", p.Build.InsecureRegistry))
+	}
+
+	if p.Build.LogFormat != "" {
+		cmdArgs = append(cmdArgs, fmt.Sprintf("--log-format=%s", p.Build.LogFormat))
+	}
+
+	if p.Build.LogTimestamp {
+		cmdArgs = append(cmdArgs, "--log-timestamp")
+	}
+
+	if p.Build.OCILayoutPath != "" {
+		cmdArgs = append(cmdArgs, fmt.Sprintf("--oci-layout-path=%s", p.Build.OCILayoutPath))
+	}
+
+	if p.Build.PushRetry != 0 {
+		cmdArgs = append(cmdArgs, fmt.Sprintf("--push-retry=%d", p.Build.PushRetry))
+	}
+
+	if p.Build.RegistryCertificate != "" {
+		cmdArgs = append(cmdArgs, fmt.Sprintf("--registry-certificate=%s", p.Build.RegistryCertificate))
+	}
+
+	if p.Build.RegistryClientCert != "" {
+		cmdArgs = append(cmdArgs, fmt.Sprintf("--registry-client-cert=%s", p.Build.RegistryClientCert))
+	}
+
+	if p.Build.SkipDefaultRegistryFallback {
+		cmdArgs = append(cmdArgs, "--skip-default-registry-fallback")
+	}
+
+	if p.Build.Reproducible {
+		cmdArgs = append(cmdArgs, "--reproducible")
+	}
+
+	if p.Build.SingleSnapshot {
+		cmdArgs = append(cmdArgs, "--single-snapshot")
+	}
+
+	if p.Build.SkipPushPermissionCheck {
+		cmdArgs = append(cmdArgs, "--skip-push-permission-check")
+	}
+
+	if p.Build.SkipTLSVerifyPull {
+		cmdArgs = append(cmdArgs, "--skip-tls-verify-pull")
+	}
+
+	if p.Build.SkipTLSVerifyRegistry {
+		cmdArgs = append(cmdArgs, "--skip-tls-verify-registry")
+	}
+
+	if p.Build.UseNewRun {
+		cmdArgs = append(cmdArgs, "--use-new-run")
+	}
+
+	if p.Build.IgnoreVarRun != nil {
+		if *p.Build.IgnoreVarRun {
+			cmdArgs = append(cmdArgs, "--ignore-var-run=true")
+		} else {
+			cmdArgs = append(cmdArgs, "--ignore-var-run=false")
+		}
+	}
+
+	if p.Build.IgnorePath != "" {
+		cmdArgs = append(cmdArgs, fmt.Sprintf("--ignore-path=%s", p.Build.IgnorePath))
+	}
+
+	if p.Build.IgnorePaths != nil {
+		for _, path := range p.Build.IgnorePaths {
+			trimmed := strings.TrimSpace(path)
+			if trimmed != "" {
+				cmdArgs = append(cmdArgs, fmt.Sprintf("--ignore-path=%s", trimmed))
+			}
+		}
+	}
+
+	if p.Build.ImageFSExtractRetry != 0 {
+		cmdArgs = append(cmdArgs, fmt.Sprintf("--image-fs-extract-retry=%d", p.Build.ImageFSExtractRetry))
+	}
+
+	if p.Build.ImageDownloadRetry != 0 {
+		cmdArgs = append(cmdArgs, fmt.Sprintf("--image-download-retry=%d", p.Build.ImageDownloadRetry))
 	}
 
 	cmd := exec.Command("/kaniko/executor", cmdArgs...)
@@ -248,13 +488,25 @@ func (p Plugin) Exec() error {
 		}
 	}
 
-	if p.Output.OutputFile != "" {
-		if err = output.WritePluginOutputFile(p.Output.OutputFile, getDigest(p.Build.DigestFile)); err != nil {
-			fmt.Fprintf(os.Stderr, "failed to write plugin output file at path: %s with error: %s\n", p.Output.OutputFile, err)
-		}
+	p.Output.OutputFile = os.Getenv("DRONE_OUTPUT")
+	var tarPath string
+	if p.Build.TarPath != "" {
+		tarPath = getTarPath(p.Build.TarPath)
+	}
+	if err = output.WritePluginOutputFile(p.Output.OutputFile, getDigest(p.Build.DigestFile), tarPath); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to write plugin output file at path: %s with error: %s\n", p.Output.OutputFile, err)
 	}
 
 	return nil
+}
+
+func getTarPath(tarPath string) string {
+	tarDir := filepath.Dir(tarPath)
+	if _, err := os.Stat(tarDir); err != nil && os.IsNotExist(err) {
+		fmt.Fprintf(os.Stderr, "Warning: tar path does not exist: %s\n", tarPath)
+		return ""
+	}
+	return tarPath
 }
 
 func getDigest(digestFile string) string {

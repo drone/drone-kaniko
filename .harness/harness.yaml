@@ -1,0 +1,656 @@
+pipeline:
+  name: drone-kaniko-harness
+  identifier: dronekanikoharness
+  projectIdentifier: Drone_Plugins
+  orgIdentifier: default
+  tags: {}
+  properties:
+    ci:
+      codebase:
+        connectorRef: GitHub_Drone_Org
+        repoName: drone-kaniko
+        build: <+input>
+        sparseCheckout: []
+  stages:
+    - parallel:
+        - stage:
+            name: linux-amd64
+            identifier: linuxamd64
+            description: ""
+            type: CI
+            spec:
+              cloneCodebase: true
+              caching:
+                enabled: false
+                paths: []
+              platform:
+                os: Linux
+                arch: Amd64
+              runtime:
+                type: Cloud
+                spec: {}
+              execution:
+                steps:
+                  - step:
+                      type: Run
+                      name: Build Binary
+                      identifier: Build
+                      spec:
+                        connectorRef: Plugins_Docker_Hub_Connector
+                        image: golang:1.23.0
+                        shell: Sh
+                        command: |-
+                          go test ./...
+                          sh scripts/build.sh
+                  - parallel:
+                      - step:
+                          type: Plugin
+                          name: BuildAndPushDockerTag
+                          identifier: BuildAndPushDockerTag
+                          spec:
+                            connectorRef: Plugins_Docker_Hub_Connector
+                            image: plugins/docker
+                            settings:
+                              username: drone
+                              password: <+secrets.getValue("Plugins_Docker_Hub_Pat")>
+                              repo: plugins/kaniko<+matrix.image>
+                              dockerfile: docker/<+matrix.repo>/Dockerfile.linux.amd64
+                              auto_tag: "true"
+                              auto_tag_suffix: linux-amd64
+                              daemon_off: "false"
+                          when:
+                            stageStatus: Success
+                            condition: <+codebase.build.type> == "tag"
+                          strategy:
+                            matrix:
+                              image:
+                                - ""
+                                - "-gcr"
+                                - "-gar"
+                                - "-ecr"
+                                - "-acr"
+                              repo:
+                                - docker
+                                - gcr
+                                - gar
+                                - ecr
+                                - acr
+                              exclude:
+                                - image: ""
+                                  repo: gcr
+                                - image: ""
+                                  repo: gar
+                                - image: ""
+                                  repo: ecr
+                                - image: ""
+                                  repo: acr
+                                - image: "-gcr"
+                                  repo: docker
+                                - image: "-gcr"
+                                  repo: gar
+                                - image: "-gcr"
+                                  repo: ecr
+                                - image: "-gcr"
+                                  repo: acr
+                                - image: "-gar"
+                                  repo: docker
+                                - image: "-gar"
+                                  repo: gcr
+                                - image: "-gar"
+                                  repo: ecr
+                                - image: "-gar"
+                                  repo: acr
+                                - image: "-ecr"
+                                  repo: docker
+                                - image: "-ecr"
+                                  repo: gcr
+                                - image: "-ecr"
+                                  repo: gar
+                                - image: "-ecr"
+                                  repo: acr
+                                - image: "-acr"
+                                  repo: docker
+                                - image: "-acr"
+                                  repo: gcr
+                                - image: "-acr"
+                                  repo: gar
+                                - image: "-acr"
+                                  repo: ecr
+                              nodeName: _<+matrix.repo>
+                      - step:
+                          type: Plugin
+                          name: BuildAndPushDockerTag_Kaniko
+                          identifier: BuildAndPushDockerTag_Kaniko
+                          spec:
+                            connectorRef: Plugins_Docker_Hub_Connector
+                            image: plugins/docker
+                            settings:
+                              username: drone
+                              password: <+secrets.getValue("Plugins_Docker_Hub_Pat")>
+                              repo: plugins/kaniko<+matrix.image>
+                              dockerfile: docker/<+matrix.repo>/Dockerfile.linux.amd64.kaniko1.9.1
+                              auto_tag: "true"
+                              auto_tag_suffix: linux-amd64-kaniko1.9.1
+                              daemon_off: "false"
+                          when:
+                            stageStatus: Success
+                            condition: <+codebase.build.type> == "tag"
+                          strategy:
+                            matrix:
+                              image:
+                                - ""
+                                - "-gcr"
+                                - "-gar"
+                                - "-ecr"
+                              repo:
+                                - docker
+                                - gcr
+                                - gar
+                                - ecr
+                              exclude:
+                                - image: ""
+                                  repo: gcr
+                                - image: ""
+                                  repo: gar
+                                - image: ""
+                                  repo: ecr
+                                - image: "-gcr"
+                                  repo: docker
+                                - image: "-gcr"
+                                  repo: gar
+                                - image: "-gcr"
+                                  repo: ecr
+                                - image: "-gar"
+                                  repo: docker
+                                - image: "-gar"
+                                  repo: gcr
+                                - image: "-gar"
+                                  repo: ecr
+                                - image: "-ecr"
+                                  repo: docker
+                                - image: "-ecr"
+                                  repo: gcr
+                                - image: "-ecr"
+                                  repo: gar
+                              nodeName: <+matrix.repo>
+                  - parallel:
+                      - step:
+                          type: BuildAndPushDockerRegistry
+                          name: BuildAndPushDockerBranch
+                          identifier: BuildAndPushDockerBranch
+                          spec:
+                            connectorRef: Plugins_Docker_Hub_Connector
+                            repo: plugins/kaniko<+matrix.image>
+                            tags:
+                              - linux-amd64
+                            caching: false
+                            dockerfile: docker/<+matrix.repo>/Dockerfile.linux.amd64
+                          when:
+                            stageStatus: Success
+                            condition: <+codebase.build.type> == "branch"
+                          strategy:
+                            matrix:
+                              image:
+                                - ""
+                                - "-gcr"
+                                - "-gar"
+                                - "-ecr"
+                                - "-acr"
+                              repo:
+                                - docker
+                                - gcr
+                                - gar
+                                - ecr
+                                - acr
+                              exclude:
+                                - image: ""
+                                  repo: gcr
+                                - image: ""
+                                  repo: gar
+                                - image: ""
+                                  repo: ecr
+                                - image: ""
+                                  repo: acr
+                                - image: "-gcr"
+                                  repo: docker
+                                - image: "-gcr"
+                                  repo: gar
+                                - image: "-gcr"
+                                  repo: ecr
+                                - image: "-gcr"
+                                  repo: acr
+                                - image: "-gar"
+                                  repo: docker
+                                - image: "-gar"
+                                  repo: gcr
+                                - image: "-gar"
+                                  repo: ecr
+                                - image: "-gar"
+                                  repo: acr
+                                - image: "-ecr"
+                                  repo: docker
+                                - image: "-ecr"
+                                  repo: gcr
+                                - image: "-ecr"
+                                  repo: gar
+                                - image: "-ecr"
+                                  repo: acr
+                                - image: "-acr"
+                                  repo: docker
+                                - image: "-acr"
+                                  repo: gcr
+                                - image: "-acr"
+                                  repo: gar
+                                - image: "-acr"
+                                  repo: ecr
+                              nodeName: <+matrix.repo>
+                      - step:
+                          type: BuildAndPushDockerRegistry
+                          name: BuildAndPushDockerBranch_Kaniko
+                          identifier: BuildAndPushDockerBranch_Kaniko
+                          spec:
+                            connectorRef: Plugins_Docker_Hub_Connector
+                            repo: plugins/kaniko<+matrix.image>
+                            tags:
+                              - linux-amd64-kaniko1.9.1
+                            caching: false
+                            dockerfile: docker/<+matrix.repo>/Dockerfile.linux.amd64.kaniko1.9.1
+                          when:
+                            stageStatus: Success
+                            condition: <+codebase.build.type> == "branch"
+                          strategy:
+                            matrix:
+                              image:
+                                - ""
+                                - "-gcr"
+                                - "-gar"
+                                - "-ecr"
+                              repo:
+                                - docker
+                                - gcr
+                                - gar
+                                - ecr
+                              exclude:
+                                - image: ""
+                                  repo: gcr
+                                - image: ""
+                                  repo: gar
+                                - image: ""
+                                  repo: ecr
+                                - image: "-gcr"
+                                  repo: docker
+                                - image: "-gcr"
+                                  repo: gar
+                                - image: "-gcr"
+                                  repo: ecr
+                                - image: "-gar"
+                                  repo: docker
+                                - image: "-gar"
+                                  repo: gcr
+                                - image: "-gar"
+                                  repo: ecr
+                                - image: "-ecr"
+                                  repo: docker
+                                - image: "-ecr"
+                                  repo: gcr
+                                - image: "-ecr"
+                                  repo: gar
+                              nodeName: _<+matrix.repo>
+            when:
+              pipelineStatus: Success
+        - stage:
+            name: linux-arm64
+            identifier: linuxarm64
+            description: ""
+            type: CI
+            spec:
+              cloneCodebase: true
+              caching:
+                enabled: false
+                paths: []
+              platform:
+                os: Linux
+                arch: Arm64
+              runtime:
+                type: Cloud
+                spec: {}
+              execution:
+                steps:
+                  - step:
+                      type: Run
+                      name: Build Binary
+                      identifier: Build_and_Test
+                      spec:
+                        connectorRef: Plugins_Docker_Hub_Connector
+                        image: golang:1.23.0
+                        shell: Sh
+                        command: |-
+                          go test ./...
+                          sh scripts/build.sh
+                  - parallel:
+                      - step:
+                          type: Plugin
+                          name: BuildAndPushDockerTag
+                          identifier: BuildAndPushDockerTag
+                          spec:
+                            connectorRef: Plugins_Docker_Hub_Connector
+                            image: plugins/docker
+                            settings:
+                              username: drone
+                              password: <+secrets.getValue("Plugins_Docker_Hub_Pat")>
+                              repo: plugins/kaniko<+matrix.image>
+                              dockerfile: docker/<+matrix.repo>/Dockerfile.linux.arm64
+                              auto_tag: "true"
+                              auto_tag_suffix: linux-arm64
+                              daemon_off: "false"
+                          when:
+                            stageStatus: Success
+                            condition: <+codebase.build.type> == "tag"
+                          strategy:
+                            matrix:
+                              image:
+                                - ""
+                                - "-gcr"
+                                - "-gar"
+                                - "-ecr"
+                                - "-acr"
+                              repo:
+                                - docker
+                                - gcr
+                                - gar
+                                - ecr
+                                - acr
+                              exclude:
+                                - image: ""
+                                  repo: gcr
+                                - image: ""
+                                  repo: gar
+                                - image: ""
+                                  repo: ecr
+                                - image: ""
+                                  repo: acr
+                                - image: "-gcr"
+                                  repo: docker
+                                - image: "-gcr"
+                                  repo: gar
+                                - image: "-gcr"
+                                  repo: ecr
+                                - image: "-gcr"
+                                  repo: acr
+                                - image: "-gar"
+                                  repo: docker
+                                - image: "-gar"
+                                  repo: gcr
+                                - image: "-gar"
+                                  repo: ecr
+                                - image: "-gar"
+                                  repo: acr
+                                - image: "-ecr"
+                                  repo: docker
+                                - image: "-ecr"
+                                  repo: gcr
+                                - image: "-ecr"
+                                  repo: gar
+                                - image: "-ecr"
+                                  repo: acr
+                                - image: "-acr"
+                                  repo: docker
+                                - image: "-acr"
+                                  repo: gcr
+                                - image: "-acr"
+                                  repo: gar
+                                - image: "-acr"
+                                  repo: ecr
+                              nodeName: _<+matrix.repo>
+                      - step:
+                          type: Plugin
+                          name: BuildAndPushDockerTag_Kaniko
+                          identifier: BuildAndPushDockerTag_Kaniko
+                          spec:
+                            connectorRef: Plugins_Docker_Hub_Connector
+                            image: plugins/docker
+                            settings:
+                              username: drone
+                              password: <+secrets.getValue("Plugins_Docker_Hub_Pat")>
+                              repo: plugins/kaniko<+matrix.image>
+                              dockerfile: docker/<+matrix.repo>/Dockerfile.linux.arm64.kaniko1.9.1
+                              auto_tag: "true"
+                              auto_tag_suffix: linux-arm64-kaniko1.9.1
+                              daemon_off: "false"
+                          when:
+                            stageStatus: Success
+                            condition: <+codebase.build.type> == "tag"
+                          strategy:
+                            matrix:
+                              image:
+                                - ""
+                                - "-gcr"
+                                - "-gar"
+                                - "-ecr"
+                              repo:
+                                - docker
+                                - gcr
+                                - gar
+                                - ecr
+                              exclude:
+                                - image: ""
+                                  repo: gcr
+                                - image: ""
+                                  repo: gar
+                                - image: ""
+                                  repo: ecr
+                                - image: "-gcr"
+                                  repo: docker
+                                - image: "-gcr"
+                                  repo: gar
+                                - image: "-gcr"
+                                  repo: ecr
+                                - image: "-gar"
+                                  repo: docker
+                                - image: "-gar"
+                                  repo: gcr
+                                - image: "-gar"
+                                  repo: ecr
+                                - image: "-ecr"
+                                  repo: docker
+                                - image: "-ecr"
+                                  repo: gcr
+                                - image: "-ecr"
+                                  repo: gar
+                              nodeName: _<+matrix.repo>
+                  - parallel:
+                      - step:
+                          type: BuildAndPushDockerRegistry
+                          name: BuildAndPushDockerBranch
+                          identifier: BuildAndPushDockerBranch
+                          spec:
+                            connectorRef: Plugins_Docker_Hub_Connector
+                            repo: plugins/kaniko<+matrix.image>
+                            tags:
+                              - linux-arm64
+                            caching: false
+                            dockerfile: docker/<+matrix.repo>/Dockerfile.linux.arm64
+                          when:
+                            stageStatus: Success
+                            condition: <+codebase.build.type> == "branch"
+                          strategy:
+                            matrix:
+                              image:
+                                - ""
+                                - "-gcr"
+                                - "-gar"
+                                - "-ecr"
+                                - "-acr"
+                              repo:
+                                - docker
+                                - gcr
+                                - gar
+                                - ecr
+                                - acr
+                              exclude:
+                                - image: ""
+                                  repo: gcr
+                                - image: ""
+                                  repo: gar
+                                - image: ""
+                                  repo: ecr
+                                - image: ""
+                                  repo: acr
+                                - image: "-gcr"
+                                  repo: docker
+                                - image: "-gcr"
+                                  repo: gar
+                                - image: "-gcr"
+                                  repo: ecr
+                                - image: "-gcr"
+                                  repo: acr
+                                - image: "-gar"
+                                  repo: docker
+                                - image: "-gar"
+                                  repo: gcr
+                                - image: "-gar"
+                                  repo: ecr
+                                - image: "-gar"
+                                  repo: acr
+                                - image: "-ecr"
+                                  repo: docker
+                                - image: "-ecr"
+                                  repo: gcr
+                                - image: "-ecr"
+                                  repo: gar
+                                - image: "-ecr"
+                                  repo: acr
+                                - image: "-acr"
+                                  repo: docker
+                                - image: "-acr"
+                                  repo: gcr
+                                - image: "-acr"
+                                  repo: gar
+                                - image: "-acr"
+                                  repo: ecr
+                              nodeName: <+matrix.repo>
+                      - step:
+                          type: BuildAndPushDockerRegistry
+                          name: BuildAndPushDockerBranch_Kaniko
+                          identifier: BuildAndPushDockerBranch_Kaniko
+                          spec:
+                            connectorRef: Plugins_Docker_Hub_Connector
+                            repo: plugins/kaniko<+matrix.image>
+                            tags:
+                              - linux-arm64-kaniko1.9.1
+                            caching: false
+                            dockerfile: docker/<+matrix.repo>/Dockerfile.linux.arm64.kaniko1.9.1
+                          when:
+                            stageStatus: Success
+                            condition: <+codebase.build.type> == "branch"
+                          strategy:
+                            matrix:
+                              image:
+                                - ""
+                                - "-gcr"
+                                - "-gar"
+                                - "-ecr"
+                              repo:
+                                - docker
+                                - gcr
+                                - gar
+                                - ecr
+                              exclude:
+                                - image: ""
+                                  repo: gcr
+                                - image: ""
+                                  repo: gar
+                                - image: ""
+                                  repo: ecr
+                                - image: "-gcr"
+                                  repo: docker
+                                - image: "-gcr"
+                                  repo: gar
+                                - image: "-gcr"
+                                  repo: ecr
+                                - image: "-gar"
+                                  repo: docker
+                                - image: "-gar"
+                                  repo: gcr
+                                - image: "-gar"
+                                  repo: ecr
+                                - image: "-ecr"
+                                  repo: docker
+                                - image: "-ecr"
+                                  repo: gcr
+                                - image: "-ecr"
+                                  repo: gar
+                              nodeName: _<+matrix.repo>
+            when:
+              pipelineStatus: Success
+    - stage:
+        name: Manifest
+        identifier: Manifest
+        description: ""
+        type: CI
+        spec:
+          cloneCodebase: true
+          caching:
+            enabled: false
+            paths: []
+          platform:
+            os: Linux
+            arch: Amd64
+          runtime:
+            type: Cloud
+            spec: {}
+          execution:
+            steps:
+              - parallel:
+                  - step:
+                      type: Plugin
+                      name: Manifest
+                      identifier: Manifest
+                      spec:
+                        connectorRef: Plugins_Docker_Hub_Connector
+                        image: plugins/manifest
+                        settings:
+                          auto_tag: "true"
+                          spec: docker/<+matrix.repo>/manifest.tmpl
+                          username: drone
+                          password: <+secrets.getValue("Plugins_Docker_Hub_Pat")>
+                          ignore_missing: "true"
+                      when:
+                        stageStatus: Success
+                        condition: <+codebase.build.type> == "branch" || <+codebase.build.type> == "tag"
+                      strategy:
+                        matrix:
+                          repo:
+                            - docker
+                            - gcr
+                            - gar
+                            - ecr
+                            - acr
+                          nodeName: manifest_<+matrix.repo>
+                  - step:
+                      type: Plugin
+                      name: Manifest_kaniko191
+                      identifier: Manifest_kaniko
+                      spec:
+                        connectorRef: Plugins_Docker_Hub_Connector
+                        image: plugins/manifest
+                        settings:
+                          auto_tag: "false"
+                          spec: docker/<+matrix.repo>/manifest-kaniko1.9.1.tmpl
+                          username: drone
+                          password: <+secrets.getValue("Plugins_Docker_Hub_Pat")>
+                          ignore_missing: "true"
+                      when:
+                        stageStatus: Success
+                        condition: <+codebase.build.type> == "branch" || <+codebase.build.type> == "tag"
+                      strategy:
+                        matrix:
+                          repo:
+                            - docker
+                            - gcr
+                            - gar
+                            - ecr
+                          nodeName: manifest_<+matrix.repo>
+        when:
+          pipelineStatus: Success
+  allowStageExecutions: true
