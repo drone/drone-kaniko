@@ -585,6 +585,9 @@ func setDockerAuth(dockerRegistry, dockerUsername, dockerPassword, accessKey, se
 			Password: dockerPassword,
 		}
 		credentials = append(credentials, pullFromRegistryCreds)
+	} else {
+		fmt.Println("\033[33mTo ensure consistent and reliable pipeline execution, we recommend setting up a Base Image Connector.\033[0m\n" +
+			"\033[33mWhile optional at this time, configuring it helps prevent failures caused by Docker Hub's rate limits.\033[0m")
 	}
 
 	if assumeRole != "" && oidcToken != "" {

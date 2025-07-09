@@ -18,8 +18,8 @@ import (
 const (
 	dockerConfigPath string = "/kaniko/.docker"
 	// GCR JSON key file path
-	gcrKeyPath       string = "/kaniko/config.json"
-	gcrEnvVariable   string = "GOOGLE_APPLICATION_CREDENTIALS"
+	gcrKeyPath     string = "/kaniko/config.json"
+	gcrEnvVariable string = "GOOGLE_APPLICATION_CREDENTIALS"
 
 	defaultDigestFile string = "/kaniko/digest-file"
 )
@@ -353,7 +353,7 @@ func run(c *cli.Context) error {
 		}
 
 		// setup docker config only when base image registry is specified
-		if c.String("base-image-registry") != ""{
+		if c.String("base-image-registry") != "" {
 			if err := setDockerAuth(
 				c.String("base-image-username"),
 				c.String("base-image-password"),
@@ -361,6 +361,9 @@ func run(c *cli.Context) error {
 			); err != nil {
 				return errors.Wrap(err, "failed to create docker config")
 			}
+		} else {
+			fmt.Println("\033[33mTo ensure consistent and reliable pipeline execution, we recommend setting up a Base Image Connector.\033[0m\n" +
+				"\033[33mWhile optional at this time, configuring it helps prevent failures caused by Docker Hub's rate limits.\033[0m")
 		}
 	}
 
@@ -439,7 +442,7 @@ func run(c *cli.Context) error {
 	return plugin.Exec()
 }
 
-func setDockerAuth(dockerUsername, dockerPassword, dockerRegistry string) (error) {
+func setDockerAuth(dockerUsername, dockerPassword, dockerRegistry string) error {
 	dockerConfig := docker.NewConfig()
 	dockerRegistryCreds := docker.RegistryCredentials{
 		Registry: dockerRegistry,

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"strings"
 
@@ -508,6 +509,9 @@ func setDockerAuth(username, password, registry, baseImageUsername, baseImagePas
 			Password: baseImagePassword,
 		}
 		credentials = append(credentials, pullFromRegistryCreds)
+	} else {
+		fmt.Println("\033[33mTo ensure consistent and reliable pipeline execution, we recommend setting up a Base Image Connector.\033[0m\n" +
+			"\033[33mWhile optional at this time, configuring it helps prevent failures caused by Docker Hub's rate limits.\033[0m")
 	}
 	// Creates docker config for both the regustries used for authentication
 	return dockerConfig.CreateDockerConfig(credentials, dockerPath)
