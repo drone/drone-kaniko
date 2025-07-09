@@ -13,6 +13,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/pkg/errors"
@@ -711,13 +712,15 @@ func setDockerAuth(username, password, registry, dockerUsername, dockerPassword,
 		Password: password,
 	}
 
+	credentials := []docker.RegistryCredentials{pushToRegistryCreds}
+
 	if dockerRegistry != "" {
 		pullFromRegistryCreds := docker.RegistryCredentials{
 			Registry: dockerRegistry,
 			Username: dockerUsername,
 			Password: dockerPassword,
 		}
-		credentials := []docker.RegistryCredentials{pushToRegistryCreds, pullFromRegistryCreds}
+		credentials = append(credentials, pullFromRegistryCreds)
 	} else {
 		fmt.Println("\033[33mTo ensure consistent and reliable pipeline execution, we recommend setting up a Base Image Connector.\033[0m\n" +
 			"\033[33mWhile optional at this time, configuring it helps prevent failures caused by Docker Hub's rate limits.\033[0m")
