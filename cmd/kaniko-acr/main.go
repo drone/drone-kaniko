@@ -711,15 +711,18 @@ func setDockerAuth(username, password, registry, dockerUsername, dockerPassword,
 		Password: password,
 	}
 
-	pullFromRegistryCreds := docker.RegistryCredentials{
-		Registry: dockerRegistry,
-		Username: dockerUsername,
-		Password: dockerPassword,
+	if dockerRegistry != "" {
+		pullFromRegistryCreds := docker.RegistryCredentials{
+			Registry: dockerRegistry,
+			Username: dockerUsername,
+			Password: dockerPassword,
+		}
+		credentials := []docker.RegistryCredentials{pushToRegistryCreds, pullFromRegistryCreds}
+	} else {
+		fmt.Println("\033[33mTo ensure consistent and reliable pipeline execution, we recommend setting up a Base Image Connector.\033[0m\n" +
+			"\033[33mWhile optional at this time, configuring it helps prevent failures caused by Docker Hub's rate limits.\033[0m")
 	}
-
-	credentials := []docker.RegistryCredentials{pushToRegistryCreds, pullFromRegistryCreds}
 	return dockerConfig.CreateDockerConfig(credentials, dockerConfigPath)
-
 }
 
 func encodeParam(s string) string {
