@@ -13,6 +13,7 @@ import (
 	kaniko "github.com/drone/drone-kaniko"
 	"github.com/drone/drone-kaniko/pkg/artifact"
 	"github.com/drone/drone-kaniko/pkg/docker"
+	"github.com/drone/drone-kaniko/pkg/utils"
 )
 
 const (
@@ -101,6 +102,17 @@ func main() {
 			Name:   "args",
 			Usage:  "build args",
 			EnvVar: "PLUGIN_BUILD_ARGS",
+		},
+		cli.GenericFlag{
+			Name:   "args-new",
+			Usage:  "build args new",
+			EnvVar: "PLUGIN_BUILD_ARGS_NEW",
+			Value:  new(utils.CustomStringSliceFlag),
+		},
+		cli.BoolFlag{
+			Name:   "plugin-multiple-build-agrs",
+			Usage:  "plugin multiple build agrs",
+			EnvVar: "PLUGIN_MULTIPLE_BUILD_ARGS",
 		},
 		cli.StringFlag{
 			Name:   "target",
@@ -239,6 +251,7 @@ func main() {
 			Usage:  "Enable or disable compressed caching.",
 			EnvVar: "PLUGIN_COMPRESSED_CACHING",
 		},
+
 		cli.StringFlag{
 			Name:   "context-sub-path",
 			Usage:  "Sub-path within the context to build.",
@@ -349,6 +362,11 @@ func main() {
 			Usage:  "Ignore the /var/run directory during build.",
 			EnvVar: "PLUGIN_IGNORE_VAR_RUN",
 		},
+		cli.StringSliceFlag{
+			Name:   "args",
+			Usage:  "build args",
+			EnvVar: "PLUGIN_BUILD_ARGS",
+		},
 		cli.StringFlag{
 			Name:   "ignore-path",
 			Usage:  "Path to ignore during the build.",
@@ -421,6 +439,8 @@ func run(c *cli.Context) error {
 			AutoTagSuffix:               c.String("auto-tag-suffix"),
 			ExpandTag:                   c.Bool("expand-tag"),
 			Args:                        c.StringSlice("args"),
+			ArgsNew:                     c.Generic("args-new").(*utils.CustomStringSliceFlag).GetValue(),
+			IsMultipleBuildArgs:         c.Bool("plugin-multiple-build-agrs"),
 			Target:                      c.String("target"),
 			Repo:                        buildRepo(c.String("registry"), c.String("repo"), c.Bool("expand-repo")),
 			Mirrors:                     c.StringSlice("registry-mirrors"),
