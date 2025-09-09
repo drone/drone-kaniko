@@ -22,6 +22,7 @@ import (
 	kaniko "github.com/drone/drone-kaniko"
 	"github.com/drone/drone-kaniko/pkg/artifact"
 	"github.com/drone/drone-kaniko/pkg/docker"
+	"github.com/drone/drone-kaniko/pkg/utils"
 )
 
 const (
@@ -97,6 +98,17 @@ func main() {
 			Name:   "args",
 			Usage:  "build args",
 			EnvVar: "PLUGIN_BUILD_ARGS",
+		},
+		cli.GenericFlag{
+			Name:   "args-new",
+			Usage:  "build args new",
+			EnvVar: "PLUGIN_BUILD_ARGS_NEW",
+			Value:  new(utils.CustomStringSliceFlag),
+		},
+		cli.BoolFlag{
+			Name:   "plugin-multiple-build-agrs",
+			Usage:  "plugin multiple build agrs",
+			EnvVar: "PLUGIN_MULTIPLE_BUILD_ARGS",
 		},
 		cli.StringFlag{
 			Name:   "target",
@@ -432,6 +444,8 @@ func run(c *cli.Context) error {
 			AutoTagSuffix:               c.String("auto-tag-suffix"),
 			ExpandTag:                   c.Bool("expand-tag"),
 			Args:                        c.StringSlice("args"),
+			ArgsNew:                     c.Generic("args-new").(*utils.CustomStringSliceFlag).GetValue(),
+			IsMultipleBuildArgs:         c.Bool("plugin-multiple-build-agrs"),
 			Target:                      c.String("target"),
 			Repo:                        c.String("repo"),
 			Mirrors:                     c.StringSlice("registry-mirrors"),
