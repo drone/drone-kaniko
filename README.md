@@ -53,6 +53,45 @@ docker build \
   --file docker/ecr/Dockerfile.linux.amd64 --tag plugins/kaniko-ecr .
 ```
 
+### Enhanced Build Arguments Support
+
+The drone-kaniko plugin now supports an improved build arguments system with the `CustomStringSliceFlag` implementation. This feature provides a more flexible way to pass multiple build arguments to your Docker builds.
+
+#### Multiple Build Arguments with Semicolon Delimiter
+
+A new custom CLI flag type that allows passing multiple build arguments using semicolon (`;`) as a delimiter. This flag is available across all registry implementations:
+
+- `kaniko-docker`
+- `kaniko-gcr` (Google Container Registry)
+- `kaniko-ecr` (Amazon Elastic Container Registry)
+- `kaniko-acr` (Azure Container Registry)
+- `kaniko-gar` (Google Artifact Registry)
+
+**Usage:**
+
+```console
+docker run --rm \
+    -e PLUGIN_BUILD_ARGS_NEW="ARG1=value1;ARG2=value2;ARG3=value3" \
+    -e PLUGIN_REPO=foo/bar \
+    -v $(pwd):/drone \
+    -w /drone \
+    plugins/kaniko:linux-amd64
+```
+
+#### For build args containing commas
+
+When your build arguments contain commas, enable the `PLUGIN_MULTIPLE_BUILD_ARGS` flag:
+
+```console
+docker run --rm \
+    -e PLUGIN_MULTIPLE_BUILD_ARGS=true \
+    -e PLUGIN_BUILD_ARGS_NEW="KEY1=value,with,comma;KEY2=another,value" \
+    -e PLUGIN_REPO=foo/bar \
+    -v $(pwd):/drone \
+    -w /drone \
+    plugins/kaniko:linux-amd64
+```
+
 ## Usage
 
 ### Operation Modes
