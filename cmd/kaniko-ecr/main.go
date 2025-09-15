@@ -30,6 +30,7 @@ import (
 	kaniko "github.com/drone/drone-kaniko"
 	"github.com/drone/drone-kaniko/pkg/artifact"
 	"github.com/drone/drone-kaniko/pkg/docker"
+	"github.com/drone/drone-kaniko/pkg/utils"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/crane"
 )
@@ -132,7 +133,7 @@ func main() {
 			Name:   "args-new",
 			Usage:  "build args new",
 			EnvVar: "PLUGIN_BUILD_ARGS_NEW",
-			Value:  new(CustomStringSliceFlag),
+			Value:  new(utils.CustomStringSliceFlag),
 		},
 		cli.BoolFlag{
 			Name:   "plugin-multiple-build-agrs",
@@ -504,7 +505,7 @@ func run(c *cli.Context) error {
 			AutoTagSuffix:               c.String("auto-tag-suffix"),
 			ExpandTag:                   c.Bool("expand-tag"),
 			Args:                        c.StringSlice("args"),
-			ArgsNew:                     c.Generic("args-new").(*CustomStringSliceFlag).GetValue(),
+			ArgsNew:                     c.Generic("args-new").(*utils.CustomStringSliceFlag).GetValue(),
 			IsMultipleBuildArgs:         c.Bool("plugin-multiple-build-agrs"),
 			Target:                      c.String("target"),
 			Repo:                        fmt.Sprintf("%s/%s", c.String("registry"), c.String("repo")),

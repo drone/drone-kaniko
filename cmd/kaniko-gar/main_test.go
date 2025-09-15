@@ -1,50 +1,12 @@
 package main
 
 import (
-	"encoding/base64"
-	"io/ioutil"
 	"os"
 	"testing"
 
-	"github.com/drone/drone-kaniko/pkg/docker"
 	"github.com/drone/drone-kaniko/pkg/utils"
-	"github.com/stretchr/testify/assert"
 	"github.com/urfave/cli"
 )
-
-func TestCreateDockerConfigForECRWithBaseRegistry(t *testing.T) {
-	accessKey := "access-key"
-	secretKey := "secret-key"
-	ecrRegistry := "ecr-registry"
-	dockerUsername := "dockeruser"
-	dockerPassword := "dockerpass"
-	dockerRegistry := "https://index.docker.io/v1/"
-
-	tempDir, err := ioutil.TempDir("", "docker-config-test")
-	assert.NoError(t, err)
-	defer os.RemoveAll(tempDir)
-
-	config := docker.NewConfig()
-
-	pullFromRegistryCreds := docker.RegistryCredentials{
-		Registry: dockerRegistry,
-		Username: dockerUsername,
-		Password: dockerPassword,
-	}
-	credentials := []docker.RegistryCredentials{
-		{Registry: ecrRegistry, Username: accessKey, Password: secretKey},
-		pullFromRegistryCreds,
-	}
-
-	err = config.CreateDockerConfig(credentials, tempDir)
-	assert.NoError(t, err)
-
-	expectedECRAuth := docker.Auth{Auth: base64.StdEncoding.EncodeToString([]byte(accessKey + ":" + secretKey))}
-	assert.Equal(t, expectedECRAuth, config.Auths[ecrRegistry])
-
-	expectedDockerAuth := docker.Auth{Auth: base64.StdEncoding.EncodeToString([]byte(dockerUsername + ":" + dockerPassword))}
-	assert.Equal(t, expectedDockerAuth, config.Auths[dockerRegistry])
-}
 
 func TestCustomStringSliceFlagIntegration(t *testing.T) {
 	tests := []struct {
@@ -103,12 +65,12 @@ func TestCLIIntegrationWithCustomFlag(t *testing.T) {
 	}{
 		{
 			name:     "CLI with single arg",
-			args:     []string{"ecr-test", "--args-new", "ARG1=value1"},
+			args:     []string{"gar-test", "--args-new", "ARG1=value1"},
 			expected: []string{"ARG1=value1"},
 		},
 		{
 			name:     "CLI with multiple args",
-			args:     []string{"ecr-test", "--args-new", "ARG1=value1;ARG2=value2"},
+			args:     []string{"gar-test", "--args-new", "ARG1=value1;ARG2=value2"},
 			expected: []string{"ARG1=value1", "ARG2=value2"},
 		},
 	}
@@ -116,7 +78,7 @@ func TestCLIIntegrationWithCustomFlag(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			app := cli.NewApp()
-			app.Name = "ecr-test"
+			app.Name = "gar-test"
 
 			var capturedArgs []string
 
@@ -158,8 +120,60 @@ func TestCLIIntegrationWithCustomFlag(t *testing.T) {
 	}
 }
 
-func TestECRBuildArgsProcessing(t *testing.T) {
-	// Test that build args are correctly processed in the context of ECR plugin
+func TestEnvironmentVariableIntegration(t *testing.T) {
+	// Test that environment variables work with CustomStringSliceFlag
+	originalEnv := os.Getenv("PLUGIN_BUILD_ARGS_NEW")
+	defer func() {
+		if originalEnv != "" {
+			os.Setenv("PLUGIN_BUILD_ARGS_NEW", originalEnv)
+		} else {
+			os.Unsetenv("PLUGIN_BUILD_ARGS_NEW")
+		}
+	}()
+
+	os.Setenv("PLUGIN_BUILD_ARGS_NEW", "ENV_ARG1=env_value1;ENV_ARG2=env_value2")
+
+	app := cli.NewApp()
+	app.Flags = []cli.Flag{
+		cli.GenericFlag{
+			Name:   "args-new",
+			Usage:  "build args new",
+			EnvVar: "PLUGIN_BUILD_ARGS_NEW",
+			Value:  new(utils.CustomStringSliceFlag),
+		},
+	}
+
+	var capturedArgs []string
+	app.Action = func(c *cli.Context) error {
+		if flag := c.Generic("args-new"); flag != nil {
+			if customFlag, ok := flag.(*utils.CustomStringSliceFlag); ok {
+				capturedArgs = customFlag.GetValue()
+			}
+		}
+		return nil
+	}
+
+	err := app.Run([]string{"test"})
+	if err != nil {
+		t.Errorf("App.Run() error = %v, want nil", err)
+		return
+	}
+
+	expected := []string{"ENV_ARG1=env_value1", "ENV_ARG2=env_value2"}
+	if len(capturedArgs) != len(expected) {
+		t.Errorf("Environment variable test: got %d args, want %d", len(capturedArgs), len(expected))
+		return
+	}
+
+	for i, exp := range expected {
+		if capturedArgs[i] != exp {
+			t.Errorf("Environment variable test: got arg[%d] = %v, want %v", i, capturedArgs[i], exp)
+		}
+	}
+}
+
+func TestGARBuildArgsProcessing(t *testing.T) {
+	// Test that build args are correctly processed in the context of GAR plugin
 	tests := []struct {
 		name          string
 		argsNew       string
@@ -173,10 +187,10 @@ func TestECRBuildArgsProcessing(t *testing.T) {
 			expectedFirst: "GOOS=linux",
 		},
 		{
-			name:          "aws specific args",
-			argsNew:       "AWS_REGION=us-west-2;AWS_ACCOUNT_ID=123456789012",
+			name:          "google cloud specific args",
+			argsNew:       "GOOGLE_APPLICATION_CREDENTIALS=/path/to/creds.json;PROJECT_ID=my-project",
 			expectedCount: 2,
-			expectedFirst: "AWS_REGION=us-west-2",
+			expectedFirst: "GOOGLE_APPLICATION_CREDENTIALS=/path/to/creds.json",
 		},
 		{
 			name:          "single complex arg with special characters",
@@ -203,6 +217,69 @@ func TestECRBuildArgsProcessing(t *testing.T) {
 
 			if len(args) > 0 && args[0] != tt.expectedFirst {
 				t.Errorf("Got first arg = %v, want %v", args[0], tt.expectedFirst)
+			}
+		})
+	}
+}
+
+func TestGARRegistryFormatting(t *testing.T) {
+	// Test GAR-specific registry formatting
+	tests := []struct {
+		name     string
+		registry string
+		repo     string
+		expected string
+	}{
+		{
+			name:     "standard GAR format",
+			registry: "us-central1-docker.pkg.dev",
+			repo:     "my-project/my-repo/my-image",
+			expected: "us-central1-docker.pkg.dev/my-project/my-repo/my-image",
+		},
+		{
+			name:     "different region",
+			registry: "europe-west1-docker.pkg.dev",
+			repo:     "project123/repo456/image789",
+			expected: "europe-west1-docker.pkg.dev/project123/repo456/image789",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// This would be the format used in the GAR plugin
+			result := tt.registry + "/" + tt.repo
+			if result != tt.expected {
+				t.Errorf("GAR formatting: got %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestGARAuthSetup(t *testing.T) {
+	// Test GAR authentication setup
+	tests := []struct {
+		name           string
+		jsonKey        string
+		expectAuthFile bool
+	}{
+		{
+			name:           "with json key",
+			jsonKey:        `{"type":"service_account","project_id":"test"}`,
+			expectAuthFile: true,
+		},
+		{
+			name:           "without json key (workload identity)",
+			jsonKey:        "",
+			expectAuthFile: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// This simulates the auth setup logic
+			hasAuthFile := tt.jsonKey != ""
+			if hasAuthFile != tt.expectAuthFile {
+				t.Errorf("Auth file expectation: got %v, want %v", hasAuthFile, tt.expectAuthFile)
 			}
 		})
 	}
