@@ -20,6 +20,7 @@ import (
 	"github.com/urfave/cli"
 
 	kaniko "github.com/drone/drone-kaniko"
+	azureutil "github.com/drone/drone-kaniko/internal/azure"
 	"github.com/drone/drone-kaniko/pkg/artifact"
 	"github.com/drone/drone-kaniko/pkg/docker"
 	"github.com/drone/drone-kaniko/pkg/utils"
@@ -417,18 +418,53 @@ func run(c *cli.Context) error {
 	registry := c.String("registry")
 	noPush := c.Bool("no-push")
 
-	publicUrl, err := setupAuth(
-		c.String("tenant-id"),
-		c.String("client-id"),
-		c.String("client-cert"),
-		c.String("client-secret"),
-		c.String("subscription-id"),
-		registry,
-		c.String("base-image-username"),
-		c.String("base-image-password"),
-		c.String("base-image-registry"),
-		noPush,
-	)
+	// Resolve Azure client/tenant with fallbacks from connector envs
+	effectiveClientID := c.String("client-id")
+	if effectiveClientID == "" {
+		if v := os.Getenv("PLUGIN_CONNECTOR_AZURE_CLIENT_ID"); v != "" {
+			effectiveClientID = v
+		} else if v := os.Getenv("AZURE_APP_ID"); v != "" {
+			effectiveClientID = v
+		}
+	}
+	effectiveTenantID := c.String("tenant-id")
+	if effectiveTenantID == "" {
+		if v := os.Getenv("PLUGIN_CONNECTOR_AZURE_TENANT_ID"); v != "" {
+			effectiveTenantID = v
+		} else if v := os.Getenv("AZURE_TENANT_ID"); v != "" {
+			effectiveTenantID = v
+		}
+	}
+	oidcIdToken := os.Getenv("PLUGIN_OIDC_TOKEN_ID")
+
+	var publicUrl string
+	var err error
+	if oidcIdToken != "" && effectiveClientID != "" && effectiveTenantID != "" {
+		publicUrl, err = setupAuthWithOIDC(
+			effectiveTenantID,
+			effectiveClientID,
+			oidcIdToken,
+			c.String("subscription-id"),
+			registry,
+			c.String("base-image-username"),
+			c.String("base-image-password"),
+			c.String("base-image-registry"),
+			noPush,
+		)
+	} else {
+		publicUrl, err = setupAuth(
+			effectiveTenantID,
+			effectiveClientID,
+			c.String("client-cert"),
+			c.String("client-secret"),
+			c.String("subscription-id"),
+			registry,
+			c.String("base-image-username"),
+			c.String("base-image-password"),
+			c.String("base-image-registry"),
+			noPush,
+		)
+	}
 	if err != nil {
 		return err
 	}
@@ -762,19 +798,53 @@ func handlePushOnly(c *cli.Context) error {
 		return fmt.Errorf("repository and registry must be specified for push-only operation")
 	}
 
-	// Setup ACR authentication
-	publicUrl, err := setupAuth(
-		c.String("tenant-id"),
-		c.String("client-id"),
-		c.String("client-cert"),
-		c.String("client-secret"),
-		c.String("subscription-id"),
-		registry,
-		c.String("base-image-username"),
-		c.String("base-image-password"),
-		c.String("base-image-registry"),
-		false, // We want to push in push-only mode
-	)
+	// Resolve Azure client/tenant with fallbacks from connector envs
+	effectiveClientID := c.String("client-id")
+	if effectiveClientID == "" {
+		if v := os.Getenv("PLUGIN_CONNECTOR_AZURE_CLIENT_ID"); v != "" {
+			effectiveClientID = v
+		} else if v := os.Getenv("AZURE_APP_ID"); v != "" {
+			effectiveClientID = v
+		}
+	}
+	effectiveTenantID := c.String("tenant-id")
+	if effectiveTenantID == "" {
+		if v := os.Getenv("PLUGIN_CONNECTOR_AZURE_TENANT_ID"); v != "" {
+			effectiveTenantID = v
+		} else if v := os.Getenv("AZURE_TENANT_ID"); v != "" {
+			effectiveTenantID = v
+		}
+	}
+	oidcIdToken := os.Getenv("PLUGIN_OIDC_TOKEN_ID")
+
+	var publicUrl string
+	var err error
+	if oidcIdToken != "" && effectiveClientID != "" && effectiveTenantID != "" {
+		publicUrl, err = setupAuthWithOIDC(
+			effectiveTenantID,
+			effectiveClientID,
+			oidcIdToken,
+			c.String("subscription-id"),
+			registry,
+			c.String("base-image-username"),
+			c.String("base-image-password"),
+			c.String("base-image-registry"),
+			false,
+		)
+	} else {
+		publicUrl, err = setupAuth(
+			effectiveTenantID,
+			effectiveClientID,
+			c.String("client-cert"),
+			c.String("client-secret"),
+			c.String("subscription-id"),
+			registry,
+			c.String("base-image-username"),
+			c.String("base-image-password"),
+			c.String("base-image-registry"),
+			false,
+		)
+	}
 	if err != nil {
 		return err
 	}
@@ -831,6 +901,55 @@ func handlePushOnly(c *cli.Context) error {
 	}
 
 	return nil
+}
+
+func setupAuthWithOIDC(tenantId, clientId, oidcIdToken, subscriptionId, registry, dockerUsername, dockerPassword, dockerRegistry string, noPush bool) (string, error) {
+	if registry == "" {
+		return "", fmt.Errorf("registry must be specified")
+	}
+	if tenantId == "" || clientId == "" || oidcIdToken == "" {
+		if noPush {
+			logrus.Warnf("NO_PUSH mode: insufficient OIDC params; tenant/client/oidc missing")
+			return "", nil
+		}
+		return "", fmt.Errorf("tenantId, clientId and OIDC token must be provided for OIDC authentication")
+	}
+
+	// Exchange OIDC ID token for AAD access token via client_assertion
+	aadToken, err := azureutil.GetAADAccessTokenViaClientAssertion(context.Background(), tenantId, clientId, oidcIdToken, "")
+	if err != nil {
+		if noPush {
+			logrus.Warnf("NO_PUSH mode: failed to get AAD token via OIDC: %v", err)
+			return "", nil
+		}
+		return "", errors.Wrap(err, "failed to get AAD token via OIDC")
+	}
+
+	// Best-effort public URL
+	publicUrl, err := getPublicUrl(aadToken, registry, subscriptionId)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to get public url with error: %s\n", err)
+	}
+
+	// Exchange AAD access token to ACR refresh token
+	acrToken, err := fetchACRToken(tenantId, aadToken, registry)
+	if err != nil {
+		if noPush {
+			logrus.Warnf("NO_PUSH mode: failed to fetch ACR token: %v", err)
+			return "", nil
+		}
+		return "", errors.Wrap(err, "failed to fetch ACR token")
+	}
+
+	// setup docker config for azure registry and base image docker registry
+	if err := setDockerAuth(username, acrToken, registry, dockerUsername, dockerPassword, dockerRegistry); err != nil {
+		if noPush {
+			logrus.Warnf("NO_PUSH mode: failed to create docker config: %v", err)
+			return "", nil
+		}
+		return "", errors.Wrap(err, "failed to create docker config")
+	}
+	return publicUrl, nil
 }
 
 type strct struct {
