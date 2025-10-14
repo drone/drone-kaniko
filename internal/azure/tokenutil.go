@@ -12,8 +12,7 @@ import (
 const DefaultResource = "https://management.azure.com/"
 
 // GetAADAccessTokenViaClientAssertion exchanges an external OIDC ID token for an Azure AD access token
-// using the OAuth2 client_assertion flow (no temp files).
-// resource should be the Azure resource URI (defaults to management if empty), without the trailing ".default".
+
 func GetAADAccessTokenViaClientAssertion(ctx context.Context, tenantID, clientID, oidcToken, resource string) (string, error) {
 	if resource == "" {
 		resource = DefaultResource
@@ -33,11 +32,21 @@ func GetAADAccessTokenViaClientAssertion(ctx context.Context, tenantID, clientID
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		b, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("AAD token endpoint returned %d: %s", resp.StatusCode, string(b))
+		var aadErr struct {
+			Error            string `json:"error"`
+			ErrorDescription string `json:"error_description"`
+		}
+		limited := io.LimitedReader{R: resp.Body, N: 4096}
+		_ = json.NewDecoder(&limited).Decode(&aadErr)
+		if aadErr.Error != "" {
+			return "", fmt.Errorf("AAD token request failed: status=%d, error=%s", resp.StatusCode, aadErr.Error)
+		}
+		return "", fmt.Errorf("AAD token request failed: status=%d", resp.StatusCode)
 	}
 	var payload struct {
 		AccessToken string `json:"access_token"`
+		TokenType   string `json:"token_type"`
+        ExpiresIn   int    `json:"expires_in"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
 		return "", err
