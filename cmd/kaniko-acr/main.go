@@ -169,7 +169,7 @@ func main() {
 		cli.StringFlag{
 			Name:   "tenant-id",
 			Usage:  "Azure Tenant Id",
-			EnvVar: "TENANT_ID,AZURE_TENANT_ID",
+			EnvVar: "TENANT_ID,AZURE_TENANT_ID,PLUGIN_TENANT_ID",
 		},
 		cli.StringFlag{
 			Name:   "subscription-id",
