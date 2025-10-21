@@ -179,7 +179,7 @@ func main() {
 		cli.StringFlag{
 			Name:   "client-id",
 			Usage:  "Azure Client Id",
-			EnvVar: "CLIENT_ID,AZURE_CLIENT_ID,AZURE_APP_ID",
+			EnvVar: "CLIENT_ID,AZURE_CLIENT_ID,PLUGIN_CLIENT_ID,AZURE_APP_ID",
 		},
 		cli.StringFlag{
 			Name:   "oidc-id-token",
