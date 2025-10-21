@@ -169,7 +169,7 @@ func main() {
 		cli.StringFlag{
 			Name:   "tenant-id",
 			Usage:  "Azure Tenant Id",
-			EnvVar: "TENANT_ID",
+			EnvVar: "TENANT_ID,AZURE_TENANT_ID",
 		},
 		cli.StringFlag{
 			Name:   "subscription-id",
@@ -179,7 +179,17 @@ func main() {
 		cli.StringFlag{
 			Name:   "client-id",
 			Usage:  "Azure Client Id",
-			EnvVar: "CLIENT_ID",
+			EnvVar: "CLIENT_ID,AZURE_CLIENT_ID,AZURE_APP_ID",
+		},
+		cli.StringFlag{
+			Name:   "oidc-id-token",
+			Usage:  "OIDC ID token to exchange for Azure AD access token (federated credentials)",
+			EnvVar: "PLUGIN_OIDC_TOKEN_ID",
+		},
+		cli.StringFlag{
+			Name:   "azure-authority-host",
+			Usage:  "Azure authority host base URL (e.g., https://login.microsoftonline.com, https://login.microsoftonline.us)",
+			EnvVar: "AZURE_AUTHORITY_HOST",
 		},
 		cli.StringFlag{
 			Name:   "snapshot-mode",
@@ -418,53 +428,27 @@ func run(c *cli.Context) error {
 	registry := c.String("registry")
 	noPush := c.Bool("no-push")
 
-	// Resolve Azure client/tenant with fallbacks from connector envs
 	effectiveClientID := c.String("client-id")
-	if effectiveClientID == "" {
-		if v := os.Getenv("PLUGIN_CONNECTOR_AZURE_CLIENT_ID"); v != "" {
-			effectiveClientID = v
-		} else if v := os.Getenv("AZURE_APP_ID"); v != "" {
-			effectiveClientID = v
-		}
-	}
 	effectiveTenantID := c.String("tenant-id")
-	if effectiveTenantID == "" {
-		if v := os.Getenv("PLUGIN_CONNECTOR_AZURE_TENANT_ID"); v != "" {
-			effectiveTenantID = v
-		} else if v := os.Getenv("AZURE_TENANT_ID"); v != "" {
-			effectiveTenantID = v
-		}
-	}
-	oidcIdToken := os.Getenv("PLUGIN_OIDC_TOKEN_ID")
+	oidcIdToken := c.String("oidc-id-token")
+	authorityHost := c.String("azure-authority-host")
 
 	var publicUrl string
 	var err error
-	if oidcIdToken != "" && effectiveClientID != "" && effectiveTenantID != "" {
-		publicUrl, err = setupAuthWithOIDC(
-			effectiveTenantID,
-			effectiveClientID,
-			oidcIdToken,
-			c.String("subscription-id"),
-			registry,
-			c.String("base-image-username"),
-			c.String("base-image-password"),
-			c.String("base-image-registry"),
-			noPush,
-		)
-	} else {
-		publicUrl, err = setupAuth(
-			effectiveTenantID,
-			effectiveClientID,
-			c.String("client-cert"),
-			c.String("client-secret"),
-			c.String("subscription-id"),
-			registry,
-			c.String("base-image-username"),
-			c.String("base-image-password"),
-			c.String("base-image-registry"),
-			noPush,
-		)
-	}
+	publicUrl, err = setupAuth(
+		effectiveTenantID,
+		effectiveClientID,
+		oidcIdToken,
+		c.String("client-cert"),
+		c.String("client-secret"),
+		c.String("subscription-id"),
+		registry,
+		c.String("base-image-username"),
+		c.String("base-image-password"),
+		c.String("base-image-registry"),
+		authorityHost,
+		noPush,
+	)
 	if err != nil {
 		return err
 	}
@@ -552,40 +536,75 @@ func run(c *cli.Context) error {
 	return plugin.Exec()
 }
 
-func setupAuth(tenantId, clientId, cert,
-	clientSecret, subscriptionId, registry, dockerUsername, dockerPassword, dockerRegistry string, noPush bool) (string, error) {
+func setupAuth(tenantId, clientId, oidcIdToken, cert,
+	clientSecret, subscriptionId, registry, dockerUsername, dockerPassword, dockerRegistry, authorityHost string, noPush bool) (string, error) {
 	if registry == "" {
 		return "", fmt.Errorf("registry must be specified")
 	}
 
-	// case of client secret or cert based auth
-	if clientId != "" {
-		// only setup auth when pushing or credentials are defined
+	// Determine auth path: OIDC or Service Principal (secret/cert)
+	if tenantId == "" || clientId == "" {
+		if noPush {
+			logrus.Warnf("NO_PUSH mode: tenantId or clientId not provided")
+			return "", nil
+		}
+		return "", fmt.Errorf("tenantId and clientId must be provided")
+	}
 
-		token, publicUrl, err := getACRToken(subscriptionId, tenantId, clientId, clientSecret, cert, registry)
+	var aadAccessToken string
+	var acrToken string
+	var publicUrl string
+	var err error
+
+	if oidcIdToken != "" {
+		// Exchange OIDC ID token for AAD access token via client_assertion
+		aadAccessToken, err = azureutil.GetAADAccessTokenViaClientAssertion(context.Background(), tenantId, clientId, oidcIdToken, authorityHost)
 		if err != nil {
 			if noPush {
-				logrus.Warnf("NO_PUSH mode: failed to fetch ACR Token: %v", err)
+				logrus.Warnf("NO_PUSH mode: failed to get AAD token via OIDC: %v", err)
 				return "", nil
 			}
-			return "", errors.Wrap(err, "failed to fetch ACR Token")
+			return "", errors.Wrap(err, "failed to get AAD token via OIDC")
 		}
-
-		// setup docker config for azure registry and base image docker registry
-		if err := setDockerAuth(username, token, registry, dockerUsername, dockerPassword, dockerRegistry); err != nil {
+		publicUrl, err = getPublicUrl(aadAccessToken, registry, subscriptionId)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed to get public url with error: %s\n", err)
+		}
+		// Exchange AAD access token to ACR refresh token
+		acrToken, err = fetchACRToken(tenantId, aadAccessToken, registry)
+		if err != nil {
 			if noPush {
-				logrus.Warnf("NO_PUSH mode: failed to create docker config: %v", err)
+				logrus.Warnf("NO_PUSH mode: failed to fetch ACR token: %v", err)
 				return "", nil
 			}
-			return "", errors.Wrap(err, "failed to create docker config")
+			return "", errors.Wrap(err, "failed to fetch ACR token")
 		}
-		return publicUrl, nil
+	} else if clientSecret != "" || cert != "" {
+		token, pUrl, e := getACRToken(subscriptionId, tenantId, clientId, clientSecret, cert, registry)
+		if e != nil {
+			if noPush {
+				logrus.Warnf("NO_PUSH mode: failed to fetch ACR Token: %v", e)
+				return "", nil
+			}
+			return "", errors.Wrap(e, "failed to fetch ACR Token")
+		}
+		acrToken = token
+		publicUrl = pUrl
 	} else {
 		if noPush {
 			return "", nil
 		}
 		return "", fmt.Errorf("managed authentication is not supported")
 	}
+
+	if err := setDockerAuth(username, acrToken, registry, dockerUsername, dockerPassword, dockerRegistry); err != nil {
+		if noPush {
+			logrus.Warnf("NO_PUSH mode: failed to create docker config: %v", err)
+			return "", nil
+		}
+		return "", errors.Wrap(err, "failed to create docker config")
+	}
+	return publicUrl, nil
 }
 
 func getACRToken(subscriptionId, tenantId, clientId, clientSecret, cert, registry string) (string, string, error) {
@@ -798,53 +817,28 @@ func handlePushOnly(c *cli.Context) error {
 		return fmt.Errorf("repository and registry must be specified for push-only operation")
 	}
 
-	// Resolve Azure client/tenant with fallbacks from connector envs
+	// Resolve Azure client/tenant and OIDC via CLI flags
 	effectiveClientID := c.String("client-id")
-	if effectiveClientID == "" {
-		if v := os.Getenv("PLUGIN_CONNECTOR_AZURE_CLIENT_ID"); v != "" {
-			effectiveClientID = v
-		} else if v := os.Getenv("AZURE_APP_ID"); v != "" {
-			effectiveClientID = v
-		}
-	}
 	effectiveTenantID := c.String("tenant-id")
-	if effectiveTenantID == "" {
-		if v := os.Getenv("PLUGIN_CONNECTOR_AZURE_TENANT_ID"); v != "" {
-			effectiveTenantID = v
-		} else if v := os.Getenv("AZURE_TENANT_ID"); v != "" {
-			effectiveTenantID = v
-		}
-	}
-	oidcIdToken := os.Getenv("PLUGIN_OIDC_TOKEN_ID")
+	oidcIdToken := c.String("oidc-id-token")
+	authorityHost := c.String("azure-authority-host")
 
 	var publicUrl string
 	var err error
-	if oidcIdToken != "" && effectiveClientID != "" && effectiveTenantID != "" {
-		publicUrl, err = setupAuthWithOIDC(
-			effectiveTenantID,
-			effectiveClientID,
-			oidcIdToken,
-			c.String("subscription-id"),
-			registry,
-			c.String("base-image-username"),
-			c.String("base-image-password"),
-			c.String("base-image-registry"),
-			false,
-		)
-	} else {
-		publicUrl, err = setupAuth(
-			effectiveTenantID,
-			effectiveClientID,
-			c.String("client-cert"),
-			c.String("client-secret"),
-			c.String("subscription-id"),
-			registry,
-			c.String("base-image-username"),
-			c.String("base-image-password"),
-			c.String("base-image-registry"),
-			false,
-		)
-	}
+	publicUrl, err = setupAuth(
+		effectiveTenantID,
+		effectiveClientID,
+		oidcIdToken,
+		c.String("client-cert"),
+		c.String("client-secret"),
+		c.String("subscription-id"),
+		registry,
+		c.String("base-image-username"),
+		c.String("base-image-password"),
+		c.String("base-image-registry"),
+		authorityHost,
+		false,
+	)
 	if err != nil {
 		return err
 	}
@@ -901,55 +895,6 @@ func handlePushOnly(c *cli.Context) error {
 	}
 
 	return nil
-}
-
-func setupAuthWithOIDC(tenantId, clientId, oidcIdToken, subscriptionId, registry, dockerUsername, dockerPassword, dockerRegistry string, noPush bool) (string, error) {
-	if registry == "" {
-		return "", fmt.Errorf("registry must be specified")
-	}
-	if tenantId == "" || clientId == "" || oidcIdToken == "" {
-		if noPush {
-			logrus.Warnf("NO_PUSH mode: insufficient OIDC params; tenant/client/oidc missing")
-			return "", nil
-		}
-		return "", fmt.Errorf("tenantId, clientId and OIDC token must be provided for OIDC authentication")
-	}
-
-	// Exchange OIDC ID token for AAD access token via client_assertion
-	aadToken, err := azureutil.GetAADAccessTokenViaClientAssertion(context.Background(), tenantId, clientId, oidcIdToken, "")
-	if err != nil {
-		if noPush {
-			logrus.Warnf("NO_PUSH mode: failed to get AAD token via OIDC: %v", err)
-			return "", nil
-		}
-		return "", errors.Wrap(err, "failed to get AAD token via OIDC")
-	}
-
-	// Best-effort public URL
-	publicUrl, err := getPublicUrl(aadToken, registry, subscriptionId)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to get public url with error: %s\n", err)
-	}
-
-	// Exchange AAD access token to ACR refresh token
-	acrToken, err := fetchACRToken(tenantId, aadToken, registry)
-	if err != nil {
-		if noPush {
-			logrus.Warnf("NO_PUSH mode: failed to fetch ACR token: %v", err)
-			return "", nil
-		}
-		return "", errors.Wrap(err, "failed to fetch ACR token")
-	}
-
-	// setup docker config for azure registry and base image docker registry
-	if err := setDockerAuth(username, acrToken, registry, dockerUsername, dockerPassword, dockerRegistry); err != nil {
-		if noPush {
-			logrus.Warnf("NO_PUSH mode: failed to create docker config: %v", err)
-			return "", nil
-		}
-		return "", errors.Wrap(err, "failed to create docker config")
-	}
-	return publicUrl, nil
 }
 
 type strct struct {
