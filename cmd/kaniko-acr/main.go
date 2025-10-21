@@ -182,7 +182,7 @@ func main() {
 			EnvVar: "CLIENT_ID,AZURE_CLIENT_ID,PLUGIN_CLIENT_ID,AZURE_APP_ID",
 		},
 		cli.StringFlag{
-			Name:   "oidc-id-token",
+			Name:   "oidc-token-id",
 			Usage:  "OIDC ID token to exchange for Azure AD access token (federated credentials)",
 			EnvVar: "PLUGIN_OIDC_TOKEN_ID",
 		},
@@ -428,16 +428,16 @@ func run(c *cli.Context) error {
 	registry := c.String("registry")
 	noPush := c.Bool("no-push")
 
-	effectiveClientID := c.String("client-id")
-	effectiveTenantID := c.String("tenant-id")
-	oidcIdToken := c.String("oidc-id-token")
+	clientID := c.String("client-id")
+	tenantID := c.String("tenant-id")
+	oidcIdToken := c.String("oidc-token-id")
 	authorityHost := c.String("azure-authority-host")
 
 	var publicUrl string
 	var err error
 	publicUrl, err = setupAuth(
-		effectiveTenantID,
-		effectiveClientID,
+		tenantID,
+		clientID,
 		oidcIdToken,
 		c.String("client-cert"),
 		c.String("client-secret"),
@@ -818,16 +818,16 @@ func handlePushOnly(c *cli.Context) error {
 	}
 
 	// Resolve Azure client/tenant and OIDC via CLI flags
-	effectiveClientID := c.String("client-id")
-	effectiveTenantID := c.String("tenant-id")
-	oidcIdToken := c.String("oidc-id-token")
+	clientID := c.String("client-id")
+	tenantID := c.String("tenant-id")
+	oidcIdToken := c.String("oidc-token-id")
 	authorityHost := c.String("azure-authority-host")
 
 	var publicUrl string
 	var err error
 	publicUrl, err = setupAuth(
-		effectiveTenantID,
-		effectiveClientID,
+		tenantID,
+		clientID,
 		oidcIdToken,
 		c.String("client-cert"),
 		c.String("client-secret"),
