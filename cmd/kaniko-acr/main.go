@@ -178,7 +178,7 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:   "client-id",
-			Usage:  "Azure Client Id",
+			Usage:  "Azure Client ID (also called App ID)",
 			EnvVar: "CLIENT_ID,AZURE_CLIENT_ID,PLUGIN_CLIENT_ID,AZURE_APP_ID",
 		},
 		cli.StringFlag{
