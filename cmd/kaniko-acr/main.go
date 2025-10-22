@@ -560,11 +560,7 @@ func setupAuth(tenantId, clientId, oidcIdToken, cert,
 		// Exchange OIDC ID token for AAD access token via client_assertion
 		aadAccessToken, err = azureutil.GetAADAccessTokenViaClientAssertion(context.Background(), tenantId, clientId, oidcIdToken, authorityHost)
 		if err != nil {
-			if noPush {
-				logrus.Warnf("NO_PUSH mode: failed to get AAD token via OIDC: %v", err)
-				return "", nil
-			}
-			return "", errors.Wrap(err, "failed to get AAD token via OIDC")
+			return handleError(noPush, err, "failed to get AAD token via OIDC")
 		}
 		publicUrl, err = getPublicUrl(aadAccessToken, registry, subscriptionId)
 		if err != nil {
@@ -573,23 +569,13 @@ func setupAuth(tenantId, clientId, oidcIdToken, cert,
 		// Exchange AAD access token to ACR refresh token
 		acrToken, err = fetchACRToken(tenantId, aadAccessToken, registry)
 		if err != nil {
-			if noPush {
-				logrus.Warnf("NO_PUSH mode: failed to fetch ACR token: %v", err)
-				return "", nil
-			}
-			return "", errors.Wrap(err, "failed to fetch ACR token")
+			return handleError(noPush, err, "failed to fetch ACR token")
 		}
 	} else if clientSecret != "" || cert != "" {
-		token, pUrl, e := getACRToken(subscriptionId, tenantId, clientId, clientSecret, cert, registry)
-		if e != nil {
-			if noPush {
-				logrus.Warnf("NO_PUSH mode: failed to fetch ACR Token: %v", e)
-				return "", nil
-			}
-			return "", errors.Wrap(e, "failed to fetch ACR Token")
+		acrToken, publicUrl, err = getACRToken(subscriptionId, tenantId, clientId, clientSecret, cert, registry)
+		if err != nil {
+			return handleError(noPush, err, "failed to fetch ACR Token")
 		}
-		acrToken = token
-		publicUrl = pUrl
 	} else {
 		if noPush {
 			return "", nil
@@ -598,13 +584,21 @@ func setupAuth(tenantId, clientId, oidcIdToken, cert,
 	}
 
 	if err := setDockerAuth(username, acrToken, registry, dockerUsername, dockerPassword, dockerRegistry); err != nil {
-		if noPush {
-			logrus.Warnf("NO_PUSH mode: failed to create docker config: %v", err)
-			return "", nil
-		}
-		return "", errors.Wrap(err, "failed to create docker config")
+		return handleError(noPush, err, "failed to create docker config")
 	}
 	return publicUrl, nil
+}
+
+// Error handling
+func handleError(noPush bool, err error, msg string) (string, error) {
+	if err == nil {
+		return "", nil
+	}
+	if noPush {
+		logrus.Warnf("NO_PUSH mode: %s: %v", msg, err)
+		return "", nil
+	}
+	return "", errors.Wrap(err, msg)
 }
 
 func getACRToken(subscriptionId, tenantId, clientId, clientSecret, cert, registry string) (string, string, error) {
