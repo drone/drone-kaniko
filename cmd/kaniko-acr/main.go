@@ -591,9 +591,6 @@ func setupAuth(tenantId, clientId, oidcIdToken, cert,
 
 // Error handling
 func handleError(noPush bool, err error, msg string) (string, error) {
-	if err == nil {
-		return "", nil
-	}
 	if noPush {
 		logrus.Warnf("NO_PUSH mode: %s: %v", msg, err)
 		return "", nil
