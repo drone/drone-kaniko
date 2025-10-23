@@ -367,3 +367,23 @@ func TestACRAuthenticationFlow(t *testing.T) {
 		})
 	}
 }
+
+func TestSetupAuth_RegistryMustBeSpecified(t *testing.T) {
+	pub, err := setupAuth("tenant", "client", "", "", "", "sub", "", "", "", "", "", false)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "registry must be specified")
+	assert.Equal(t, "", pub)
+}
+
+func TestSetupAuth_MissingTenantOrClient(t *testing.T) {
+	pub, err := setupAuth("tenant", "", "", "", "", "sub", "myregistry.azurecr.io", "", "", "", "", false)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "tenantId and clientId must be provided")
+	assert.Equal(t, "", pub)
+}
+
+func TestSetupAuth_NoCreds_NoPushTrue(t *testing.T) {
+	pub, err := setupAuth("tenant", "client", "", "", "", "sub", "myregistry.azurecr.io", "", "", "", "", true)
+	assert.NoError(t, err)
+	assert.Equal(t, "", pub)
+}

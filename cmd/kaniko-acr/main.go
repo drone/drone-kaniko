@@ -20,6 +20,7 @@ import (
 	"github.com/urfave/cli"
 
 	kaniko "github.com/drone/drone-kaniko"
+	azureutil "github.com/drone/drone-kaniko/internal/azure"
 	"github.com/drone/drone-kaniko/pkg/artifact"
 	"github.com/drone/drone-kaniko/pkg/docker"
 	"github.com/drone/drone-kaniko/pkg/utils"
@@ -168,7 +169,7 @@ func main() {
 		cli.StringFlag{
 			Name:   "tenant-id",
 			Usage:  "Azure Tenant Id",
-			EnvVar: "TENANT_ID",
+			EnvVar: "TENANT_ID,AZURE_TENANT_ID,PLUGIN_TENANT_ID",
 		},
 		cli.StringFlag{
 			Name:   "subscription-id",
@@ -177,8 +178,18 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:   "client-id",
-			Usage:  "Azure Client Id",
-			EnvVar: "CLIENT_ID",
+			Usage:  "Azure Client ID (also called App ID)",
+			EnvVar: "CLIENT_ID,AZURE_CLIENT_ID,PLUGIN_CLIENT_ID,AZURE_APP_ID",
+		},
+		cli.StringFlag{
+			Name:   "oidc-token-id",
+			Usage:  "OIDC ID token to exchange for Azure AD access token (federated credentials)",
+			EnvVar: "PLUGIN_OIDC_TOKEN_ID",
+		},
+		cli.StringFlag{
+			Name:   "azure-authority-host",
+			Usage:  "Azure authority host base URL (e.g., https://login.microsoftonline.com, https://login.microsoftonline.us)",
+			EnvVar: "AZURE_AUTHORITY_HOST",
 		},
 		cli.StringFlag{
 			Name:   "snapshot-mode",
@@ -417,9 +428,17 @@ func run(c *cli.Context) error {
 	registry := c.String("registry")
 	noPush := c.Bool("no-push")
 
-	publicUrl, err := setupAuth(
-		c.String("tenant-id"),
-		c.String("client-id"),
+	clientID := c.String("client-id")
+	tenantID := c.String("tenant-id")
+	oidcIdToken := c.String("oidc-token-id")
+	authorityHost := c.String("azure-authority-host")
+
+	var publicUrl string
+	var err error
+	publicUrl, err = setupAuth(
+		tenantID,
+		clientID,
+		oidcIdToken,
 		c.String("client-cert"),
 		c.String("client-secret"),
 		c.String("subscription-id"),
@@ -427,6 +446,7 @@ func run(c *cli.Context) error {
 		c.String("base-image-username"),
 		c.String("base-image-password"),
 		c.String("base-image-registry"),
+		authorityHost,
 		noPush,
 	)
 	if err != nil {
@@ -516,40 +536,66 @@ func run(c *cli.Context) error {
 	return plugin.Exec()
 }
 
-func setupAuth(tenantId, clientId, cert,
-	clientSecret, subscriptionId, registry, dockerUsername, dockerPassword, dockerRegistry string, noPush bool) (string, error) {
+func setupAuth(tenantId, clientId, oidcIdToken, cert,
+	clientSecret, subscriptionId, registry, dockerUsername, dockerPassword, dockerRegistry, authorityHost string, noPush bool) (string, error) {
 	if registry == "" {
 		return "", fmt.Errorf("registry must be specified")
 	}
 
-	// case of client secret or cert based auth
-	if clientId != "" {
-		// only setup auth when pushing or credentials are defined
+	// Determine auth path: OIDC or Service Principal (secret/cert)
+	if tenantId == "" || clientId == "" {
+		if noPush {
+			logrus.Warnf("NO_PUSH mode: tenantId or clientId not provided")
+			return "", nil
+		}
+		return "", fmt.Errorf("tenantId and clientId must be provided")
+	}
 
-		token, publicUrl, err := getACRToken(subscriptionId, tenantId, clientId, clientSecret, cert, registry)
+	var aadAccessToken string
+	var acrToken string
+	var publicUrl string
+	var err error
+
+	if oidcIdToken != "" {
+		// Exchange OIDC ID token for AAD access token via client_assertion
+		aadAccessToken, err = azureutil.GetAADAccessTokenViaClientAssertion(context.Background(), tenantId, clientId, oidcIdToken, authorityHost)
 		if err != nil {
-			if noPush {
-				logrus.Warnf("NO_PUSH mode: failed to fetch ACR Token: %v", err)
-				return "", nil
-			}
-			return "", errors.Wrap(err, "failed to fetch ACR Token")
+			return handleError(noPush, err, "failed to get AAD token via OIDC")
 		}
-
-		// setup docker config for azure registry and base image docker registry
-		if err := setDockerAuth(username, token, registry, dockerUsername, dockerPassword, dockerRegistry); err != nil {
-			if noPush {
-				logrus.Warnf("NO_PUSH mode: failed to create docker config: %v", err)
-				return "", nil
-			}
-			return "", errors.Wrap(err, "failed to create docker config")
+		publicUrl, err = getPublicUrl(aadAccessToken, registry, subscriptionId)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed to get public url with error: %s\n", err)
 		}
-		return publicUrl, nil
+		// Exchange AAD access token to ACR refresh token
+		acrToken, err = fetchACRToken(tenantId, aadAccessToken, registry)
+		if err != nil {
+			return handleError(noPush, err, "failed to fetch ACR token")
+		}
+	} else if clientSecret != "" || cert != "" {
+		acrToken, publicUrl, err = getACRToken(subscriptionId, tenantId, clientId, clientSecret, cert, registry)
+		if err != nil {
+			return handleError(noPush, err, "failed to fetch ACR Token")
+		}
 	} else {
 		if noPush {
 			return "", nil
 		}
 		return "", fmt.Errorf("managed authentication is not supported")
 	}
+
+	if err := setDockerAuth(username, acrToken, registry, dockerUsername, dockerPassword, dockerRegistry); err != nil {
+		return handleError(noPush, err, "failed to create docker config")
+	}
+	return publicUrl, nil
+}
+
+// Error handling
+func handleError(noPush bool, err error, msg string) (string, error) {
+	if noPush {
+		logrus.Warnf("NO_PUSH mode: %s: %v", msg, err)
+		return "", nil
+	}
+	return "", errors.Wrap(err, msg)
 }
 
 func getACRToken(subscriptionId, tenantId, clientId, clientSecret, cert, registry string) (string, string, error) {
@@ -762,10 +808,18 @@ func handlePushOnly(c *cli.Context) error {
 		return fmt.Errorf("repository and registry must be specified for push-only operation")
 	}
 
-	// Setup ACR authentication
-	publicUrl, err := setupAuth(
-		c.String("tenant-id"),
-		c.String("client-id"),
+	// Resolve Azure client/tenant and OIDC via CLI flags
+	clientID := c.String("client-id")
+	tenantID := c.String("tenant-id")
+	oidcIdToken := c.String("oidc-token-id")
+	authorityHost := c.String("azure-authority-host")
+
+	var publicUrl string
+	var err error
+	publicUrl, err = setupAuth(
+		tenantID,
+		clientID,
+		oidcIdToken,
 		c.String("client-cert"),
 		c.String("client-secret"),
 		c.String("subscription-id"),
@@ -773,7 +827,8 @@ func handlePushOnly(c *cli.Context) error {
 		c.String("base-image-username"),
 		c.String("base-image-password"),
 		c.String("base-image-registry"),
-		false, // We want to push in push-only mode
+		authorityHost,
+		false,
 	)
 	if err != nil {
 		return err
