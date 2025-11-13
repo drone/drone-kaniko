@@ -19,7 +19,6 @@ type RegistryTypeEnum string
 const (
 	Docker RegistryTypeEnum = "Docker"
 	ECR    RegistryTypeEnum = "ECR"
-	GCR    RegistryTypeEnum = "GCR"
 	GAR    RegistryTypeEnum = "GAR"
 )
 
@@ -75,3 +74,4 @@ func WritePluginArtifactFile(registryType RegistryTypeEnum, artifactFilePath, re
 	}
 	return nil
 }
+

@@ -33,23 +33,6 @@ steps:
       exclude:
       - pull_request
 
-- name: gcr
-  image: plugins/docker
-  settings:
-    repo: plugins/kaniko-gcr
-    auto_tag: true
-    auto_tag_suffix: linux-amd64
-    daemon_off: false
-    dockerfile: docker/gcr/Dockerfile.linux.amd64
-    username:
-      from_secret: docker_username
-    password:
-      from_secret: docker_password
-  when:
-    event:
-      exclude:
-      - pull_request
-
 - name: gar
   image: plugins/docker
   settings:
@@ -118,23 +101,6 @@ steps:
       exclude:
       - pull_request
 
-- name: gcr-kaniko-v1-9
-  image: plugins/docker
-  settings:
-    repo: plugins/kaniko-gcr
-    auto_tag: true
-    auto_tag_suffix: linux-amd64-kaniko1.9.1
-    daemon_off: false
-    dockerfile: docker/gcr/Dockerfile.linux.amd64.kaniko1.9.1
-    username:
-      from_secret: docker_username
-    password:
-      from_secret: docker_password
-  when:
-    event:
-      exclude:
-      - pull_request
-
 - name: gar-kaniko-v1-9
   image: plugins/docker
   settings:
@@ -191,23 +157,6 @@ steps:
     auto_tag_suffix: linux-arm64
     daemon_off: false
     dockerfile: docker/docker/Dockerfile.linux.arm64
-    username:
-      from_secret: docker_username
-    password:
-      from_secret: docker_password
-  when:
-    event:
-      exclude:
-      - pull_request
-
-- name: gcr
-  image: plugins/docker
-  settings:
-    repo: plugins/kaniko-gcr
-    auto_tag: true
-    auto_tag_suffix: linux-arm64
-    daemon_off: false
-    dockerfile: docker/gcr/Dockerfile.linux.arm64
     username:
       from_secret: docker_username
     password:
@@ -285,23 +234,6 @@ steps:
       exclude:
       - pull_request
 
-- name: gcr-kaniko-v1-9
-  image: plugins/docker
-  settings:
-    repo: plugins/kaniko-gcr
-    auto_tag: true
-    auto_tag_suffix: linux-arm64-kaniko1.9.1
-    daemon_off: false
-    dockerfile: docker/gcr/Dockerfile.linux.arm64.kaniko1.9.1
-    username:
-      from_secret: docker_username
-    password:
-      from_secret: docker_password
-  when:
-    event:
-      exclude:
-      - pull_request
-
 - name: gar-kaniko-v1-9
   image: plugins/docker
   settings:
@@ -357,18 +289,6 @@ steps:
     password:
       from_secret: docker_password
     spec: docker/docker/manifest.tmpl
-    username:
-      from_secret: docker_username
-
-- name: manifest-gcr
-  pull: always
-  image: plugins/manifest
-  settings:
-    auto_tag: true
-    ignore_missing: true
-    password:
-      from_secret: docker_password
-    spec: docker/gcr/manifest.tmpl
     username:
       from_secret: docker_username
 
@@ -442,18 +362,6 @@ steps:
     username:
       from_secret: docker_username
 
-- name: manifest-gcr
-  pull: always
-  image: plugins/manifest
-  settings:
-    auto_tag: false
-    ignore_missing: true
-    password:
-      from_secret: docker_password
-    spec: docker/gcr/manifest-kaniko1.9.1.tmpl
-    username:
-      from_secret: docker_username
-
 - name: manifest-gar
   pull: always
   image: plugins/manifest
@@ -486,3 +394,4 @@ trigger:
 depends_on:
 - default
 - arm
+

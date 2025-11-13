@@ -65,53 +65,35 @@ pipeline:
                             matrix:
                               image:
                                 - ""
-                                - "-gcr"
                                 - "-gar"
                                 - "-ecr"
                                 - "-acr"
                               repo:
                                 - docker
-                                - gcr
                                 - gar
                                 - ecr
                                 - acr
                               exclude:
                                 - image: ""
-                                  repo: gcr
-                                - image: ""
                                   repo: gar
                                 - image: ""
                                   repo: ecr
                                 - image: ""
                                   repo: acr
-                                - image: "-gcr"
-                                  repo: docker
-                                - image: "-gcr"
-                                  repo: gar
-                                - image: "-gcr"
-                                  repo: ecr
-                                - image: "-gcr"
-                                  repo: acr
                                 - image: "-gar"
                                   repo: docker
-                                - image: "-gar"
-                                  repo: gcr
                                 - image: "-gar"
                                   repo: ecr
                                 - image: "-gar"
                                   repo: acr
                                 - image: "-ecr"
                                   repo: docker
-                                - image: "-ecr"
-                                  repo: gcr
                                 - image: "-ecr"
                                   repo: gar
                                 - image: "-ecr"
                                   repo: acr
                                 - image: "-acr"
                                   repo: docker
-                                - image: "-acr"
-                                  repo: gcr
                                 - image: "-acr"
                                   repo: gar
                                 - image: "-acr"
@@ -139,37 +121,23 @@ pipeline:
                             matrix:
                               image:
                                 - ""
-                                - "-gcr"
                                 - "-gar"
                                 - "-ecr"
                               repo:
                                 - docker
-                                - gcr
                                 - gar
                                 - ecr
                               exclude:
                                 - image: ""
-                                  repo: gcr
-                                - image: ""
                                   repo: gar
                                 - image: ""
                                   repo: ecr
-                                - image: "-gcr"
-                                  repo: docker
-                                - image: "-gcr"
-                                  repo: gar
-                                - image: "-gcr"
-                                  repo: ecr
                                 - image: "-gar"
                                   repo: docker
-                                - image: "-gar"
-                                  repo: gcr
                                 - image: "-gar"
                                   repo: ecr
                                 - image: "-ecr"
                                   repo: docker
-                                - image: "-ecr"
-                                  repo: gcr
                                 - image: "-ecr"
                                   repo: gar
                               nodeName: <+matrix.repo>
@@ -192,53 +160,35 @@ pipeline:
                             matrix:
                               image:
                                 - ""
-                                - "-gcr"
                                 - "-gar"
                                 - "-ecr"
                                 - "-acr"
                               repo:
                                 - docker
-                                - gcr
                                 - gar
                                 - ecr
                                 - acr
                               exclude:
                                 - image: ""
-                                  repo: gcr
-                                - image: ""
                                   repo: gar
                                 - image: ""
                                   repo: ecr
                                 - image: ""
                                   repo: acr
-                                - image: "-gcr"
-                                  repo: docker
-                                - image: "-gcr"
-                                  repo: gar
-                                - image: "-gcr"
-                                  repo: ecr
-                                - image: "-gcr"
-                                  repo: acr
                                 - image: "-gar"
                                   repo: docker
-                                - image: "-gar"
-                                  repo: gcr
                                 - image: "-gar"
                                   repo: ecr
                                 - image: "-gar"
                                   repo: acr
                                 - image: "-ecr"
                                   repo: docker
-                                - image: "-ecr"
-                                  repo: gcr
                                 - image: "-ecr"
                                   repo: gar
                                 - image: "-ecr"
                                   repo: acr
                                 - image: "-acr"
                                   repo: docker
-                                - image: "-acr"
-                                  repo: gcr
                                 - image: "-acr"
                                   repo: gar
                                 - image: "-acr"
@@ -262,37 +212,23 @@ pipeline:
                             matrix:
                               image:
                                 - ""
-                                - "-gcr"
                                 - "-gar"
                                 - "-ecr"
                               repo:
                                 - docker
-                                - gcr
                                 - gar
                                 - ecr
                               exclude:
                                 - image: ""
-                                  repo: gcr
-                                - image: ""
                                   repo: gar
                                 - image: ""
                                   repo: ecr
-                                - image: "-gcr"
-                                  repo: docker
-                                - image: "-gcr"
-                                  repo: gar
-                                - image: "-gcr"
-                                  repo: ecr
                                 - image: "-gar"
                                   repo: docker
-                                - image: "-gar"
-                                  repo: gcr
                                 - image: "-gar"
                                   repo: ecr
                                 - image: "-ecr"
                                   repo: docker
-                                - image: "-ecr"
-                                  repo: gcr
                                 - image: "-ecr"
                                   repo: gar
                               nodeName: _<+matrix.repo>
@@ -350,53 +286,35 @@ pipeline:
                             matrix:
                               image:
                                 - ""
-                                - "-gcr"
                                 - "-gar"
                                 - "-ecr"
                                 - "-acr"
                               repo:
                                 - docker
-                                - gcr
                                 - gar
                                 - ecr
                                 - acr
                               exclude:
                                 - image: ""
-                                  repo: gcr
-                                - image: ""
                                   repo: gar
                                 - image: ""
                                   repo: ecr
                                 - image: ""
                                   repo: acr
-                                - image: "-gcr"
-                                  repo: docker
-                                - image: "-gcr"
-                                  repo: gar
-                                - image: "-gcr"
-                                  repo: ecr
-                                - image: "-gcr"
-                                  repo: acr
                                 - image: "-gar"
                                   repo: docker
-                                - image: "-gar"
-                                  repo: gcr
                                 - image: "-gar"
                                   repo: ecr
                                 - image: "-gar"
                                   repo: acr
                                 - image: "-ecr"
                                   repo: docker
-                                - image: "-ecr"
-                                  repo: gcr
                                 - image: "-ecr"
                                   repo: gar
                                 - image: "-ecr"
                                   repo: acr
                                 - image: "-acr"
                                   repo: docker
-                                - image: "-acr"
-                                  repo: gcr
                                 - image: "-acr"
                                   repo: gar
                                 - image: "-acr"
@@ -424,37 +342,23 @@ pipeline:
                             matrix:
                               image:
                                 - ""
-                                - "-gcr"
                                 - "-gar"
                                 - "-ecr"
                               repo:
                                 - docker
-                                - gcr
                                 - gar
                                 - ecr
                               exclude:
                                 - image: ""
-                                  repo: gcr
-                                - image: ""
                                   repo: gar
                                 - image: ""
                                   repo: ecr
-                                - image: "-gcr"
-                                  repo: docker
-                                - image: "-gcr"
-                                  repo: gar
-                                - image: "-gcr"
-                                  repo: ecr
                                 - image: "-gar"
                                   repo: docker
-                                - image: "-gar"
-                                  repo: gcr
                                 - image: "-gar"
                                   repo: ecr
                                 - image: "-ecr"
                                   repo: docker
-                                - image: "-ecr"
-                                  repo: gcr
                                 - image: "-ecr"
                                   repo: gar
                               nodeName: _<+matrix.repo>
@@ -477,57 +381,25 @@ pipeline:
                             matrix:
                               image:
                                 - ""
-                                - "-gcr"
                                 - "-gar"
                                 - "-ecr"
-                                - "-acr"
                               repo:
                                 - docker
-                                - gcr
                                 - gar
                                 - ecr
-                                - acr
                               exclude:
                                 - image: ""
-                                  repo: gcr
-                                - image: ""
                                   repo: gar
                                 - image: ""
                                   repo: ecr
-                                - image: ""
-                                  repo: acr
-                                - image: "-gcr"
-                                  repo: docker
-                                - image: "-gcr"
-                                  repo: gar
-                                - image: "-gcr"
-                                  repo: ecr
-                                - image: "-gcr"
-                                  repo: acr
                                 - image: "-gar"
                                   repo: docker
-                                - image: "-gar"
-                                  repo: gcr
                                 - image: "-gar"
                                   repo: ecr
-                                - image: "-gar"
-                                  repo: acr
                                 - image: "-ecr"
                                   repo: docker
                                 - image: "-ecr"
-                                  repo: gcr
-                                - image: "-ecr"
                                   repo: gar
-                                - image: "-ecr"
-                                  repo: acr
-                                - image: "-acr"
-                                  repo: docker
-                                - image: "-acr"
-                                  repo: gcr
-                                - image: "-acr"
-                                  repo: gar
-                                - image: "-acr"
-                                  repo: ecr
                               nodeName: <+matrix.repo>
                       - step:
                           type: BuildAndPushDockerRegistry
@@ -547,37 +419,23 @@ pipeline:
                             matrix:
                               image:
                                 - ""
-                                - "-gcr"
                                 - "-gar"
                                 - "-ecr"
                               repo:
                                 - docker
-                                - gcr
                                 - gar
                                 - ecr
                               exclude:
                                 - image: ""
-                                  repo: gcr
-                                - image: ""
                                   repo: gar
                                 - image: ""
                                   repo: ecr
-                                - image: "-gcr"
-                                  repo: docker
-                                - image: "-gcr"
-                                  repo: gar
-                                - image: "-gcr"
-                                  repo: ecr
                                 - image: "-gar"
                                   repo: docker
-                                - image: "-gar"
-                                  repo: gcr
                                 - image: "-gar"
                                   repo: ecr
                                 - image: "-ecr"
                                   repo: docker
-                                - image: "-ecr"
-                                  repo: gcr
                                 - image: "-ecr"
                                   repo: gar
                               nodeName: _<+matrix.repo>
@@ -622,7 +480,6 @@ pipeline:
                         matrix:
                           repo:
                             - docker
-                            - gcr
                             - gar
                             - ecr
                             - acr
@@ -647,7 +504,6 @@ pipeline:
                         matrix:
                           repo:
                             - docker
-                            - gcr
                             - gar
                             - ecr
                           nodeName: manifest_<+matrix.repo>

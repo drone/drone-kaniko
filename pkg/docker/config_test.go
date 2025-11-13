@@ -33,7 +33,7 @@ func TestConfig(t *testing.T) {
 			Password: "pass1",
 		},
 		{
-			Registry: "gcr.io",
+			Registry: "us-docker.pkg.dev",
 			Username: "user2",
 			Password: "pass2",
 		},
