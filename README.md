@@ -2,7 +2,7 @@
 
 Drone kaniko plugin uses [kaniko](https://github.com/GoogleContainerTools/kaniko) to build and publish Docker images to a container registry.
 
-Plugin images are published with 1.6.0 as well as 1.9.1 kaniko version from 1.5.1 release tag. `plugins/kaniko:<release-tag>` uses 1.6.0 version while `plugins/kaniko:<release-tag>-kaniko1.9.1` uses 1.9.1 version. Similar convention is used for plugins/kaniko-ecr & plugins/kaniko-gcr images as well.
+Plugin images are published with 1.6.0 as well as 1.9.1 kaniko version from 1.5.1 release tag. `plugins/kaniko:<release-tag>` uses 1.6.0 version while `plugins/kaniko:<release-tag>-kaniko1.9.1` uses 1.9.1 version. Similar convention is used for plugins/kaniko-ecr & plugins/kaniko-gar images as well.
 
 Run the following script to install git-leaks support to this repo.
 
@@ -22,7 +22,6 @@ export CGO_ENABLED=0
 export GO111MODULE=on
 
 go build -v -a -tags netgo -o release/linux/amd64/kaniko-docker ./cmd/kaniko-docker
-go build -v -a -tags netgo -o release/linux/amd64/kaniko-gcr ./cmd/kaniko-gcr
 go build -v -a -tags netgo -o release/linux/amd64/kaniko-ecr ./cmd/kaniko-ecr
 go build -v -a -tags netgo -o release/linux/amd64/kaniko-acr ./cmd/kaniko-acr
 ```
@@ -45,11 +44,6 @@ docker build \
 docker build \
   --label org.label-schema.build-date=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
   --label org.label-schema.vcs-ref=$(git rev-parse --short HEAD) \
-  --file docker/gcr/Dockerfile.linux.amd64 --tag plugins/kaniko-gcr .
-
-docker build \
-  --label org.label-schema.build-date=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
-  --label org.label-schema.vcs-ref=$(git rev-parse --short HEAD) \
   --file docker/ecr/Dockerfile.linux.amd64 --tag plugins/kaniko-ecr .
 ```
 
@@ -62,7 +56,6 @@ The drone-kaniko plugin now supports an improved build arguments system with the
 A new custom CLI flag type that allows passing multiple build arguments using semicolon (`;`) as a delimiter. This flag is available across all registry implementations:
 
 - `kaniko-docker`
-- `kaniko-gcr` (Google Container Registry)
 - `kaniko-ecr` (Amazon Elastic Container Registry)
 - `kaniko-acr` (Azure Container Registry)
 - `kaniko-gar` (Google Artifact Registry)
