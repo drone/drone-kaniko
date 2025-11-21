@@ -207,7 +207,7 @@ func main() {
 		cli.StringFlag{
 			Name:   "platform",
 			Usage:  "Allows to build with another default platform than the host, similarly to docker build --platform",
-			EnvVar: "PLUGIN_PLATFORM",
+			EnvVar: "PLUGIN_PLATFORM,PLUGIN_CUSTOM_PLATFORM",
 		},
 		cli.BoolFlag{
 			Name:   "skip-unused-stages",
@@ -244,11 +244,6 @@ func main() {
 			Name:   "context-sub-path",
 			Usage:  "Sub-path within the context to build.",
 			EnvVar: "PLUGIN_CONTEXT_SUB_PATH",
-		},
-		cli.StringFlag{
-			Name:   "custom-platform",
-			Usage:  "Platform to use for building.",
-			EnvVar: "PLUGIN_CUSTOM_PLATFORM",
 		},
 		cli.BoolFlag{
 			Name:   "force",
@@ -430,14 +425,13 @@ func run(c *cli.Context) error {
 			SourceTarPath:               c.String("source-tar-path"),
 			TarPath:                     c.String("tar-path"),
 			Verbosity:                   c.String("verbosity"),
-			Platform:                    c.String("platform"),
+			CustomPlatform:              c.String("platform"),
 			SkipUnusedStages:            c.Bool("skip-unused-stages"),
 			CacheDir:                    c.String("cache-dir"),
 			CacheCopyLayers:             c.Bool("cache-copy-layers"),
 			CacheRunLayers:              c.Bool("cache-run-layers"),
 			Cleanup:                     c.Bool("cleanup"),
 			ContextSubPath:              c.String("context-sub-path"),
-			CustomPlatform:              c.String("custom-platform"),
 			Force:                       c.Bool("force"),
 			ImageNameWithDigestFile:     c.String("image-name-with-digest-file"),
 			ImageNameTagWithDigestFile:  c.String("image-name-tag-with-digest-file"),

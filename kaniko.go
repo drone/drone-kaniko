@@ -37,7 +37,6 @@ type (
 		Labels              []string // Label map
 		Mirrors             []string // Docker repository mirrors
 		NoPush              bool     // Set this flag if you only want to build the image, without pushing to a registry
-		Platform            string   // Allows to build with another default platform than the host, similarly to docker build --platform
 		PushOnly            bool     // Specify if the operation is push-only.
 		Repo                string   // Docker build repository
 		SkipTlsVerify       bool     // Docker skip tls certificate verify for registry
@@ -309,10 +308,6 @@ func (p Plugin) Exec() error {
 
 	if p.Build.Verbosity != "" {
 		cmdArgs = append(cmdArgs, fmt.Sprintf("--verbosity=%s", p.Build.Verbosity))
-	}
-
-	if p.Build.Platform != "" {
-		cmdArgs = append(cmdArgs, fmt.Sprintf("--customPlatform=%s", p.Build.Platform))
 	}
 
 	if p.Build.SkipUnusedStages {

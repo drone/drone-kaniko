@@ -206,6 +206,64 @@ func TestDockerBuildArgsProcessing(t *testing.T) {
 	}
 }
 
+func TestPlatformEnvVarMapping(t *testing.T) {
+	tests := []struct {
+		name          string
+		envVar        string
+		envValue      string
+		expectedValue string
+	}{
+		{
+			name:          "PLUGIN_PLATFORM env var",
+			envVar:        "PLUGIN_PLATFORM",
+			envValue:      "linux/amd64",
+			expectedValue: "linux/amd64",
+		},
+		{
+			name:          "PLUGIN_CUSTOM_PLATFORM env var",
+			envVar:        "PLUGIN_CUSTOM_PLATFORM",
+			envValue:      "linux/arm64",
+			expectedValue: "linux/arm64",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Set the environment variable
+			os.Setenv(tt.envVar, tt.envValue)
+			defer os.Unsetenv(tt.envVar)
+
+			app := cli.NewApp()
+			app.Name = "kaniko-docker-test"
+
+			var capturedPlatform string
+
+			app.Flags = []cli.Flag{
+				cli.StringFlag{
+					Name:   "platform",
+					Usage:  "Allows to build with another default platform than the host",
+					EnvVar: "PLUGIN_PLATFORM,PLUGIN_CUSTOM_PLATFORM",
+				},
+			}
+
+			app.Action = func(c *cli.Context) error {
+				capturedPlatform = c.String("platform")
+				return nil
+			}
+
+			err := app.Run([]string{"kaniko-docker-test"})
+			if err != nil {
+				t.Errorf("CLI run error = %v, want nil", err)
+				return
+			}
+
+			if capturedPlatform != tt.expectedValue {
+				t.Errorf("Got platform = %v, want %v", capturedPlatform, tt.expectedValue)
+			}
+		})
+	}
+}
+
 func TestCreateDockerConfig(t *testing.T) {
 	config := docker.NewConfig()
 	tempDir, err := ioutil.TempDir("", "docker-config-test")
