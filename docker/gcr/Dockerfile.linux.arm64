@@ -1,4 +1,4 @@
-FROM gcr.io/kaniko-project/executor:v1.23.2
+FROM harnesscommunity/kaniko-executor:1.25.0-linux-arm64
 
 ENV HOME /root
 ENV USER root
