@@ -11,7 +11,7 @@ platform:
 
 steps:
 - name: build
-  image: golang:1.22.4
+  image: golang:1.24.11
   commands:
   - go test ./...
   - sh scripts/build.sh
@@ -178,7 +178,7 @@ pool:
 
 steps:
 - name: build
-  image: golang:1.22.4
+  image: golang:1.24.11
   commands:
   - go test ./...
   - sh scripts/build.sh

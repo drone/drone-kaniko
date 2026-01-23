@@ -2,7 +2,7 @@ FROM harnesscommunity/kaniko-executor:1.25.0-linux-arm64
 
 ENV HOME /root
 ENV USER root
-ENV KANIKO_VERSION=1.23.2
+ENV KANIKO_VERSION=1.25.0
 
 ADD release/linux/arm64/kaniko-gcr /kaniko/
 ENTRYPOINT ["/kaniko/kaniko-gcr"]

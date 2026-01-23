@@ -59,3 +59,5 @@ require (
 )
 
 go 1.24.11
+
+toolchain go1.25.5
