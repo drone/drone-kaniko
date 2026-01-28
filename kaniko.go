@@ -227,7 +227,15 @@ func (p Plugin) Exec() error {
 	}
 
 	if _, err := os.Stat(p.Build.Dockerfile); os.IsNotExist(err) {
-		return fmt.Errorf("dockerfile does not exist at path: %s", p.Build.Dockerfile)
+
+		// Get absolute path for better error message. If path is empty, this will
+		// return the current working directory, showing where the plugin looked.
+		absPath, absErr := filepath.Abs(p.Build.Dockerfile)
+		if absErr != nil {
+			absPath = p.Build.Dockerfile
+		}
+
+		return fmt.Errorf("dockerfile does not exist at path: %s", absPath)
 	}
 
 	var tags = p.Build.Tags
