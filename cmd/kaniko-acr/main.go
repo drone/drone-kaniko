@@ -11,6 +11,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/google/go-containerregistry/pkg/authn"
@@ -536,21 +537,21 @@ func setupAuth(tenantId, clientId, oidcIdToken, cert,
 		return "", fmt.Errorf("registry must be specified")
 	}
 
-	// Determine auth path: OIDC or Service Principal (secret/cert)
-	if tenantId == "" || clientId == "" {
-		if noPush {
-			logrus.Warnf("NO_PUSH mode: tenantId or clientId not provided")
-			return "", nil
-		}
-		return "", fmt.Errorf("tenantId and clientId must be provided")
-	}
-
 	var aadAccessToken string
 	var acrToken string
 	var publicUrl string
 	var err error
 
 	if oidcIdToken != "" {
+		// OIDC authentication flow requires tenantId and clientId
+		if tenantId == "" || clientId == "" {
+			if noPush {
+				logrus.Warnf("NO_PUSH mode: tenantId or clientId not provided for OIDC")
+				return "", nil
+			}
+			return "", fmt.Errorf("tenantId and clientId must be provided for OIDC authentication")
+		}
+		logrus.Debug("Using OIDC authentication flow")
 		// Exchange OIDC ID token for AAD access token via client_assertion
 		aadAccessToken, err = azureutil.GetAADAccessTokenViaClientAssertion(context.Background(), tenantId, clientId, oidcIdToken, authorityHost)
 		if err != nil {
@@ -565,16 +566,21 @@ func setupAuth(tenantId, clientId, oidcIdToken, cert,
 		if err != nil {
 			return handleError(noPush, err, "failed to fetch ACR token")
 		}
-	} else if clientSecret != "" || cert != "" {
+	} else {
+		logrus.Debug("Using traditional Azure AD authentication flow")
+		// Validate that if tenantId is provided, clientId must also be provided
+		// (unless using managed identity with no explicit tenantId)
+		if tenantId != "" && clientId == "" && clientSecret == "" && cert == "" {
+			if noPush {
+				logrus.Warnf("NO_PUSH mode: tenantId provided but clientId is missing")
+				return "", nil
+			}
+			return "", fmt.Errorf("tenantId and clientId must be provided")
+		}
 		acrToken, publicUrl, err = getACRToken(subscriptionId, tenantId, clientId, clientSecret, cert, registry)
 		if err != nil {
 			return handleError(noPush, err, "failed to fetch ACR Token")
 		}
-	} else {
-		if noPush {
-			return "", nil
-		}
-		return "", fmt.Errorf("managed authentication is not supported")
 	}
 
 	if err := setDockerAuth(username, acrToken, registry, dockerUsername, dockerPassword, dockerRegistry); err != nil {
@@ -593,52 +599,68 @@ func handleError(noPush bool, err error, msg string) (string, error) {
 }
 
 func getACRToken(subscriptionId, tenantId, clientId, clientSecret, cert, registry string) (string, string, error) {
-	if tenantId == "" {
-		return "", "", fmt.Errorf("tenantId can't be empty for AAD authentication")
-	}
-
-	if clientId == "" {
-		return "", "", fmt.Errorf("clientId can't be empty for AAD authentication")
-	}
+	var cred azcore.TokenCredential
+	var err error
 
 	if clientSecret == "" && cert == "" {
-		return "", "", fmt.Errorf("one of client secret or cert should be defined")
-	}
-
-	// in case of authentication via cert
-	if cert != "" {
-		err := setupACRCert(cert)
-		if err != nil {
-			errors.Wrap(err, "failed to push setup cert file")
+		// Use managed identity / DefaultAzureCredential
+		if tenantId == "" {
+			tenantId = os.Getenv("AZURE_TENANT_ID")
+			if tenantId == "" {
+				tenantId = os.Getenv("TENANT_ID")
+			}
 		}
-	}
+		opts := &azidentity.DefaultAzureCredentialOptions{}
+		if tenantId != "" {
+			opts.TenantID = tenantId
+		}
+		cred, err = azidentity.NewDefaultAzureCredential(opts)
+		if err != nil {
+			return "", "", errors.Wrap(err, "failed to get credentials")
+		}
+	} else {
+		// Use service principal with secret or certificate
+		if tenantId == "" {
+			return "", "", fmt.Errorf("tenantId cannot be empty for AAD authentication")
+		}
+		if clientId == "" {
+			return "", "", fmt.Errorf("clientId cannot be empty for AAD authentication")
+		}
 
-	if err := os.Setenv(clientIdEnv, clientId); err != nil {
-		return "", "", errors.Wrap(err, "failed to set env variable client Id")
-	}
-	if err := os.Setenv(clientSecretKeyEnv, clientSecret); err != nil {
-		return "", "", errors.Wrap(err, "failed to set env variable client secret")
-	}
-	if err := os.Setenv(tenantKeyEnv, tenantId); err != nil {
-		return "", "", errors.Wrap(err, "failed to set env variable tenant Id")
-	}
-	if err := os.Setenv(certPathEnv, ACRCertPath); err != nil {
-		return "", "", errors.Wrap(err, "failed to set env variable cert path")
-	}
-	env, err := azidentity.NewEnvironmentCredential(nil)
-	if err != nil {
-		return "", "", errors.Wrap(err, "failed to get env credentials from azure")
+		// in case of authentication via cert
+		if cert != "" {
+			err := setupACRCert(cert)
+			if err != nil {
+				return "", "", errors.Wrap(err, "failed to setup cert file")
+			}
+		}
+
+		if err := os.Setenv(clientIdEnv, clientId); err != nil {
+			return "", "", errors.Wrap(err, "failed to set env variable client Id")
+		}
+		if err := os.Setenv(clientSecretKeyEnv, clientSecret); err != nil {
+			return "", "", errors.Wrap(err, "failed to set env variable client secret")
+		}
+		if err := os.Setenv(tenantKeyEnv, tenantId); err != nil {
+			return "", "", errors.Wrap(err, "failed to set env variable tenant Id")
+		}
+		if err := os.Setenv(certPathEnv, ACRCertPath); err != nil {
+			return "", "", errors.Wrap(err, "failed to set env variable cert path")
+		}
+		cred, err = azidentity.NewEnvironmentCredential(nil)
+		if err != nil {
+			return "", "", errors.Wrap(err, "failed to get env credentials from azure")
+		}
+		os.Unsetenv(clientIdEnv)
+		os.Unsetenv(clientSecretKeyEnv)
+		os.Unsetenv(tenantKeyEnv)
+		os.Unsetenv(certPathEnv)
 	}
 
 	policy := policy.TokenRequestOptions{
 		Scopes: []string{"https://management.azure.com/.default"},
 	}
-	os.Unsetenv(clientIdEnv)
-	os.Unsetenv(clientSecretKeyEnv)
-	os.Unsetenv(tenantKeyEnv)
-	os.Unsetenv(certPathEnv)
-
-	azToken, err := env.GetToken(context.Background(), policy)
+	azToken, err := cred.GetToken(context.Background(), policy)
 	if err != nil {
 		return "", "", errors.Wrap(err, "failed to fetch access token")
 	}
@@ -647,6 +669,11 @@ func getACRToken(subscriptionId, tenantId, clientId, clientSecret, cert, registr
 	if err != nil {
 		// execution should not fail because of this error.
 		fmt.Fprintf(os.Stderr, "failed to get public url with error: %s\n", err)
+	}
+
+	// tenantId is required for ACR token exchange
+	if tenantId == "" {
+		return "", "", fmt.Errorf("tenantId cannot be empty for ACR token exchange")
 	}
 
 	ACRToken, err := fetchACRToken(tenantId, azToken.Token, registry)
