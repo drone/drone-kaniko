@@ -387,3 +387,48 @@ func TestSetupAuth_NoCreds_NoPushTrue(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "", pub)
 }
+
+// Test cases for managed identity support
+
+func TestSetupAuth_ManagedIdentity_NoPush_Positive(t *testing.T) {
+	// Positive test: Managed identity flow with noPush=true should succeed
+	// This tests the new managed identity support when no credentials are provided
+	pub, err := setupAuth("tenant123", "", "", "", "", "sub", "myregistry.azurecr.io", "", "", "", "", true)
+	assert.NoError(t, err)
+	assert.Equal(t, "", pub)
+}
+
+func TestSetupAuth_TenantIdButNoClientId_ManagedIdentity(t *testing.T) {
+	// Negative test: When tenantId is provided but clientId is missing for managed identity,
+	// it should fail (unless noPush is true)
+	pub, err := setupAuth("tenant123", "", "", "", "", "sub", "myregistry.azurecr.io", "", "", "", "", false)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "tenantId and clientId must be provided")
+	assert.Equal(t, "", pub)
+}
+
+func TestGetACRToken_ManagedIdentity_NoTenantId(t *testing.T) {
+	// Negative test: Managed identity requires tenantId for ACR token exchange
+	// Clear environment variables to ensure tenantId is not available
+	originalTenantId := os.Getenv("AZURE_TENANT_ID")
+	originalTenantId2 := os.Getenv("TENANT_ID")
+	defer func() {
+		if originalTenantId != "" {
+			os.Setenv("AZURE_TENANT_ID", originalTenantId)
+		} else {
+			os.Unsetenv("AZURE_TENANT_ID")
+		}
+		if originalTenantId2 != "" {
+			os.Setenv("TENANT_ID", originalTenantId2)
+		} else {
+			os.Unsetenv("TENANT_ID")
+		}
+	}()
+	os.Unsetenv("AZURE_TENANT_ID")
+	os.Unsetenv("TENANT_ID")
+
+	// Managed identity path without tenantId should fail
+	_, _, err := getACRToken("sub", "", "", "", "", "myregistry.azurecr.io")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "tenantId cannot be empty for ACR token exchange")
+}
