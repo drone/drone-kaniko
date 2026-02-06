@@ -636,18 +636,19 @@ func getACRToken(subscriptionId, tenantId, clientId, clientSecret, cert, registr
 	}
 
 	// Original service principal code (unchanged)
-	if tenantId == "" {
-		return "", "", fmt.Errorf("tenantId cannot be empty for AAD authentication")
-	}
 	if clientId == "" {
-		return "", "", fmt.Errorf("clientId cannot be empty for AAD authentication")
+		return "", "", fmt.Errorf("clientId can't be empty for AAD authentication")
+	}
+
+	if clientSecret == "" && cert == "" {
+		return "", "", fmt.Errorf("one of client secret or cert should be defined")
 	}
 
 	// in case of authentication via cert
 	if cert != "" {
 		err := setupACRCert(cert)
 		if err != nil {
-			return "", "", errors.Wrap(err, "failed to setup cert file")
+			return "", "", errors.Wrap(err, "failed to push setup cert file")
 		}
 	}
 
@@ -668,6 +669,11 @@ func getACRToken(subscriptionId, tenantId, clientId, clientSecret, cert, registr
 		return "", "", errors.Wrap(err, "failed to get env credentials from azure")
 	}
 
+	os.Unsetenv(clientIdEnv)
+	os.Unsetenv(clientSecretKeyEnv)
+	os.Unsetenv(tenantKeyEnv)
+	os.Unsetenv(certPathEnv)
+
 	policy := policy.TokenRequestOptions{
 		Scopes: []string{"https://management.azure.com/.default"},
 	}
@@ -675,11 +681,6 @@ func getACRToken(subscriptionId, tenantId, clientId, clientSecret, cert, registr
 	if err != nil {
 		return "", "", errors.Wrap(err, "failed to fetch access token")
 	}
-
-	os.Unsetenv(clientIdEnv)
-	os.Unsetenv(clientSecretKeyEnv)
-	os.Unsetenv(tenantKeyEnv)
-	os.Unsetenv(certPathEnv)
 
 	publicUrl, err := getPublicUrl(azToken.Token, registry, subscriptionId)
 	if err != nil {
