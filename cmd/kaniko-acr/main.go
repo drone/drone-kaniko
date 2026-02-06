@@ -651,10 +651,6 @@ func getACRToken(subscriptionId, tenantId, clientId, clientSecret, cert, registr
 		if err != nil {
 			return "", "", errors.Wrap(err, "failed to get env credentials from azure")
 		}
-		os.Unsetenv(clientIdEnv)
-		os.Unsetenv(clientSecretKeyEnv)
-		os.Unsetenv(tenantKeyEnv)
-		os.Unsetenv(certPathEnv)
 	}
 
 	policy := policy.TokenRequestOptions{
@@ -665,13 +661,17 @@ func getACRToken(subscriptionId, tenantId, clientId, clientSecret, cert, registr
 		return "", "", errors.Wrap(err, "failed to fetch access token")
 	}
 
+	os.Unsetenv(clientIdEnv)
+	os.Unsetenv(clientSecretKeyEnv)
+	os.Unsetenv(tenantKeyEnv)
+	os.Unsetenv(certPathEnv)
+
 	publicUrl, err := getPublicUrl(azToken.Token, registry, subscriptionId)
 	if err != nil {
 		// execution should not fail because of this error.
 		fmt.Fprintf(os.Stderr, "failed to get public url with error: %s\n", err)
 	}
 
-	// tenantId is required for ACR token exchange
 	if tenantId == "" {
 		return "", "", fmt.Errorf("tenantId cannot be empty for ACR token exchange")
 	}
