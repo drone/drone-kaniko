@@ -536,21 +536,21 @@ func setupAuth(tenantId, clientId, oidcIdToken, cert,
 		return "", fmt.Errorf("registry must be specified")
 	}
 
-	// Determine auth path: OIDC or Service Principal (secret/cert)
-	if tenantId == "" || clientId == "" {
-		if noPush {
-			logrus.Warnf("NO_PUSH mode: tenantId or clientId not provided")
-			return "", nil
-		}
-		return "", fmt.Errorf("tenantId and clientId must be provided")
-	}
-
 	var aadAccessToken string
 	var acrToken string
 	var publicUrl string
 	var err error
 
 	if oidcIdToken != "" {
+		// OIDC authentication flow requires tenantId and clientId
+		if tenantId == "" || clientId == "" {
+			if noPush {
+				logrus.Warnf("NO_PUSH mode: tenantId or clientId not provided for OIDC")
+				return "", nil
+			}
+			return "", fmt.Errorf("tenantId and clientId must be provided for OIDC authentication")
+		}
+		logrus.Debug("Using OIDC authentication flow")
 		// Exchange OIDC ID token for AAD access token via client_assertion
 		aadAccessToken, err = azureutil.GetAADAccessTokenViaClientAssertion(context.Background(), tenantId, clientId, oidcIdToken, authorityHost)
 		if err != nil {
@@ -565,16 +565,21 @@ func setupAuth(tenantId, clientId, oidcIdToken, cert,
 		if err != nil {
 			return handleError(noPush, err, "failed to fetch ACR token")
 		}
-	} else if clientSecret != "" || cert != "" {
+	} else {
+		logrus.Debug("Using traditional Azure AD authentication flow")
+		// Validate that if tenantId is provided, clientId must also be provided
+		// (unless using managed identity with no explicit tenantId)
+		if tenantId != "" && clientId == "" && clientSecret == "" && cert == "" {
+			if noPush {
+				logrus.Warnf("NO_PUSH mode: tenantId provided but clientId is missing")
+				return "", nil
+			}
+			return "", fmt.Errorf("tenantId and clientId must be provided")
+		}
 		acrToken, publicUrl, err = getACRToken(subscriptionId, tenantId, clientId, clientSecret, cert, registry)
 		if err != nil {
 			return handleError(noPush, err, "failed to fetch ACR Token")
 		}
-	} else {
-		if noPush {
-			return "", nil
-		}
-		return "", fmt.Errorf("managed authentication is not supported")
 	}
 
 	if err := setDockerAuth(username, acrToken, registry, dockerUsername, dockerPassword, dockerRegistry); err != nil {
@@ -593,10 +598,46 @@ func handleError(noPush bool, err error, msg string) (string, error) {
 }
 
 func getACRToken(subscriptionId, tenantId, clientId, clientSecret, cert, registry string) (string, string, error) {
+	// Handle managed identity (when no clientSecret or cert provided)
+	if clientSecret == "" && cert == "" {
+		if tenantId == "" {
+			tenantId = os.Getenv("AZURE_TENANT_ID")
+			if tenantId == "" {
+				tenantId = os.Getenv("TENANT_ID")
+			}
+		}
+		opts := &azidentity.DefaultAzureCredentialOptions{}
+		if tenantId != "" {
+			opts.TenantID = tenantId
+		}
+		cred, err := azidentity.NewDefaultAzureCredential(opts)
+		if err != nil {
+			return "", "", errors.Wrap(err, "failed to get credentials")
+		}
+		policy := policy.TokenRequestOptions{
+			Scopes: []string{"https://management.azure.com/.default"},
+		}
+		azToken, err := cred.GetToken(context.Background(), policy)
+		if err != nil {
+			return "", "", errors.Wrap(err, "failed to fetch access token")
+		}
+		publicUrl, err := getPublicUrl(azToken.Token, registry, subscriptionId)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed to get public url with error: %s\n", err)
+		}
+		if tenantId == "" {
+			return "", "", fmt.Errorf("tenantId cannot be empty for ACR token exchange")
+		}
+		ACRToken, err := fetchACRToken(tenantId, azToken.Token, registry)
+		if err != nil {
+			return "", "", errors.Wrap(err, "failed to fetch ACR token")
+		}
+		return ACRToken, publicUrl, nil
+	}
+
 	if tenantId == "" {
 		return "", "", fmt.Errorf("tenantId can't be empty for AAD authentication")
 	}
-
 	if clientId == "" {
 		return "", "", fmt.Errorf("clientId can't be empty for AAD authentication")
 	}
