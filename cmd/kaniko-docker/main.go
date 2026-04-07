@@ -418,6 +418,10 @@ func run(c *cli.Context) error {
 		}
 	}
 
+	normalizedArgs := utils.NormalizeKeyValuePairs(c.StringSlice("args"))
+	normalizedArgsNew := utils.NormalizeKeyValuePairs(c.Generic("args-new").(*utils.CustomStringSliceFlag).GetValue())
+	normalizedLabels := utils.NormalizeKeyValuePairs(c.StringSlice("custom-labels"))
+
 	plugin := kaniko.Plugin{
 		Build: kaniko.Build{
 			DroneCommitRef:              c.String("drone-commit-ref"),
@@ -428,13 +432,13 @@ func run(c *cli.Context) error {
 			AutoTag:                     c.Bool("auto-tag"),
 			AutoTagSuffix:               c.String("auto-tag-suffix"),
 			ExpandTag:                   c.Bool("expand-tag"),
-			Args:                        c.StringSlice("args"),
-			ArgsNew:                     c.Generic("args-new").(*utils.CustomStringSliceFlag).GetValue(),
+			Args:                        normalizedArgs,
+			ArgsNew:                     normalizedArgsNew,
 			IsMultipleBuildArgs:         c.Bool("plugin-multiple-build-agrs"),
 			Target:                      c.String("target"),
 			Repo:                        buildRepo(c.String("registry"), c.String("repo"), c.Bool("expand-repo")),
 			Mirrors:                     c.StringSlice("registry-mirrors"),
-			Labels:                      c.StringSlice("custom-labels"),
+			Labels:                      normalizedLabels,
 			SkipTlsVerify:               c.Bool("skip-tls-verify"),
 			SnapshotMode:                c.String("snapshot-mode"),
 			EnableCache:                 c.Bool("enable-cache"),
