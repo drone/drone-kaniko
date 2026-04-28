@@ -159,12 +159,12 @@ func main() {
 		cli.StringFlag{
 			Name:   "client-secret",
 			Usage:  "Azure client secret",
-			EnvVar: "CLIENT_SECRET",
+			EnvVar: "CLIENT_SECRET,PLUGIN_CLIENT_SECRET",
 		},
 		cli.StringFlag{
 			Name:   "client-cert",
 			Usage:  "Azure client certificate encoded in base64 format",
-			EnvVar: "CLIENT_CERTIFICATE",
+			EnvVar: "CLIENT_CERTIFICATE,PLUGIN_CLIENT_CERTIFICATE",
 		},
 		cli.StringFlag{
 			Name:   "tenant-id",
@@ -174,7 +174,7 @@ func main() {
 		cli.StringFlag{
 			Name:   "subscription-id",
 			Usage:  "Azure Subscription Id",
-			EnvVar: "SUBSCRIPTION_ID",
+			EnvVar: "SUBSCRIPTION_ID,PLUGIN_SUBSCRIPTION_ID",
 		},
 		cli.StringFlag{
 			Name:   "client-id",
