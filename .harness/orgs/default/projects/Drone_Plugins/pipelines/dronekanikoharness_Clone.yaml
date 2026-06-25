@@ -35,7 +35,7 @@ pipeline:
                       identifier: Build
                       spec:
                         connectorRef: Plugins_Docker_Hub_Connector
-                        image: golang:1.25.7
+                        image: golang:1.25.10
                         shell: Sh
                         command: |-
                           go test ./...
@@ -320,7 +320,7 @@ pipeline:
                       identifier: Build_and_Test
                       spec:
                         connectorRef: Plugins_Docker_Hub_Connector
-                        image: golang:1.25.7
+                        image: golang:1.25.10
                         shell: Sh
                         command: |-
                           go test ./...
