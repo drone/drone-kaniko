@@ -1,8 +1,8 @@
-FROM harnesscommunity/kaniko-executor:1.25.15-linux-arm64
+FROM harnesscommunity/kaniko-executor:1.25.16-linux-arm64
 
 ENV HOME /root
 ENV USER root
 
-ENV KANIKO_VERSION=1.25.15
+ENV KANIKO_VERSION=1.25.16
 ADD release/linux/arm64/kaniko-acr /kaniko/
 ENTRYPOINT ["/kaniko/kaniko-acr"]
