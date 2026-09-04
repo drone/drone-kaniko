@@ -54,6 +54,8 @@ type (
 		CacheRunLayers              bool     // Enable or disable running layers from the cache.
 		Cleanup                     bool     // Enable or disable cleanup of temporary files.
 		CompressedCaching           *bool    // Enable or disable compressed caching.
+		Compression                 string   // Compression algorithm to use when pushing image layers (gzip or zstd).
+		CompressionLevel            int      // Compression level to use when pushing image layers.
 		ContextSubPath              string   // Sub-path within the context to build.
 		CustomPlatform              string   // Platform to use for building.
 		Force                       bool     // Force building the image even if it already exists.
@@ -350,6 +352,14 @@ func (p Plugin) Exec() error {
 		} else {
 			cmdArgs = append(cmdArgs, "--compressed-caching=false")
 		}
+	}
+
+	if p.Build.Compression != "" {
+		cmdArgs = append(cmdArgs, fmt.Sprintf("--compression=%s", p.Build.Compression))
+	}
+
+	if p.Build.CompressionLevel != 0 {
+		cmdArgs = append(cmdArgs, fmt.Sprintf("--compression-level=%d", p.Build.CompressionLevel))
 	}
 
 	if p.Build.ContextSubPath != "" {
