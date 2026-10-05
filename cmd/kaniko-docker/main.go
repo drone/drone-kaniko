@@ -1,9 +1,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/joho/godotenv"
 	"github.com/pkg/errors"
@@ -11,6 +15,7 @@ import (
 	"github.com/urfave/cli"
 
 	kaniko "github.com/drone/drone-kaniko"
+	"github.com/drone/drone-kaniko/internal/artifactory"
 	"github.com/drone/drone-kaniko/pkg/artifact"
 	"github.com/drone/drone-kaniko/pkg/docker"
 	"github.com/drone/drone-kaniko/pkg/utils"
@@ -28,6 +33,11 @@ const (
 
 var (
 	version = "unknown"
+
+	legacyDockerAuth       = setDockerAuth
+	executeKaniko          = func(plugin kaniko.Plugin) error { return plugin.Exec() }
+	setupOIDCAuth          = configureOIDCAuth
+	exchangeOIDCCredential = exchangeOIDC
 )
 
 func main() {
@@ -38,6 +48,12 @@ func main() {
 		}
 	}
 
+	if err := newApp().Run(os.Args); err != nil {
+		logrus.Fatal(err)
+	}
+}
+
+func newApp() *cli.App {
 	app := cli.NewApp()
 	app.Name = "kaniko docker plugin"
 	app.Usage = "kaniko docker plugin"
@@ -92,6 +108,26 @@ func main() {
 			Name:   "dockerconfig",
 			Usage:  "docker json dockerconfig",
 			EnvVar: "PLUGIN_CONFIG",
+		},
+		cli.StringFlag{
+			Name:   "url",
+			Usage:  "JFrog Artifactory URL for OIDC authentication",
+			EnvVar: "PLUGIN_URL",
+		},
+		cli.StringFlag{
+			Name:   "artifactory-oidc-token",
+			Usage:  "OIDC token for JFrog Artifactory authentication",
+			EnvVar: "ARTIFACTORY_OIDC_TOKEN",
+		},
+		cli.StringFlag{
+			Name:   "artifactory-oidc-provider-name",
+			Usage:  "JFrog OIDC provider name",
+			EnvVar: "ARTIFACTORY_OIDC_PROVIDER_NAME",
+		},
+		cli.StringFlag{
+			Name:   "artifactory-oidc-project-key",
+			Usage:  "JFrog OIDC project key",
+			EnvVar: "ARTIFACTORY_OIDC_PROJECT_KEY",
 		},
 		cli.StringFlag{
 			Name:   "auto-tag-suffix",
@@ -389,32 +425,49 @@ func main() {
 		},
 	}
 
-	if err := app.Run(os.Args); err != nil {
-		logrus.Fatal(err)
-	}
+	return app
 }
 
 func run(c *cli.Context) error {
 	username := c.String("username")
 	noPush := c.Bool("no-push")
 	configOverride := c.String("dockerconfig")
-	// if configOverride is provided, use this directly to write to docker config file
-	if len(configOverride) > 0 {
-		if err := docker.WriteDockerConfig([]byte(configOverride), dockerPath); err != nil {
+	registryCertificate := c.String("registry-certificate")
+	if hasArtifactoryOIDCInputs(c) {
+		if registryCertificate != "" {
+			return fmt.Errorf("Artifactory OIDC authentication does not support registry certificates")
+		}
+		resources, err := setupOIDCAuth(context.Background(), oidcInputs(c), c.String("artifactory-oidc-project-key"))
+		if err != nil {
 			return err
 		}
-	} else if !noPush || username != "" {
-		// setup auth when pushing/pulling or credentials are defined and docker config override is false
-		err := setDockerAuth(
-			c.String("username"),
-			c.String("password"),
-			c.String("registry"),
-			c.String("base-image-username"),
-			c.String("base-image-password"),
-			c.String("base-image-registry"),
-		)
-		if err != nil {
-			return errors.Wrap(err, "failed to create docker config")
+		defer func() {
+			if resources.cleanup == nil {
+				return
+			}
+			if cleanupErr := resources.cleanup(); cleanupErr != nil {
+				logrus.WithError(cleanupErr).Error("failed to clean up Artifactory OIDC authentication material")
+			}
+		}()
+	} else {
+		// if configOverride is provided, use this directly to write to docker config file
+		if len(configOverride) > 0 {
+			if err := docker.WriteDockerConfig([]byte(configOverride), dockerPath); err != nil {
+				return err
+			}
+		} else if !noPush || username != "" {
+			// setup auth when pushing/pulling or credentials are defined and docker config override is false
+			err := legacyDockerAuth(
+				c.String("username"),
+				c.String("password"),
+				c.String("registry"),
+				c.String("base-image-username"),
+				c.String("base-image-password"),
+				c.String("base-image-registry"),
+			)
+			if err != nil {
+				return errors.Wrap(err, "failed to create docker config")
+			}
 		}
 	}
 
@@ -463,7 +516,7 @@ func run(c *cli.Context) error {
 			LogTimestamp:                c.Bool("log-timestamp"),
 			OCILayoutPath:               c.String("oci-layout-path"),
 			PushRetry:                   c.Int("push-retry"),
-			RegistryCertificate:         c.String("registry-certificate"),
+			RegistryCertificate:         registryCertificate,
 			RegistryClientCert:          c.String("registry-client-cert"),
 			SkipDefaultRegistryFallback: c.Bool("skip-default-registry-fallback"),
 			Reproducible:                c.Bool("reproducible"),
@@ -499,7 +552,96 @@ func run(c *cli.Context) error {
 		flag := c.Bool("ignore-var-run")
 		plugin.Build.IgnoreVarRun = &flag
 	}
-	return plugin.Exec()
+	return executeKaniko(plugin)
+}
+
+type authResources struct {
+	cleanup func() error
+}
+
+func hasArtifactoryOIDCInputs(c *cli.Context) bool {
+	return c.String("url") != "" ||
+		c.String("artifactory-oidc-token") != "" ||
+		c.String("artifactory-oidc-provider-name") != "" ||
+		c.String("artifactory-oidc-project-key") != ""
+}
+
+func oidcInputs(c *cli.Context) artifactory.Inputs {
+	return artifactory.Inputs{
+		ServerURL:             c.String("url"),
+		IDToken:               c.String("artifactory-oidc-token"),
+		ProviderName:          c.String("artifactory-oidc-provider-name"),
+		Registry:              c.String("registry"),
+		Repository:            buildRepo(c.String("registry"), c.String("repo"), c.Bool("expand-repo")),
+		DockerConfigRoot:      filepath.Dir(dockerPath),
+		DockerConfigOverride:  c.String("dockerconfig"),
+		Username:              c.String("username"),
+		Password:              c.String("password"),
+		BaseImageRegistry:     c.String("base-image-registry"),
+		BaseImageUsername:     c.String("base-image-username"),
+		BaseImagePassword:     c.String("base-image-password"),
+		EnableCache:           c.Bool("enable-cache"),
+		CacheRepository:       c.String("cache-repo"),
+		NoPush:                c.Bool("no-push"),
+		PushOnly:              c.Bool("push-only"),
+		TarPath:               c.String("tar-path"),
+		SourceTarPath:         c.String("source-tar-path"),
+		RegistryMirror:        "",
+		RegistryMirrors:       c.StringSlice("registry-mirrors"),
+		RegistryClientCert:    c.String("registry-client-cert"),
+		Insecure:              c.Bool("insecure"),
+		InsecurePull:          c.Bool("insecure-pull"),
+		InsecureRegistry:      c.String("insecure-registry"),
+		SkipTLSVerify:         c.Bool("skip-tls-verify"),
+		SkipTLSVerifyPull:     c.Bool("skip-tls-verify-pull"),
+		SkipTLSVerifyRegistry: c.Bool("skip-tls-verify-registry"),
+	}
+}
+
+func configureOIDCAuth(
+	ctx context.Context, inputs artifactory.Inputs, projectKey string,
+) (authResources, error) {
+	if err := artifactory.ValidateInputs(inputs); err != nil {
+		return authResources{}, err
+	}
+	destination, err := artifactory.ValidateDestination(inputs.ServerURL, inputs.Registry, inputs.Repository)
+	if err != nil {
+		return authResources{}, err
+	}
+
+	fail := func(err error) (authResources, error) {
+		return authResources{}, err
+	}
+
+	credential, err := exchangeOIDCCredential(
+		ctx,
+		&http.Client{Transport: http.DefaultTransport.(*http.Transport).Clone(), Timeout: 30 * time.Second},
+		mustTokenEndpoint(inputs.ServerURL),
+		inputs.IDToken,
+		inputs.ProviderName,
+		projectKey,
+	)
+	if err != nil {
+		return fail(err)
+	}
+	dockerCleanup, err := artifactory.SetupCredentials(inputs, destination, credential, time.Now)
+	if err != nil {
+		return fail(err)
+	}
+	return authResources{
+		cleanup: dockerCleanup,
+	}, nil
+}
+
+func exchangeOIDC(
+	ctx context.Context, client *http.Client, endpoint, idToken, providerName, projectKey string,
+) (artifactory.Credential, error) {
+	return (artifactory.ExchangeClient{HTTPClient: client}).Exchange(ctx, endpoint, idToken, providerName, projectKey)
+}
+
+func mustTokenEndpoint(serverURL string) string {
+	endpoint, _ := artifactory.ResolveTokenEndpoint(serverURL)
+	return endpoint
 }
 
 func setDockerAuth(username, password, registry, baseImageUsername, baseImagePassword, baseImageRegistry string) error {
