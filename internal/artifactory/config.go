@@ -13,7 +13,7 @@ const (
 	credentialSafetyMargin = 5 * time.Minute
 )
 
-// Inputs contains the OIDC-specific settings and conflicting legacy Kaniko
+// Inputs contains the OIDC-specific settings and conflicting standard Kaniko
 // options that must be validated before configuring short-lived credentials.
 type Inputs struct {
 	ServerURL    string

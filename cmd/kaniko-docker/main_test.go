@@ -173,8 +173,8 @@ func TestCanonicalOIDCEnvironmentVariablesPopulateInputs(t *testing.T) {
 	}
 }
 
-func TestRegistryCertificateLegacyPathAndOIDCRejection(t *testing.T) {
-	t.Run("legacy mode passes the configured file path to Kaniko", func(t *testing.T) {
+func TestRegistryCertificateStandardPathAndOIDCRejection(t *testing.T) {
+	t.Run("standard mode passes the configured file path to Kaniko", func(t *testing.T) {
 		originalExec := executeKaniko
 		t.Cleanup(func() { executeKaniko = originalExec })
 		executeKaniko = func(plugin kaniko.Plugin) error {
