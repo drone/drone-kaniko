@@ -34,7 +34,7 @@ const (
 var (
 	version = "unknown"
 
-	legacyDockerAuth       = setDockerAuth
+	setupDockerAuth        = setDockerAuth
 	executeKaniko          = func(plugin kaniko.Plugin) error { return plugin.Exec() }
 	setupOIDCAuth          = configureOIDCAuth
 	exchangeOIDCCredential = exchangeOIDC
@@ -457,7 +457,7 @@ func run(c *cli.Context) error {
 			}
 		} else if !noPush || username != "" {
 			// setup auth when pushing/pulling or credentials are defined and docker config override is false
-			err := legacyDockerAuth(
+			err := setupDockerAuth(
 				c.String("username"),
 				c.String("password"),
 				c.String("registry"),

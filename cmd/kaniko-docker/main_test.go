@@ -16,17 +16,17 @@ import (
 	"github.com/urfave/cli"
 )
 
-func TestConfigureAuthRoutesLegacyAndOIDC(t *testing.T) {
-	t.Run("missing OIDC inputs preserves legacy setup", func(t *testing.T) {
-		var legacyCalls int
-		originalLegacy := legacyDockerAuth
+func TestConfigureAuthRoutesDockerAndOIDC(t *testing.T) {
+	t.Run("missing OIDC inputs use Docker auth", func(t *testing.T) {
+		var dockerAuthCalls int
+		originalDockerAuth := setupDockerAuth
 		originalExec := executeKaniko
 		t.Cleanup(func() {
-			legacyDockerAuth = originalLegacy
+			setupDockerAuth = originalDockerAuth
 			executeKaniko = originalExec
 		})
-		legacyDockerAuth = func(_, _, _, _, _, _ string) error {
-			legacyCalls++
+		setupDockerAuth = func(_, _, _, _, _, _ string) error {
+			dockerAuthCalls++
 			return nil
 		}
 		executeKaniko = func(kaniko.Plugin) error { return nil }
@@ -34,8 +34,8 @@ func TestConfigureAuthRoutesLegacyAndOIDC(t *testing.T) {
 		if err := newApp().Run([]string{"kaniko-docker", "--repo", "team/image"}); err != nil {
 			t.Fatalf("run() error = %v", err)
 		}
-		if legacyCalls != 1 {
-			t.Fatalf("legacy auth calls = %d, want 1", legacyCalls)
+		if dockerAuthCalls != 1 {
+			t.Fatalf("Docker auth calls = %d, want 1", dockerAuthCalls)
 		}
 	})
 
@@ -73,6 +73,47 @@ func TestConfigureAuthRoutesLegacyAndOIDC(t *testing.T) {
 			t.Fatalf("OIDC setup calls = %d, want 1", oidcCalls)
 		}
 	})
+}
+
+func TestHarnessArtifactoryUsernamePasswordInputsUseDockerAuth(t *testing.T) {
+	t.Setenv("PLUGIN_REGISTRY", "jfrog.example.com")
+	t.Setenv("PLUGIN_USERNAME", "CHIRAG_S")
+	t.Setenv("PLUGIN_PASSWORD", "password")
+	t.Setenv("PLUGIN_REPO", "jfrog.example.com/team/image")
+	t.Setenv("PLUGIN_URL", "")
+	t.Setenv("ARTIFACTORY_OIDC_TOKEN", "")
+	t.Setenv("ARTIFACTORY_OIDC_PROVIDER_NAME", "")
+	t.Setenv("ARTIFACTORY_OIDC_PROJECT_KEY", "")
+
+	originalDockerAuth := setupDockerAuth
+	originalOIDC := setupOIDCAuth
+	originalExec := executeKaniko
+	t.Cleanup(func() {
+		setupDockerAuth = originalDockerAuth
+		setupOIDCAuth = originalOIDC
+		executeKaniko = originalExec
+	})
+
+	var dockerAuthCalls int
+	setupDockerAuth = func(username, password, registry, _, _, _ string) error {
+		dockerAuthCalls++
+		if username != "CHIRAG_S" || password != "password" || registry != "jfrog.example.com" {
+			t.Fatalf("unexpected Docker credentials: username=%q password=%q registry=%q", username, password, registry)
+		}
+		return nil
+	}
+	setupOIDCAuth = func(context.Context, artifactory.Inputs, string) (authResources, error) {
+		t.Fatal("OIDC setup must not run for username/password inputs")
+		return authResources{}, nil
+	}
+	executeKaniko = func(kaniko.Plugin) error { return nil }
+
+	if err := newApp().Run([]string{"kaniko-docker"}); err != nil {
+		t.Fatalf("run() error = %v", err)
+	}
+	if dockerAuthCalls != 1 {
+		t.Fatalf("Docker auth calls = %d, want 1", dockerAuthCalls)
+	}
 }
 
 func TestPartialOIDCInputsFailInsteadOfFallingBack(t *testing.T) {
