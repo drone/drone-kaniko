@@ -202,20 +202,31 @@ func (p Plugin) Exec() error {
 			return fmt.Errorf("missing required destination repository for push-only operation")
 		}
 
-		// Load the image from the tarball
-		img, err := crane.Load(p.Build.SourceTarPath)
+		loadImageFromTarball := p.LoadImageFromTarball
+		if loadImageFromTarball == nil {
+			loadImageFromTarball = func(path string) (v1.Image, error) {
+				return crane.Load(path)
+			}
+		}
+		img, err := loadImageFromTarball(p.Build.SourceTarPath)
 		if err != nil {
 			return fmt.Errorf("failed to load image from tarball: %v", err)
 		}
 
 		// If no tags are specified, use 'latest'
 		tags := p.Build.Tags
+		pushImageToRegistry := p.PushImageToRegistry
+		if pushImageToRegistry == nil {
+			pushImageToRegistry = func(image v1.Image, destination string) error {
+				return crane.Push(image, destination)
+			}
+		}
 
 		for _, tag := range tags {
 			dest := fmt.Sprintf("%s:%s", p.Build.Repo, tag)
 
 			// Push the image to the destination
-			err := crane.Push(img, dest)
+			err := pushImageToRegistry(img, dest)
 			if err != nil {
 				return fmt.Errorf("failed to push image from tarball [%s] to destination [%s]: %v", p.Build.SourceTarPath, dest, err)
 			}

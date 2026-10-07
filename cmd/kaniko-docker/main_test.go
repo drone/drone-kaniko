@@ -166,7 +166,7 @@ func TestRegistryCertificateLegacyPathAndOIDCRejection(t *testing.T) {
 	})
 }
 
-func TestOIDCAuthRejectsInsecureBeforeExchange(t *testing.T) {
+func TestOIDCAuthRejectsIncompatibleInputsBeforeExchange(t *testing.T) {
 	originalExchange := exchangeOIDCCredential
 	t.Cleanup(func() { exchangeOIDCCredential = originalExchange })
 	exchangeOIDCCredential = func(context.Context, *http.Client, string, string, string, string) (artifactory.Credential, error) {
@@ -174,10 +174,106 @@ func TestOIDCAuthRejectsInsecureBeforeExchange(t *testing.T) {
 		return artifactory.Credential{}, nil
 	}
 
-	inputs := validOIDCInputs()
-	inputs.Insecure = true
-	if _, err := configureOIDCAuth(context.Background(), inputs, ""); err == nil {
-		t.Fatal("insecure configuration error = nil")
+	tests := []struct {
+		name   string
+		mutate func(*artifactory.Inputs)
+	}{
+		{name: "Docker config", mutate: func(in *artifactory.Inputs) { in.DockerConfigOverride = "{}" }},
+		{name: "username", mutate: func(in *artifactory.Inputs) { in.Username = "user" }},
+		{name: "password", mutate: func(in *artifactory.Inputs) { in.Password = "password" }},
+		{name: "cache enabled", mutate: func(in *artifactory.Inputs) { in.EnableCache = true }},
+		{name: "cache repository", mutate: func(in *artifactory.Inputs) { in.CacheRepository = "cache" }},
+		{name: "cache TTL", mutate: func(in *artifactory.Inputs) { in.CacheTTL = 24 }},
+		{name: "cache directory", mutate: func(in *artifactory.Inputs) { in.CacheDir = "/cache" }},
+		{name: "cache copy layers", mutate: func(in *artifactory.Inputs) { in.CacheCopyLayers = true }},
+		{name: "cache run layers", mutate: func(in *artifactory.Inputs) { in.CacheRunLayers = true }},
+		{name: "compressed cache", mutate: func(in *artifactory.Inputs) { in.CompressedCache = true }},
+		{name: "registry mirrors",
+			mutate: func(in *artifactory.Inputs) { in.RegistryMirrors = []string{"mirror.example.com"} }},
+		{name: "registry client certificate",
+			mutate: func(in *artifactory.Inputs) { in.RegistryClientCert = "/certs/client.pem" }},
+		{name: "insecure", mutate: func(in *artifactory.Inputs) { in.Insecure = true }},
+		{name: "insecure pull", mutate: func(in *artifactory.Inputs) { in.InsecurePull = true }},
+		{name: "insecure registry",
+			mutate: func(in *artifactory.Inputs) { in.InsecureRegistry = "jfrog.example.com" }},
+		{name: "skip TLS verify", mutate: func(in *artifactory.Inputs) { in.SkipTLSVerify = true }},
+		{name: "skip TLS verify pull", mutate: func(in *artifactory.Inputs) { in.SkipTLSVerifyPull = true }},
+		{name: "skip TLS verify registry",
+			mutate: func(in *artifactory.Inputs) { in.SkipTLSVerifyRegistry = true }},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			inputs := validOIDCInputs()
+			tt.mutate(&inputs)
+			if _, err := configureOIDCAuth(context.Background(), inputs, ""); err == nil {
+				t.Fatal("incompatible OIDC configuration error = nil")
+			}
+		})
+	}
+}
+
+func TestOIDCAuthSupportsBuildModes(t *testing.T) {
+	tests := []struct {
+		name          string
+		args          []string
+		wantNoPush    bool
+		wantPushOnly  bool
+		wantTarPath   string
+		wantSourceTar string
+	}{
+		{name: "build without push", args: []string{"--no-push"}, wantNoPush: true},
+		{name: "push only", args: []string{"--push-only"}, wantPushOnly: true},
+		{
+			name:          "push existing tar",
+			args:          []string{"--push-only", "--source-tar-path", "/workspace/source-image.tar"},
+			wantPushOnly:  true,
+			wantSourceTar: "/workspace/source-image.tar",
+		},
+		{
+			name:        "save generated image as tar",
+			args:        []string{"--tar-path", "/workspace/generated-image.tar"},
+			wantTarPath: "/workspace/generated-image.tar",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var oidcCalls, execCalls, cleanupCalls int
+			originalOIDC := setupOIDCAuth
+			originalExec := executeKaniko
+			t.Cleanup(func() {
+				setupOIDCAuth = originalOIDC
+				executeKaniko = originalExec
+			})
+			setupOIDCAuth = func(context.Context, artifactory.Inputs, string) (authResources, error) {
+				oidcCalls++
+				return authResources{cleanup: func() error {
+					cleanupCalls++
+					return nil
+				}}, nil
+			}
+			executeKaniko = func(plugin kaniko.Plugin) error {
+				execCalls++
+				if plugin.Build.NoPush != tt.wantNoPush || plugin.Build.PushOnly != tt.wantPushOnly ||
+					plugin.Build.TarPath != tt.wantTarPath || plugin.Build.SourceTarPath != tt.wantSourceTar {
+					t.Fatalf("unexpected build mode: %#v", plugin.Build)
+				}
+				return nil
+			}
+
+			if err := newApp().Run(append(oidcCLIArgs(), tt.args...)); err != nil {
+				t.Fatalf("run() error = %v", err)
+			}
+			if oidcCalls != 1 || execCalls != 1 || cleanupCalls != 1 {
+				t.Fatalf(
+					"calls: OIDC=%d execution=%d cleanup=%d, want each called once",
+					oidcCalls,
+					execCalls,
+					cleanupCalls,
+				)
+			}
+		})
 	}
 }
 

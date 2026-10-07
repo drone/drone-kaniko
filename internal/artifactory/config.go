@@ -33,12 +33,12 @@ type Inputs struct {
 
 	EnableCache     bool
 	CacheRepository string
-	NoPush          bool
-	PushOnly        bool
-	TarPath         string
-	SourceTarPath   string
+	CacheTTL        int
+	CacheDir        string
+	CacheCopyLayers bool
+	CacheRunLayers  bool
+	CompressedCache bool
 
-	RegistryMirror        string
 	RegistryMirrors       []string
 	RegistryClientCert    string
 	Insecure              bool
@@ -71,8 +71,8 @@ func ValidateInputs(inputs Inputs) error {
 		return fmt.Errorf("Docker config root is required")
 	}
 	if inputs.DockerConfigOverride != "" || inputs.Username != "" || inputs.Password != "" ||
-		inputs.EnableCache || inputs.CacheRepository != "" || inputs.NoPush || inputs.PushOnly ||
-		inputs.TarPath != "" || inputs.SourceTarPath != "" || inputs.RegistryMirror != "" ||
+		inputs.EnableCache || inputs.CacheRepository != "" || inputs.CacheTTL != 0 || inputs.CacheDir != "" ||
+		inputs.CacheCopyLayers || inputs.CacheRunLayers || inputs.CompressedCache ||
 		len(inputs.RegistryMirrors) != 0 || inputs.RegistryClientCert != "" || inputs.Insecure || inputs.InsecurePull ||
 		inputs.InsecureRegistry != "" || inputs.SkipTLSVerify || inputs.SkipTLSVerifyPull ||
 		inputs.SkipTLSVerifyRegistry {
