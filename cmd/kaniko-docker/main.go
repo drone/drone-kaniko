@@ -491,7 +491,7 @@ func run(c *cli.Context) error {
 			SkipTlsVerify:               c.Bool("skip-tls-verify"),
 			SnapshotMode:                c.String("snapshot-mode"),
 			EnableCache:                 c.Bool("enable-cache"),
-			CacheRepo:                   buildRepo(c.String("registry"), c.String("cache-repo"), c.Bool("expand-repo")),
+			CacheRepo:                   effectiveCacheRepository(c),
 			CacheTTL:                    c.Int("cache-ttl"),
 			DigestFile:                  defaultDigestFile,
 			NoPush:                      noPush,
@@ -581,7 +581,7 @@ func oidcInputs(c *cli.Context) artifactory.Inputs {
 		BaseImageUsername:     c.String("base-image-username"),
 		BaseImagePassword:     c.String("base-image-password"),
 		EnableCache:           c.Bool("enable-cache"),
-		CacheRepository:       c.String("cache-repo"),
+		CacheRepository:       effectiveCacheRepository(c),
 		CacheTTL:              c.Int("cache-ttl"),
 		CacheDir:              c.String("cache-dir"),
 		CacheCopyLayers:       c.Bool("cache-copy-layers"),
@@ -682,4 +682,25 @@ func buildRepo(registry, repo string, expandRepo bool) string {
 	}
 	// Prefix the repo with the registry
 	return registry + "/" + repo
+}
+
+func effectiveCacheRepository(c *cli.Context) string {
+	repository := c.String("cache-repo")
+	if repository == "" {
+		return ""
+	}
+	if hasArtifactoryOIDCInputs(c) && isQualifiedRepository(repository) {
+		return repository
+	}
+	return buildRepo(c.String("registry"), repository, c.Bool("expand-repo") || hasArtifactoryOIDCInputs(c))
+}
+
+func isQualifiedRepository(repository string) bool {
+	firstComponent, _, found := strings.Cut(repository, "/")
+	if !found {
+		return false
+	}
+	return strings.EqualFold(firstComponent, "localhost") ||
+		strings.Contains(firstComponent, ".") ||
+		strings.Contains(firstComponent, ":")
 }

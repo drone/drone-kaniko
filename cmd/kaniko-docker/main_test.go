@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -222,15 +223,6 @@ func TestOIDCAuthRejectsIncompatibleInputsBeforeExchange(t *testing.T) {
 		{name: "Docker config", mutate: func(in *artifactory.Inputs) { in.DockerConfigOverride = "{}" }},
 		{name: "username", mutate: func(in *artifactory.Inputs) { in.Username = "user" }},
 		{name: "password", mutate: func(in *artifactory.Inputs) { in.Password = "password" }},
-		{name: "cache enabled", mutate: func(in *artifactory.Inputs) { in.EnableCache = true }},
-		{name: "cache repository", mutate: func(in *artifactory.Inputs) { in.CacheRepository = "cache" }},
-		{name: "cache TTL", mutate: func(in *artifactory.Inputs) { in.CacheTTL = 24 }},
-		{name: "cache directory", mutate: func(in *artifactory.Inputs) { in.CacheDir = "/cache" }},
-		{name: "cache copy layers", mutate: func(in *artifactory.Inputs) { in.CacheCopyLayers = true }},
-		{name: "cache run layers", mutate: func(in *artifactory.Inputs) { in.CacheRunLayers = true }},
-		{name: "compressed cache", mutate: func(in *artifactory.Inputs) { in.CompressedCache = true }},
-		{name: "registry mirrors",
-			mutate: func(in *artifactory.Inputs) { in.RegistryMirrors = []string{"mirror.example.com"} }},
 		{name: "registry client certificate",
 			mutate: func(in *artifactory.Inputs) { in.RegistryClientCert = "/certs/client.pem" }},
 		{name: "insecure", mutate: func(in *artifactory.Inputs) { in.Insecure = true }},
@@ -251,6 +243,34 @@ func TestOIDCAuthRejectsIncompatibleInputsBeforeExchange(t *testing.T) {
 				t.Fatal("incompatible OIDC configuration error = nil")
 			}
 		})
+	}
+}
+
+func TestOIDCAuthSupportsRegistryMirrors(t *testing.T) {
+	originalOIDC := setupOIDCAuth
+	originalExec := executeKaniko
+	t.Cleanup(func() {
+		setupOIDCAuth = originalOIDC
+		executeKaniko = originalExec
+	})
+
+	wantMirrors := []string{"mirror.gcr.io", "mirror.example.com"}
+	setupOIDCAuth = func(_ context.Context, inputs artifactory.Inputs, _ string) (authResources, error) {
+		if !reflect.DeepEqual(inputs.RegistryMirrors, wantMirrors) {
+			t.Fatalf("OIDC registry mirrors = %#v, want %#v", inputs.RegistryMirrors, wantMirrors)
+		}
+		return authResources{cleanup: func() error { return nil }}, nil
+	}
+	executeKaniko = func(plugin kaniko.Plugin) error {
+		if !reflect.DeepEqual(plugin.Build.Mirrors, wantMirrors) {
+			t.Fatalf("Kaniko registry mirrors = %#v, want %#v", plugin.Build.Mirrors, wantMirrors)
+		}
+		return nil
+	}
+
+	args := append(oidcCLIArgs(), "--registry-mirrors", "mirror.gcr.io", "--registry-mirrors", "mirror.example.com")
+	if err := newApp().Run(args); err != nil {
+		t.Fatalf("run() error = %v", err)
 	}
 }
 
@@ -315,6 +335,59 @@ func TestOIDCAuthSupportsBuildModes(t *testing.T) {
 				)
 			}
 		})
+	}
+}
+
+func TestOIDCAuthSupportsCacheSettings(t *testing.T) {
+	originalOIDC := setupOIDCAuth
+	originalExec := executeKaniko
+	t.Cleanup(func() {
+		setupOIDCAuth = originalOIDC
+		executeKaniko = originalExec
+	})
+
+	setupOIDCAuth = func(_ context.Context, inputs artifactory.Inputs, _ string) (authResources, error) {
+		if inputs.CacheRepository != "jfrog.example.com/team/cache" {
+			t.Fatalf("OIDC cache repository = %q, want fully qualified repository", inputs.CacheRepository)
+		}
+		return authResources{cleanup: func() error { return nil }}, nil
+	}
+	executeKaniko = func(plugin kaniko.Plugin) error {
+		if !plugin.Build.EnableCache || plugin.Build.CacheRepo != "jfrog.example.com/team/cache" ||
+			plugin.Build.CacheTTL != 24 || plugin.Build.CacheDir != "/cache" ||
+			!plugin.Build.CacheCopyLayers || !plugin.Build.CacheRunLayers ||
+			plugin.Build.CompressedCaching == nil || !*plugin.Build.CompressedCaching {
+			t.Fatalf("unexpected cache settings: %#v", plugin.Build)
+		}
+		return nil
+	}
+
+	args := append(oidcCLIArgs(), "--enable-cache", "--cache-repo", "team/cache", "--cache-ttl", "24",
+		"--cache-dir", "/cache", "--cache-copy-layers", "--cache-run-layers", "--compressed-caching")
+	if err := newApp().Run(args); err != nil {
+		t.Fatalf("run() error = %v", err)
+	}
+}
+
+func TestOIDCAuthPreservesQualifiedCacheRepositoryForOriginValidation(t *testing.T) {
+	originalOIDC := setupOIDCAuth
+	originalExec := executeKaniko
+	t.Cleanup(func() {
+		setupOIDCAuth = originalOIDC
+		executeKaniko = originalExec
+	})
+
+	setupOIDCAuth = func(_ context.Context, inputs artifactory.Inputs, _ string) (authResources, error) {
+		if inputs.CacheRepository != "other.example.com/team/cache" {
+			t.Fatalf("OIDC cache repository = %q, want qualified repository unchanged", inputs.CacheRepository)
+		}
+		return authResources{cleanup: func() error { return nil }}, nil
+	}
+	executeKaniko = func(kaniko.Plugin) error { return nil }
+
+	args := append(oidcCLIArgs(), "--enable-cache", "--cache-repo", "other.example.com/team/cache")
+	if err := newApp().Run(args); err != nil {
+		t.Fatalf("run() error = %v", err)
 	}
 }
 

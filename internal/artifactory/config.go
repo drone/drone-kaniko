@@ -71,17 +71,19 @@ func ValidateInputs(inputs Inputs) error {
 		return fmt.Errorf("Docker config root is required")
 	}
 	if inputs.DockerConfigOverride != "" || inputs.Username != "" || inputs.Password != "" ||
-		inputs.EnableCache || inputs.CacheRepository != "" || inputs.CacheTTL != 0 || inputs.CacheDir != "" ||
-		inputs.CacheCopyLayers || inputs.CacheRunLayers || inputs.CompressedCache ||
-		len(inputs.RegistryMirrors) != 0 || inputs.RegistryClientCert != "" || inputs.Insecure || inputs.InsecurePull ||
-		inputs.InsecureRegistry != "" || inputs.SkipTLSVerify || inputs.SkipTLSVerifyPull ||
-		inputs.SkipTLSVerifyRegistry {
+		inputs.RegistryClientCert != "" || inputs.Insecure || inputs.InsecurePull || inputs.InsecureRegistry != "" ||
+		inputs.SkipTLSVerify || inputs.SkipTLSVerifyPull || inputs.SkipTLSVerifyRegistry {
 		return fmt.Errorf("option is incompatible with JFrog OIDC credentials")
 	}
 
 	destination, err := ValidateDestination(inputs.ServerURL, inputs.Registry, inputs.Repository)
 	if err != nil {
 		return err
+	}
+	if inputs.CacheRepository != "" {
+		if _, err := ValidateDestination(inputs.ServerURL, inputs.Registry, inputs.CacheRepository); err != nil {
+			return fmt.Errorf("invalid cache repository: %w", err)
+		}
 	}
 	if inputs.BaseImageRegistry == "" {
 		return nil
@@ -145,6 +147,19 @@ func SetupCredentials(inputs Inputs, destination Destination, credential Credent
 		Username: credential.Username,
 		Password: credential.AccessToken,
 	}}
+	if inputs.CacheRepository != "" {
+		cacheDestination, err := ValidateDestination(inputs.ServerURL, inputs.Registry, inputs.CacheRepository)
+		if err != nil {
+			return nil, fmt.Errorf("invalid cache repository: %w", err)
+		}
+		if cacheDestination.Registry != destination.Registry {
+			credentials = append(credentials, docker.RegistryCredentials{
+				Registry: cacheDestination.Registry,
+				Username: credential.Username,
+				Password: credential.AccessToken,
+			})
+		}
+	}
 	if inputs.BaseImageRegistry != "" {
 		credentials = append(credentials, docker.RegistryCredentials{
 			Registry: inputs.BaseImageRegistry,

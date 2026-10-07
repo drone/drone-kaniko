@@ -28,14 +28,6 @@ func TestValidateInputsRejectsConflicts(t *testing.T) {
 			in.BaseImageUsername = "base-user"
 			in.BaseImagePassword = "base-password"
 		}},
-		{name: "remote cache enabled", mutate: func(in *Inputs) { in.EnableCache = true }},
-		{name: "remote cache repository", mutate: func(in *Inputs) { in.CacheRepository = "jfrog.example.com/cache" }},
-		{name: "cache TTL", mutate: func(in *Inputs) { in.CacheTTL = 24 }},
-		{name: "cache directory", mutate: func(in *Inputs) { in.CacheDir = "/cache" }},
-		{name: "cache copy layers", mutate: func(in *Inputs) { in.CacheCopyLayers = true }},
-		{name: "cache run layers", mutate: func(in *Inputs) { in.CacheRunLayers = true }},
-		{name: "compressed cache", mutate: func(in *Inputs) { in.CompressedCache = true }},
-		{name: "registry mirrors", mutate: func(in *Inputs) { in.RegistryMirrors = []string{"mirror.example.com"} }},
 		{name: "registry client certificate", mutate: func(in *Inputs) { in.RegistryClientCert = "/certs/client.pem" }},
 		{name: "insecure", mutate: func(in *Inputs) { in.Insecure = true }},
 		{name: "insecure pull", mutate: func(in *Inputs) { in.InsecurePull = true }},
@@ -61,6 +53,47 @@ func TestValidateInputsRejectsConflicts(t *testing.T) {
 				t.Fatal("ValidateInputs() error = nil, want conflict error")
 			}
 		})
+	}
+}
+
+func TestValidateInputsAllowsRegistryMirrors(t *testing.T) {
+	t.Parallel()
+
+	inputs := validInputs()
+	inputs.RegistryMirrors = []string{"mirror.gcr.io", "mirror.example.com"}
+
+	if err := ValidateInputs(inputs); err != nil {
+		t.Fatalf("ValidateInputs() error = %v", err)
+	}
+}
+
+func TestValidateInputsAllowsCacheSettings(t *testing.T) {
+	t.Parallel()
+
+	inputs := validInputs()
+	inputs.EnableCache = true
+	inputs.CacheRepository = "jfrog.example.com/team/cache"
+	inputs.CacheTTL = 24
+	inputs.CacheDir = "/cache"
+	inputs.CacheCopyLayers = true
+	inputs.CacheRunLayers = true
+	inputs.CompressedCache = true
+
+	if err := ValidateInputs(inputs); err != nil {
+		t.Fatalf("ValidateInputs() error = %v", err)
+	}
+}
+
+func TestValidateInputsRejectsCrossOriginCacheRepository(t *testing.T) {
+	t.Parallel()
+
+	inputs := validInputs()
+	inputs.EnableCache = true
+	inputs.CacheRepository = "other.example.com/team/cache"
+
+	if err := ValidateInputs(inputs); err == nil ||
+		!strings.Contains(err.Error(), "repository origin does not match JFrog server") {
+		t.Fatalf("ValidateInputs() error = %v, want cache repository origin mismatch", err)
 	}
 }
 
@@ -162,6 +195,45 @@ func TestSetupCredentialsWritesAttemptLocalConfigAndCleansUp(t *testing.T) {
 	if err := cleanup(); err != nil {
 		t.Fatalf("second cleanup() error = %v", err)
 	}
+}
+
+func TestSetupCredentialsWritesCredentialForCacheRegistryAlias(t *testing.T) {
+	original, hadOriginal := os.LookupEnv("DOCKER_CONFIG")
+	t.Cleanup(func() {
+		if hadOriginal {
+			_ = os.Setenv("DOCKER_CONFIG", original)
+		} else {
+			_ = os.Unsetenv("DOCKER_CONFIG")
+		}
+	})
+
+	inputs := validInputs()
+	inputs.CacheRepository = "jfrog.example.com:443/team/cache"
+	destination, err := ValidateDestination(inputs.ServerURL, inputs.Registry, inputs.Repository)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cleanup, err := SetupCredentials(
+		inputs,
+		destination,
+		Credential{Username: "oidc-user", AccessToken: "short-lived-token", ExpiresIn: 35 * 60},
+		time.Now,
+	)
+	if err != nil {
+		t.Fatalf("SetupCredentials() error = %v", err)
+	}
+	t.Cleanup(func() { _ = cleanup() })
+
+	data, err := os.ReadFile(filepath.Join(os.Getenv("DOCKER_CONFIG"), "config.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var config docker.Config
+	if err := json.Unmarshal(data, &config); err != nil {
+		t.Fatal(err)
+	}
+	assertAuth(t, config, "jfrog.example.com", "oidc-user:short-lived-token")
+	assertAuth(t, config, "jfrog.example.com:443", "oidc-user:short-lived-token")
 }
 
 func TestSetupCredentialsCleanupAfterOperationFailure(t *testing.T) {
