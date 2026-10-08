@@ -48,12 +48,6 @@ func main() {
 		}
 	}
 
-	if err := newApp().Run(os.Args); err != nil {
-		logrus.Fatal(err)
-	}
-}
-
-func newApp() *cli.App {
 	app := cli.NewApp()
 	app.Name = "kaniko docker plugin"
 	app.Usage = "kaniko docker plugin"
@@ -425,7 +419,9 @@ func newApp() *cli.App {
 		},
 	}
 
-	return app
+	if err := app.Run(os.Args); err != nil {
+		logrus.Fatal(err)
+	}
 }
 
 func run(c *cli.Context) error {
