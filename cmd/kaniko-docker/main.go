@@ -431,7 +431,7 @@ func run(c *cli.Context) error {
 	registryCertificate := c.String("registry-certificate")
 	if hasArtifactoryOIDCInputs(c) {
 		if registryCertificate != "" {
-			return fmt.Errorf("Artifactory OIDC authentication does not support registry certificates")
+			logrus.Warn("Artifactory OIDC authentication does not support registry certificates for token exchange")
 		}
 		resources, err := setupOIDCAuth(context.Background(), oidcInputs(c), c.String("artifactory-oidc-project-key"))
 		if err != nil {
