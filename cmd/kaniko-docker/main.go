@@ -605,10 +605,6 @@ func configureOIDCAuth(
 		return authResources{}, err
 	}
 
-	fail := func(err error) (authResources, error) {
-		return authResources{}, err
-	}
-
 	credential, err := exchangeOIDCCredential(
 		ctx,
 		&http.Client{Transport: http.DefaultTransport.(*http.Transport).Clone(), Timeout: 30 * time.Second},
@@ -618,11 +614,11 @@ func configureOIDCAuth(
 		projectKey,
 	)
 	if err != nil {
-		return fail(err)
+		return authResources{}, err
 	}
 	dockerCleanup, err := artifactory.SetupCredentials(inputs, destination, credential, time.Now)
 	if err != nil {
-		return fail(err)
+		return authResources{}, err
 	}
 	return authResources{
 		cleanup: dockerCleanup,
@@ -636,7 +632,10 @@ func exchangeOIDC(
 }
 
 func mustTokenEndpoint(serverURL string) string {
-	endpoint, _ := artifactory.ResolveTokenEndpoint(serverURL)
+	endpoint, err := artifactory.ResolveTokenEndpoint(serverURL)
+	if err != nil {
+		logrus.WithError(err).Error("failed to resolve JFrog OIDC token endpoint")
+	}
 	return endpoint
 }
 
