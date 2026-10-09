@@ -94,6 +94,35 @@ docker run --rm \
 
 ## Usage
 
+### Artifactory OIDC registry authentication
+
+Harness generates the Artifactory OIDC values. The plugin selects Artifactory
+OIDC authentication when a `PLUGIN_URL`, `ARTIFACTORY_OIDC_TOKEN`,
+`ARTIFACTORY_OIDC_PROVIDER_NAME`, or `ARTIFACTORY_OIDC_PROJECT_KEY` input is
+present. `PLUGIN_URL`, `ARTIFACTORY_OIDC_TOKEN`, and
+`ARTIFACTORY_OIDC_PROVIDER_NAME` are required; `ARTIFACTORY_OIDC_PROJECT_KEY`
+is optional. Partial OIDC input fails validation instead of falling back to
+Docker username/password authentication. The token exchange supplies a
+short-lived Docker credential. The returned credential must be valid for at
+least 35 minutes before Kaniko starts.
+
+```console
+PLUGIN_URL=https://artifactory.example.com
+ARTIFACTORY_OIDC_TOKEN=REDACTED_HARNESS_OIDC_TOKEN
+ARTIFACTORY_OIDC_PROVIDER_NAME=REDACTED_PROVIDER_NAME
+ARTIFACTORY_OIDC_PROJECT_KEY=REDACTED_PROJECT_KEY
+PLUGIN_REGISTRY=artifactory.example.com
+PLUGIN_REPO=artifactory.example.com/team/image
+```
+
+Custom registry CA certificates, registry client certificates, and Harness
+Secure Tunnel proxy configuration are not supported in this mode.
+
+Kaniko cache settings are supported. A relative `PLUGIN_CACHE_REPO` is
+qualified under `PLUGIN_REGISTRY`; a fully qualified cache repository must
+belong to the same JFrog HTTPS origin. Cross-origin cache repositories are
+rejected.
+
 ### Operation Modes
 
 Default Mode (Build and Push):
