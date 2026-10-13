@@ -684,6 +684,8 @@ func effectiveCacheRepository(c *cli.Context) string {
 	if repository == "" {
 		return ""
 	}
+	// OIDC credentials are scoped to the selected JFrog registry, so qualify relative cache repositories
+	// against that registry while preserving repositories that already specify a registry host.
 	if hasArtifactoryOIDCInputs(c) && isQualifiedRepository(repository) {
 		return repository
 	}

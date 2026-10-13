@@ -115,14 +115,6 @@ PLUGIN_REGISTRY=artifactory.example.com
 PLUGIN_REPO=artifactory.example.com/team/image
 ```
 
-Custom registry CA certificates, registry client certificates, and Harness
-Secure Tunnel proxy configuration are not supported in this mode.
-
-Kaniko cache settings are supported. A relative `PLUGIN_CACHE_REPO` is
-qualified under `PLUGIN_REGISTRY`; a fully qualified cache repository must
-belong to the same JFrog HTTPS origin. Cross-origin cache repositories are
-rejected.
-
 ### Operation Modes
 
 Default Mode (Build and Push):
