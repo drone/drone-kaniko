@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
+	"sync"
 
 	"github.com/pkg/errors"
 )
@@ -80,18 +82,66 @@ func (c *Config) CreateDockerConfig(credentials []RegistryCredentials, dockerPat
 }
 
 func WriteDockerConfig(data []byte, path string) (string error) {
-	err := os.MkdirAll(path, 0600)
+	err := os.MkdirAll(path, 0700)
 	if err != nil {
 		if !os.IsExist(err) {
 			return errors.Wrap(err, fmt.Sprintf("failed to create %s directory", path))
 		}
 	}
+	if err := os.Chmod(path, 0700); err != nil {
+		return errors.Wrap(err, fmt.Sprintf("failed to secure %s directory", path))
+	}
 
-	filePath := path + "/config.json"
+	filePath := filepath.Join(path, "config.json")
 
-	err = ioutil.WriteFile(filePath, data, 0644)
+	err = ioutil.WriteFile(filePath, data, 0600)
 	if err != nil {
 		return errors.Wrap(err, fmt.Sprintf("failed to create docker config file at %s", path))
 	}
+	if err := os.Chmod(filePath, 0600); err != nil {
+		return errors.Wrap(err, fmt.Sprintf("failed to secure docker config file at %s", path))
+	}
 	return nil
+}
+
+// CreateTemporaryDockerConfig writes credentials to an isolated Docker config
+// beneath tempRoot, makes it active for the current process, and returns an
+// idempotent cleanup.
+func CreateTemporaryDockerConfig(credentials []RegistryCredentials, tempRoot string) (func() error, error) {
+	previous, hadPrevious := os.LookupEnv("DOCKER_CONFIG")
+	path, err := os.MkdirTemp(tempRoot, "drone-kaniko-docker-config-")
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create temporary docker config directory")
+	}
+	if err := os.Chmod(path, 0700); err != nil {
+		_ = os.RemoveAll(path)
+		return nil, errors.Wrap(err, "failed to secure temporary docker config directory")
+	}
+
+	config := NewConfig()
+	if err := config.CreateDockerConfig(credentials, path); err != nil {
+		_ = os.RemoveAll(path)
+		return nil, err
+	}
+	if err := os.Setenv("DOCKER_CONFIG", path); err != nil {
+		_ = os.RemoveAll(path)
+		return nil, errors.Wrap(err, "failed to set DOCKER_CONFIG")
+	}
+
+	var once sync.Once
+	var cleanupErr error
+	cleanup := func() error {
+		once.Do(func() {
+			if hadPrevious {
+				cleanupErr = os.Setenv("DOCKER_CONFIG", previous)
+			} else {
+				cleanupErr = os.Unsetenv("DOCKER_CONFIG")
+			}
+			if err := os.RemoveAll(path); err != nil && cleanupErr == nil {
+				cleanupErr = err
+			}
+		})
+		return cleanupErr
+	}
+	return cleanup, nil
 }

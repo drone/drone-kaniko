@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 )
 
 func TestBuild_labelsForTag(t *testing.T) {
@@ -371,25 +372,38 @@ func TestSourceTarballPush(t *testing.T) {
 			name:          "push_image_fails",
 			sourceTarPath: createTestTarball(t),
 			repo:          "test-repo",
+			tags:          []string{"latest"},
 			expectedError: true,
 			expectedTags:  []string{"latest"},
 			mockPushErr:   fmt.Errorf("push failed"),
+		},
+		{
+			name:          "push_image_succeeds",
+			sourceTarPath: createTestTarball(t),
+			repo:          "test-repo",
+			tags:          []string{"v1", "latest"},
+			expectedTags:  []string{"v1", "latest"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			var pushedDestinations []string
 			mockPlugin := Plugin{
 				Build: Build{
 					SourceTarPath:   tt.sourceTarPath,
 					Repo:            tt.repo,
 					Tags:            tt.tags,
+					PushOnly:        true,
 					AutoTag:         tt.autoTag,
 					DroneCommitRef:  tt.commitRef,
 					DroneRepoBranch: tt.repoBranch,
 				},
 				LoadImageFromTarball: MockCraneLoad(tt.sourceTarPath, tt.mockLoadErr),
-				PushImageToRegistry:  MockCranePush(tt.mockPushErr),
+				PushImageToRegistry: func(img v1.Image, destination string) error {
+					pushedDestinations = append(pushedDestinations, destination)
+					return MockCranePush(tt.mockPushErr)(img, destination)
+				},
 			}
 
 			err := mockPlugin.Exec()
@@ -401,6 +415,13 @@ func TestSourceTarballPush(t *testing.T) {
 			} else {
 				if err != nil {
 					t.Errorf("Unexpected error: %v", err)
+				}
+				var expectedDestinations []string
+				for _, tag := range tt.expectedTags {
+					expectedDestinations = append(expectedDestinations, fmt.Sprintf("%s:%s", tt.repo, tag))
+				}
+				if diff := cmp.Diff(expectedDestinations, pushedDestinations); diff != "" {
+					t.Errorf("pushed destinations mismatch (-want +got):\n%s", diff)
 				}
 			}
 		})
