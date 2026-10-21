@@ -1001,5 +1001,13 @@ func handlePushOnly(c *cli.Context) error {
 		fmt.Printf("Successfully pushed image to %s\n", dest)
 	}
 
+	kaniko.WritePushOnlyOutputs(img, kaniko.Artifact{
+		Tags:         tags,
+		Repo:         repo,
+		Registry:     registry,
+		ArtifactFile: c.String("artifact-file"),
+		RegistryType: artifact.ECR,
+	})
+
 	return nil
 }

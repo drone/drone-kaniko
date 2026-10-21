@@ -2,13 +2,17 @@ package kaniko
 
 import (
 	"archive/tar"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/drone/drone-kaniko/pkg/artifact"
 	"github.com/google/go-cmp/cmp"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/random"
+	"github.com/joho/godotenv"
 )
 
 func TestBuild_labelsForTag(t *testing.T) {
@@ -425,6 +429,130 @@ func TestSourceTarballPush(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestSourceTarballPushWritesPushedDigest(t *testing.T) {
+	img, err := random.Image(64, 1)
+	if err != nil {
+		t.Fatalf("failed to create random image: %v", err)
+	}
+	hash, err := img.Digest()
+	if err != nil {
+		t.Fatalf("failed to compute image digest: %v", err)
+	}
+
+	tmpDir := t.TempDir()
+	artifactFile := filepath.Join(tmpDir, "artifact")
+	outputFile := filepath.Join(tmpDir, "output.env")
+	t.Setenv("DRONE_OUTPUT", outputFile)
+
+	p := Plugin{
+		Build: Build{
+			SourceTarPath: createTestTarball(t),
+			Repo:          "registry.example.com/org/app",
+			Tags:          []string{"1.0.0", "latest"},
+			PushOnly:      true,
+		},
+		Artifact: Artifact{
+			Tags:         []string{"1.0.0", "latest"},
+			Repo:         "registry.example.com/org/app",
+			Registry:     "registry.example.com",
+			ArtifactFile: artifactFile,
+			RegistryType: artifact.Docker,
+		},
+		LoadImageFromTarball: func(string) (v1.Image, error) { return img, nil },
+		PushImageToRegistry:  MockCranePush(nil),
+	}
+
+	if err := p.Exec(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	content, err := os.ReadFile(artifactFile)
+	if err != nil {
+		t.Fatalf("failed to read artifact file: %v", err)
+	}
+	var got artifact.DockerArtifact
+	if err := json.Unmarshal(content, &got); err != nil {
+		t.Fatalf("failed to parse artifact file: %v", err)
+	}
+	want := artifact.DockerArtifact{
+		Kind: "docker/v1",
+		Data: artifact.Data{
+			RegistryType: artifact.Docker,
+			RegistryUrl:  "registry.example.com",
+			Images: []artifact.Image{
+				{Image: "registry.example.com/org/app:1.0.0", Digest: hash.String()},
+				{Image: "registry.example.com/org/app:latest", Digest: hash.String()},
+			},
+		},
+	}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("artifact file mismatch (-want +got):\n%s", diff)
+	}
+
+	outputs, err := godotenv.Read(outputFile)
+	if err != nil {
+		t.Fatalf("failed to read output file: %v", err)
+	}
+	if outputs["digest"] != hash.String() {
+		t.Errorf("expected output digest %q, got %q", hash.String(), outputs["digest"])
+	}
+}
+
+func TestSourceTarballPushFailureWritesNoArtifact(t *testing.T) {
+	img, err := random.Image(64, 1)
+	if err != nil {
+		t.Fatalf("failed to create random image: %v", err)
+	}
+
+	tmpDir := t.TempDir()
+	artifactFile := filepath.Join(tmpDir, "artifact")
+	t.Setenv("DRONE_OUTPUT", filepath.Join(tmpDir, "output.env"))
+
+	p := Plugin{
+		Build: Build{
+			SourceTarPath: createTestTarball(t),
+			Repo:          "registry.example.com/org/app",
+			Tags:          []string{"latest"},
+			PushOnly:      true,
+		},
+		Artifact: Artifact{
+			Tags:         []string{"latest"},
+			Repo:         "registry.example.com/org/app",
+			ArtifactFile: artifactFile,
+			RegistryType: artifact.Docker,
+		},
+		LoadImageFromTarball: func(string) (v1.Image, error) { return img, nil },
+		PushImageToRegistry:  MockCranePush(fmt.Errorf("push failed")),
+	}
+
+	if err := p.Exec(); err == nil {
+		t.Fatal("expected an error, but got none")
+	}
+	if _, err := os.Stat(artifactFile); !os.IsNotExist(err) {
+		t.Errorf("expected no artifact file after a failed push, stat returned: %v", err)
+	}
+}
+
+func TestWritePushOnlyOutputsSkipsEmptyDigest(t *testing.T) {
+	tmpDir := t.TempDir()
+	artifactFile := filepath.Join(tmpDir, "artifact")
+	outputFile := filepath.Join(tmpDir, "output.env")
+	t.Setenv("DRONE_OUTPUT", outputFile)
+
+	WritePushOnlyOutputs(&mockImage{}, Artifact{
+		Tags:         []string{"latest"},
+		Repo:         "registry.example.com/org/app",
+		ArtifactFile: artifactFile,
+		RegistryType: artifact.Docker,
+	})
+
+	for _, f := range []string{artifactFile, outputFile} {
+		if _, err := os.Stat(f); !os.IsNotExist(err) {
+			t.Errorf("expected %s not to be written, stat returned: %v", f, err)
+		}
 	}
 }
 

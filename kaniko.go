@@ -234,6 +234,12 @@ func (p Plugin) Exec() error {
 			fmt.Printf("Successfully pushed image - '%s'\n to %s\n", dest, p.Build.Repo)
 		}
 
+		if len(tags) > 0 {
+			pushedArtifact := p.Artifact
+			pushedArtifact.Tags = tags
+			WritePushOnlyOutputs(img, pushedArtifact)
+		}
+
 		return nil
 	}
 
@@ -507,6 +513,36 @@ func (p Plugin) Exec() error {
 	}
 
 	return nil
+}
+
+// WritePushOnlyOutputs records the digest of an image pushed from a tarball in the plugin
+// artifact file and the DRONE_OUTPUT file. The digest has to come from the pushed image:
+// the digest kaniko reports for a --no-push build never exists in any registry.
+// Failures are logged rather than returned because the image has already been pushed.
+func WritePushOnlyOutputs(img v1.Image, pushedArtifact Artifact) {
+	hash, err := img.Digest()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to compute digest of pushed image: %v\n", err)
+		return
+	}
+	if hash.Hex == "" {
+		fmt.Fprintln(os.Stderr, "pushed image has an empty digest, skipping artifact and output files")
+		return
+	}
+	digest := hash.String()
+
+	if pushedArtifact.ArtifactFile != "" {
+		err = artifact.WritePluginArtifactFile(pushedArtifact.RegistryType, pushedArtifact.ArtifactFile, pushedArtifact.Registry, pushedArtifact.Repo, digest, pushedArtifact.Tags)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed to write plugin artifact file at path: %s with error: %s\n", pushedArtifact.ArtifactFile, err)
+		}
+	}
+
+	if outputFile := os.Getenv("DRONE_OUTPUT"); outputFile != "" {
+		if err = output.WritePluginOutputFile(outputFile, digest, ""); err != nil {
+			fmt.Fprintf(os.Stderr, "failed to write plugin output file at path: %s with error: %s\n", outputFile, err)
+		}
+	}
 }
 
 func getTarPath(tarPath string) string {
