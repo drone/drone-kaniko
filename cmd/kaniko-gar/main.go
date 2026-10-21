@@ -609,5 +609,13 @@ func handlePushOnly(c *cli.Context) error {
 		logrus.Infof("Successfully pushed image to %s", dest)
 	}
 
+	kaniko.WritePushOnlyOutputs(img, kaniko.Artifact{
+		Tags:         tags,
+		Repo:         repo,
+		Registry:     registry,
+		ArtifactFile: c.String("artifact-file"),
+		RegistryType: artifact.GAR,
+	})
+
 	return nil
 }
