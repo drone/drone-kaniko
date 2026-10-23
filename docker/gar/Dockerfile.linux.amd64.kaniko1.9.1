@@ -1,4 +1,8 @@
+FROM harness0.harness.io/oci/docker_artifacts/hhi/harnessos-alpine:1 AS hhi-ca-certificates
+RUN apk add --no-cache 'ca-certificates>=20261020-r0'
+
 FROM gcr.io/kaniko-project/executor:v1.9.1
+COPY --from=hhi-ca-certificates /etc/ssl/certs/ca-certificates.crt /kaniko/ssl/certs/ca-certificates.crt
 
 ENV KANIKO_VERSION=1.9.1
 ADD release/linux/amd64/kaniko-gar /kaniko/
