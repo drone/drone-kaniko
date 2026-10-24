@@ -1,8 +1,11 @@
-FROM harnesscommunity/kaniko-executor:1.25.16-linux-arm64
+FROM harness0.harness.io/oci/docker_artifacts/hhi/harnessos-alpine:1@sha256:290a37c85b4284d2c11fa0778e5da79643d912a1f5a57d6f701b77644503b7e7 AS hhi-ca-certificates
+RUN apk add --no-cache 'ca-certificates>=20261020-r0'
 
+FROM harnesscommunity/kaniko-executor:1.25.16-linux-arm64@sha256:d42ad04f76807fdc79be7eca1dbc0c79555db8d4dc15ef6de88a00c70a1f3cd3
 ENV HOME /root
 ENV USER root
 
 ENV KANIKO_VERSION=1.25.16
 ADD release/linux/arm64/kaniko-acr /kaniko/
 ENTRYPOINT ["/kaniko/kaniko-acr"]
+COPY --from=hhi-ca-certificates /etc/ssl/certs/ca-certificates.crt /kaniko/ssl/certs/ca-certificates.crt

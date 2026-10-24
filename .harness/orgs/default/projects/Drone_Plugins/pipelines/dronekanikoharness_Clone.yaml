@@ -34,8 +34,8 @@ pipeline:
                       name: Build Binary
                       identifier: Build
                       spec:
-                        connectorRef: Plugins_Docker_Hub_Connector
-                        image: golang:1.25.10
+                        connectorRef: HHI_Public_Images
+                        image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10@sha256:718fddf012b3a305e936ae9964e5a642036bcb7b4c6c0786e2f78f238d637db8
                         shell: Sh
                         command: |-
                           go test ./...
@@ -49,6 +49,8 @@ pipeline:
                             connectorRef: Plugins_Docker_Hub_Connector
                             image: plugins/docker
                             settings:
+                              pull_image: true
+                              no_cache: true
                               username: drone
                               password: <+secrets.getValue("Plugins_Docker_Hub_Pat")>
                               repo: plugins/kaniko<+matrix.image>
@@ -123,6 +125,8 @@ pipeline:
                             connectorRef: Plugins_Docker_Hub_Connector
                             image: plugins/docker
                             settings:
+                              pull_image: true
+                              no_cache: true
                               username: drone
                               password: <+secrets.getValue("Plugins_Docker_Hub_Pat")>
                               repo: plugins/kaniko<+matrix.image>
@@ -177,6 +181,10 @@ pipeline:
                           name: BuildAndPushDockerBranch
                           identifier: BuildAndPushDockerBranch
                           spec:
+                            envVariables:
+                              PLUGIN_NO_CACHE: "true"
+                              PLUGIN_PULL_IMAGE: "true"
+                              PLUGIN_ENABLE_CACHE: "false"
                             connectorRef: Plugins_Docker_Hub_Connector
                             repo: plugins/kaniko<+matrix.image>
                             tags:
@@ -247,6 +255,10 @@ pipeline:
                           name: BuildAndPushDockerBranch_Kaniko
                           identifier: BuildAndPushDockerBranch_Kaniko
                           spec:
+                            envVariables:
+                              PLUGIN_NO_CACHE: "true"
+                              PLUGIN_PULL_IMAGE: "true"
+                              PLUGIN_ENABLE_CACHE: "false"
                             connectorRef: Plugins_Docker_Hub_Connector
                             repo: plugins/kaniko<+matrix.image>
                             tags:
@@ -319,8 +331,8 @@ pipeline:
                       name: Build Binary
                       identifier: Build_and_Test
                       spec:
-                        connectorRef: Plugins_Docker_Hub_Connector
-                        image: golang:1.25.10
+                        connectorRef: HHI_Public_Images
+                        image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10@sha256:718fddf012b3a305e936ae9964e5a642036bcb7b4c6c0786e2f78f238d637db8
                         shell: Sh
                         command: |-
                           go test ./...
@@ -334,6 +346,8 @@ pipeline:
                             connectorRef: Plugins_Docker_Hub_Connector
                             image: plugins/docker
                             settings:
+                              pull_image: true
+                              no_cache: true
                               username: drone
                               password: <+secrets.getValue("Plugins_Docker_Hub_Pat")>
                               repo: plugins/kaniko<+matrix.image>
@@ -408,6 +422,8 @@ pipeline:
                             connectorRef: Plugins_Docker_Hub_Connector
                             image: plugins/docker
                             settings:
+                              pull_image: true
+                              no_cache: true
                               username: drone
                               password: <+secrets.getValue("Plugins_Docker_Hub_Pat")>
                               repo: plugins/kaniko<+matrix.image>
@@ -462,6 +478,10 @@ pipeline:
                           name: BuildAndPushDockerBranch
                           identifier: BuildAndPushDockerBranch
                           spec:
+                            envVariables:
+                              PLUGIN_NO_CACHE: "true"
+                              PLUGIN_PULL_IMAGE: "true"
+                              PLUGIN_ENABLE_CACHE: "false"
                             connectorRef: Plugins_Docker_Hub_Connector
                             repo: plugins/kaniko<+matrix.image>
                             tags:
@@ -532,6 +552,10 @@ pipeline:
                           name: BuildAndPushDockerBranch_Kaniko
                           identifier: BuildAndPushDockerBranch_Kaniko
                           spec:
+                            envVariables:
+                              PLUGIN_NO_CACHE: "true"
+                              PLUGIN_PULL_IMAGE: "true"
+                              PLUGIN_ENABLE_CACHE: "false"
                             connectorRef: Plugins_Docker_Hub_Connector
                             repo: plugins/kaniko<+matrix.image>
                             tags:

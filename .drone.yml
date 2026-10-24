@@ -11,7 +11,7 @@ platform:
 
 steps:
 - name: build
-  image: golang:1.25.13
+  image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10@sha256:718fddf012b3a305e936ae9964e5a642036bcb7b4c6c0786e2f78f238d637db8
   commands:
   - go test ./...
   - sh scripts/build.sh
@@ -19,6 +19,8 @@ steps:
 - name: docker
   image: plugins/docker
   settings:
+    pull_image: true
+    no_cache: true
     repo: plugins/kaniko
     auto_tag: true
     auto_tag_suffix: linux-amd64
@@ -36,6 +38,8 @@ steps:
 - name: gcr
   image: plugins/docker
   settings:
+    pull_image: true
+    no_cache: true
     repo: plugins/kaniko-gcr
     auto_tag: true
     auto_tag_suffix: linux-amd64
@@ -53,6 +57,8 @@ steps:
 - name: gar
   image: plugins/docker
   settings:
+    pull_image: true
+    no_cache: true
     repo: plugins/kaniko-gar
     auto_tag: true
     auto_tag_suffix: linux-amd64
@@ -70,6 +76,8 @@ steps:
 - name: ecr
   image: plugins/docker
   settings:
+    pull_image: true
+    no_cache: true
     repo: plugins/kaniko-ecr
     auto_tag: true
     auto_tag_suffix: linux-amd64
@@ -87,6 +95,8 @@ steps:
 - name: acr
   image: plugins/docker
   settings:
+    pull_image: true
+    no_cache: true
     repo: plugins/kaniko-acr
     auto_tag: true
     auto_tag_suffix: linux-amd64
@@ -104,6 +114,8 @@ steps:
 - name: docker-kaniko-v1-9
   image: plugins/docker
   settings:
+    pull_image: true
+    no_cache: true
     repo: plugins/kaniko
     auto_tag: true
     auto_tag_suffix: linux-amd64-kaniko1.9.1
@@ -121,6 +133,8 @@ steps:
 - name: gcr-kaniko-v1-9
   image: plugins/docker
   settings:
+    pull_image: true
+    no_cache: true
     repo: plugins/kaniko-gcr
     auto_tag: true
     auto_tag_suffix: linux-amd64-kaniko1.9.1
@@ -138,6 +152,8 @@ steps:
 - name: gar-kaniko-v1-9
   image: plugins/docker
   settings:
+    pull_image: true
+    no_cache: true
     repo: plugins/kaniko-gar
     auto_tag: true
     auto_tag_suffix: linux-amd64-kaniko1.9.1
@@ -155,6 +171,8 @@ steps:
 - name: ecr-kaniko-v1-9
   image: plugins/docker
   settings:
+    pull_image: true
+    no_cache: true
     repo: plugins/kaniko-ecr
     auto_tag: true
     auto_tag_suffix: linux-amd64-kaniko1.9.1
@@ -178,7 +196,7 @@ pool:
 
 steps:
 - name: build
-  image: golang:1.25.13
+  image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10@sha256:718fddf012b3a305e936ae9964e5a642036bcb7b4c6c0786e2f78f238d637db8
   commands:
   - go test ./...
   - sh scripts/build.sh
@@ -186,6 +204,8 @@ steps:
 - name: docker
   image: plugins/docker
   settings:
+    pull_image: true
+    no_cache: true
     repo: plugins/kaniko
     auto_tag: true
     auto_tag_suffix: linux-arm64
@@ -203,6 +223,8 @@ steps:
 - name: gcr
   image: plugins/docker
   settings:
+    pull_image: true
+    no_cache: true
     repo: plugins/kaniko-gcr
     auto_tag: true
     auto_tag_suffix: linux-arm64
@@ -220,6 +242,8 @@ steps:
 - name: gar
   image: plugins/docker
   settings:
+    pull_image: true
+    no_cache: true
     repo: plugins/kaniko-gar
     auto_tag: true
     auto_tag_suffix: linux-arm64
@@ -237,6 +261,8 @@ steps:
 - name: ecr
   image: plugins/docker
   settings:
+    pull_image: true
+    no_cache: true
     repo: plugins/kaniko-ecr
     auto_tag: true
     auto_tag_suffix: linux-arm64
@@ -254,6 +280,8 @@ steps:
 - name: acr
   image: plugins/docker
   settings:
+    pull_image: true
+    no_cache: true
     repo: plugins/kaniko-acr
     auto_tag: true
     auto_tag_suffix: linux-arm64
@@ -271,6 +299,8 @@ steps:
 - name: docker-kaniko-v1-9
   image: plugins/docker
   settings:
+    pull_image: true
+    no_cache: true
     repo: plugins/kaniko
     auto_tag: true
     auto_tag_suffix: linux-arm64-kaniko1.9.1
@@ -288,6 +318,8 @@ steps:
 - name: gcr-kaniko-v1-9
   image: plugins/docker
   settings:
+    pull_image: true
+    no_cache: true
     repo: plugins/kaniko-gcr
     auto_tag: true
     auto_tag_suffix: linux-arm64-kaniko1.9.1
@@ -305,6 +337,8 @@ steps:
 - name: gar-kaniko-v1-9
   image: plugins/docker
   settings:
+    pull_image: true
+    no_cache: true
     repo: plugins/kaniko-gar
     auto_tag: true
     auto_tag_suffix: linux-arm64-kaniko1.9.1
@@ -322,6 +356,8 @@ steps:
 - name: ecr-kaniko-v1-9
   image: plugins/docker
   settings:
+    pull_image: true
+    no_cache: true
     repo: plugins/kaniko-ecr
     auto_tag: true
     auto_tag_suffix: linux-arm64-kaniko1.9.1

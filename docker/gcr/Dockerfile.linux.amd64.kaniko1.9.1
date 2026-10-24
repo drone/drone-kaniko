@@ -1,5 +1,8 @@
-FROM gcr.io/kaniko-project/executor:v1.9.1
+FROM harness0.harness.io/oci/docker_artifacts/hhi/harnessos-alpine:1@sha256:290a37c85b4284d2c11fa0778e5da79643d912a1f5a57d6f701b77644503b7e7 AS hhi-ca-certificates
+RUN apk add --no-cache 'ca-certificates>=20261020-r0'
 
+FROM gcr.io/kaniko-project/executor:v1.9.1@sha256:23ae6ccaba2b0f599966dbc5ecf38aa4404f4cd799add224167eaf285696551a
 ENV KANIKO_VERSION=1.9.1
 ADD release/linux/amd64/kaniko-gcr /kaniko/
 ENTRYPOINT ["/kaniko/kaniko-gcr"]
+COPY --from=hhi-ca-certificates /etc/ssl/certs/ca-certificates.crt /kaniko/ssl/certs/ca-certificates.crt
