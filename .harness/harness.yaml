@@ -37,7 +37,7 @@ pipeline:
                       identifier: Build
                       spec:
                         connectorRef: HHI_Public_Images
-                        image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10
+                        image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10@sha256:718fddf012b3a305e936ae9964e5a642036bcb7b4c6c0786e2f78f238d637db8
                         shell: Sh
                         command: |-
                           go test ./...
@@ -51,6 +51,8 @@ pipeline:
                             connectorRef: Plugins_Docker_Hub_Connector
                             image: plugins/docker
                             settings:
+                              pull_image: true
+                              no_cache: true
                               username: drone
                               password: <+secrets.getValue("Plugins_Docker_Hub_Pat")>
                               repo: plugins/kaniko<+matrix.image>
@@ -125,6 +127,8 @@ pipeline:
                             connectorRef: Plugins_Docker_Hub_Connector
                             image: plugins/docker
                             settings:
+                              pull_image: true
+                              no_cache: true
                               username: drone
                               password: <+secrets.getValue("Plugins_Docker_Hub_Pat")>
                               repo: plugins/kaniko<+matrix.image>
@@ -179,6 +183,10 @@ pipeline:
                           name: BuildAndPushDockerBranch
                           identifier: BuildAndPushDockerBranch
                           spec:
+                            envVariables:
+                              PLUGIN_NO_CACHE: "true"
+                              PLUGIN_PULL_IMAGE: "true"
+                              PLUGIN_ENABLE_CACHE: "false"
                             connectorRef: Plugins_Docker_Hub_Connector
                             repo: plugins/kaniko<+matrix.image>
                             tags:
@@ -249,6 +257,10 @@ pipeline:
                           name: BuildAndPushDockerBranch_Kaniko
                           identifier: BuildAndPushDockerBranch_Kaniko
                           spec:
+                            envVariables:
+                              PLUGIN_NO_CACHE: "true"
+                              PLUGIN_PULL_IMAGE: "true"
+                              PLUGIN_ENABLE_CACHE: "false"
                             connectorRef: Plugins_Docker_Hub_Connector
                             repo: plugins/kaniko<+matrix.image>
                             tags:
@@ -324,7 +336,7 @@ pipeline:
                       identifier: Build_and_Test
                       spec:
                         connectorRef: HHI_Public_Images
-                        image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10
+                        image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10@sha256:718fddf012b3a305e936ae9964e5a642036bcb7b4c6c0786e2f78f238d637db8
                         shell: Sh
                         command: |-
                           go test ./...
@@ -338,6 +350,8 @@ pipeline:
                             connectorRef: Plugins_Docker_Hub_Connector
                             image: plugins/docker
                             settings:
+                              pull_image: true
+                              no_cache: true
                               username: drone
                               password: <+secrets.getValue("Plugins_Docker_Hub_Pat")>
                               repo: plugins/kaniko<+matrix.image>
@@ -412,6 +426,8 @@ pipeline:
                             connectorRef: Plugins_Docker_Hub_Connector
                             image: plugins/docker
                             settings:
+                              pull_image: true
+                              no_cache: true
                               username: drone
                               password: <+secrets.getValue("Plugins_Docker_Hub_Pat")>
                               repo: plugins/kaniko<+matrix.image>
@@ -466,6 +482,10 @@ pipeline:
                           name: BuildAndPushDockerBranch
                           identifier: BuildAndPushDockerBranch
                           spec:
+                            envVariables:
+                              PLUGIN_NO_CACHE: "true"
+                              PLUGIN_PULL_IMAGE: "true"
+                              PLUGIN_ENABLE_CACHE: "false"
                             connectorRef: Plugins_Docker_Hub_Connector
                             repo: plugins/kaniko<+matrix.image>
                             tags:
@@ -536,6 +556,10 @@ pipeline:
                           name: BuildAndPushDockerBranch_Kaniko
                           identifier: BuildAndPushDockerBranch_Kaniko
                           spec:
+                            envVariables:
+                              PLUGIN_NO_CACHE: "true"
+                              PLUGIN_PULL_IMAGE: "true"
+                              PLUGIN_ENABLE_CACHE: "false"
                             connectorRef: Plugins_Docker_Hub_Connector
                             repo: plugins/kaniko<+matrix.image>
                             tags:
@@ -622,7 +646,7 @@ pipeline:
                       identifier: build_binary
                       spec:
                         connectorRef: HHI_Public_Images
-                        image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10
+                        image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10@sha256:718fddf012b3a305e936ae9964e5a642036bcb7b4c6c0786e2f78f238d637db8
                         shell: Sh
                         command: |-
                           go test ./...
@@ -636,6 +660,8 @@ pipeline:
                             connectorRef: Plugins_Docker_Hub_Connector
                             image: plugins/docker
                             settings:
+                              pull_image: true
+                              no_cache: true
                               username: <+secrets.getValue("harnesssecureusername")>
                               password: <+secrets.getValue("dockerHarnessSecurePwd")>
                               repo: harnesssecure/kaniko<+matrix.image>
@@ -712,6 +738,8 @@ pipeline:
                             connectorRef: Plugins_Docker_Hub_Connector
                             image: plugins/docker
                             settings:
+                              pull_image: true
+                              no_cache: true
                               username: <+secrets.getValue("harnesssecureusername")>
                               password: <+secrets.getValue("dockerHarnessSecurePwd")>
                               repo: harnesssecure/kaniko<+matrix.image>
@@ -772,6 +800,9 @@ pipeline:
                             caching: false
                             dockerfile: rf-plugins/drone-kaniko/docker/<+matrix.repo>/Dockerfile.linux.amd64.hhi
                             envVariables:
+                              PLUGIN_NO_CACHE: "true"
+                              PLUGIN_PULL_IMAGE: "true"
+                              PLUGIN_ENABLE_CACHE: "false"
                               PLUGIN_BASE_IMAGE_USERNAME: <+secrets.getValue("harness0HARUsername")>
                               PLUGIN_BASE_IMAGE_PASSWORD: <+secrets.getValue("harness0HARPAT")>
                               PLUGIN_BASE_IMAGE_REGISTRY: harness0.harness.io/oci/docker_artifacts
@@ -839,6 +870,10 @@ pipeline:
                           name: RF Build and Push on Branch Kaniko191
                           identifier: rf_build_push_branch_191
                           spec:
+                            envVariables:
+                              PLUGIN_NO_CACHE: "true"
+                              PLUGIN_PULL_IMAGE: "true"
+                              PLUGIN_ENABLE_CACHE: "false"
                             connectorRef: harnesssecure
                             repo: harnesssecure/kaniko<+matrix.image>
                             tags:
@@ -929,7 +964,7 @@ pipeline:
                       identifier: build_binary
                       spec:
                         connectorRef: HHI_Public_Images
-                        image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10
+                        image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10@sha256:718fddf012b3a305e936ae9964e5a642036bcb7b4c6c0786e2f78f238d637db8
                         shell: Sh
                         command: |-
                           go test ./...
@@ -943,6 +978,8 @@ pipeline:
                             connectorRef: Plugins_Docker_Hub_Connector
                             image: plugins/docker
                             settings:
+                              pull_image: true
+                              no_cache: true
                               username: <+secrets.getValue("harnesssecureusername")>
                               password: <+secrets.getValue("dockerHarnessSecurePwd")>
                               repo: harnesssecure/kaniko<+matrix.image>
@@ -1019,6 +1056,8 @@ pipeline:
                             connectorRef: Plugins_Docker_Hub_Connector
                             image: plugins/docker
                             settings:
+                              pull_image: true
+                              no_cache: true
                               username: <+secrets.getValue("harnesssecureusername")>
                               password: <+secrets.getValue("dockerHarnessSecurePwd")>
                               repo: harnesssecure/kaniko<+matrix.image>
@@ -1079,6 +1118,9 @@ pipeline:
                             caching: false
                             dockerfile: rf-plugins/drone-kaniko/docker/<+matrix.repo>/Dockerfile.linux.arm64.hhi
                             envVariables:
+                              PLUGIN_NO_CACHE: "true"
+                              PLUGIN_PULL_IMAGE: "true"
+                              PLUGIN_ENABLE_CACHE: "false"
                               PLUGIN_BASE_IMAGE_USERNAME: <+secrets.getValue("harness0HARUsername")>
                               PLUGIN_BASE_IMAGE_PASSWORD: <+secrets.getValue("harness0HARPAT")>
                               PLUGIN_BASE_IMAGE_REGISTRY: harness0.harness.io/oci/docker_artifacts
@@ -1146,6 +1188,10 @@ pipeline:
                           name: RF Build and Push on Branch Kaniko191
                           identifier: rf_build_push_branch_191
                           spec:
+                            envVariables:
+                              PLUGIN_NO_CACHE: "true"
+                              PLUGIN_PULL_IMAGE: "true"
+                              PLUGIN_ENABLE_CACHE: "false"
                             connectorRef: harnesssecure
                             repo: harnesssecure/kaniko<+matrix.image>
                             tags:
