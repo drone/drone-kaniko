@@ -37,7 +37,7 @@ pipeline:
                       identifier: Build
                       spec:
                         connectorRef: HHI_Public_Images
-                        image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10@sha256:718fddf012b3a305e936ae9964e5a642036bcb7b4c6c0786e2f78f238d637db8
+                        image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10@sha256:e53efe9b20a7cd4e812449a3b70a0f9fb0a5dc5c9fb78d4086e8983d7032b975
                         shell: Sh
                         command: |-
                           go test ./...
@@ -336,7 +336,7 @@ pipeline:
                       identifier: Build_and_Test
                       spec:
                         connectorRef: HHI_Public_Images
-                        image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10@sha256:718fddf012b3a305e936ae9964e5a642036bcb7b4c6c0786e2f78f238d637db8
+                        image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10@sha256:e53efe9b20a7cd4e812449a3b70a0f9fb0a5dc5c9fb78d4086e8983d7032b975
                         shell: Sh
                         command: |-
                           go test ./...
@@ -646,7 +646,7 @@ pipeline:
                       identifier: build_binary
                       spec:
                         connectorRef: HHI_Public_Images
-                        image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10@sha256:718fddf012b3a305e936ae9964e5a642036bcb7b4c6c0786e2f78f238d637db8
+                        image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10@sha256:e53efe9b20a7cd4e812449a3b70a0f9fb0a5dc5c9fb78d4086e8983d7032b975
                         shell: Sh
                         command: |-
                           go test ./...
@@ -964,7 +964,7 @@ pipeline:
                       identifier: build_binary
                       spec:
                         connectorRef: HHI_Public_Images
-                        image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10@sha256:718fddf012b3a305e936ae9964e5a642036bcb7b4c6c0786e2f78f238d637db8
+                        image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10@sha256:e53efe9b20a7cd4e812449a3b70a0f9fb0a5dc5c9fb78d4086e8983d7032b975
                         shell: Sh
                         command: |-
                           go test ./...
