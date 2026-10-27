@@ -1,5 +1,4 @@
 FROM harness0.harness.io/oci/docker_artifacts/hhi/harnessos-alpine:1@sha256:aa1f4e2851f202f6fb08e30eace3d94298b610aceb381d2df92815f536fd516f AS hhi-ca-certificates
-RUN apk add --no-cache 'ca-certificates>=20261020-r0'
 
 FROM harness0.harness.io/oci/docker_artifacts/hhi/kaniko:1.25@sha256:ff201ee2fe095719619762add529df52020d5770b812d6dee1adf939183276ac
 ENV KANIKO_VERSION=1.25.19 \
