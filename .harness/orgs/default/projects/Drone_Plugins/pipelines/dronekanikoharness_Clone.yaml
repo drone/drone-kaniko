@@ -56,6 +56,9 @@ pipeline:
                               auto_tag: "true"
                               auto_tag_suffix: linux-amd64
                               daemon_off: "false"
+                              base_image_username: <+secrets.getValue("harness0HARUsername")>
+                              base_image_password: <+secrets.getValue("harness0HARPAT")>
+                              base_image_registry: harness0.harness.io/oci/docker_artifacts
                           when:
                             stageStatus: Success
                             condition: <+codebase.build.type> == "tag"
@@ -130,6 +133,9 @@ pipeline:
                               auto_tag: "true"
                               auto_tag_suffix: linux-amd64-kaniko1.9.1
                               daemon_off: "false"
+                              base_image_username: <+secrets.getValue("harness0HARUsername")>
+                              base_image_password: <+secrets.getValue("harness0HARPAT")>
+                              base_image_registry: harness0.harness.io/oci/docker_artifacts
                           when:
                             stageStatus: Success
                             condition: <+codebase.build.type> == "tag"
@@ -183,6 +189,10 @@ pipeline:
                               - linux-amd64
                             caching: false
                             dockerfile: docker/<+matrix.repo>/Dockerfile.linux.amd64
+                            envVariables:
+                              PLUGIN_BASE_IMAGE_USERNAME: <+secrets.getValue("harness0HARUsername")>
+                              PLUGIN_BASE_IMAGE_PASSWORD: <+secrets.getValue("harness0HARPAT")>
+                              PLUGIN_BASE_IMAGE_REGISTRY: harness0.harness.io/oci/docker_artifacts
                           when:
                             stageStatus: Success
                             condition: <+codebase.build.type> == "branch"
@@ -253,6 +263,10 @@ pipeline:
                               - linux-amd64-kaniko1.9.1
                             caching: false
                             dockerfile: docker/<+matrix.repo>/Dockerfile.linux.amd64.kaniko1.9.1
+                            envVariables:
+                              PLUGIN_BASE_IMAGE_USERNAME: <+secrets.getValue("harness0HARUsername")>
+                              PLUGIN_BASE_IMAGE_PASSWORD: <+secrets.getValue("harness0HARPAT")>
+                              PLUGIN_BASE_IMAGE_REGISTRY: harness0.harness.io/oci/docker_artifacts
                           when:
                             stageStatus: Success
                             condition: <+codebase.build.type> == "branch"
@@ -341,6 +355,9 @@ pipeline:
                               auto_tag: "true"
                               auto_tag_suffix: linux-arm64
                               daemon_off: "false"
+                              base_image_username: <+secrets.getValue("harness0HARUsername")>
+                              base_image_password: <+secrets.getValue("harness0HARPAT")>
+                              base_image_registry: harness0.harness.io/oci/docker_artifacts
                           when:
                             stageStatus: Success
                             condition: <+codebase.build.type> == "tag"
@@ -415,6 +432,9 @@ pipeline:
                               auto_tag: "true"
                               auto_tag_suffix: linux-arm64-kaniko1.9.1
                               daemon_off: "false"
+                              base_image_username: <+secrets.getValue("harness0HARUsername")>
+                              base_image_password: <+secrets.getValue("harness0HARPAT")>
+                              base_image_registry: harness0.harness.io/oci/docker_artifacts
                           when:
                             stageStatus: Success
                             condition: <+codebase.build.type> == "tag"
@@ -468,6 +488,10 @@ pipeline:
                               - linux-arm64
                             caching: false
                             dockerfile: docker/<+matrix.repo>/Dockerfile.linux.arm64
+                            envVariables:
+                              PLUGIN_BASE_IMAGE_USERNAME: <+secrets.getValue("harness0HARUsername")>
+                              PLUGIN_BASE_IMAGE_PASSWORD: <+secrets.getValue("harness0HARPAT")>
+                              PLUGIN_BASE_IMAGE_REGISTRY: harness0.harness.io/oci/docker_artifacts
                           when:
                             stageStatus: Success
                             condition: <+codebase.build.type> == "branch"
@@ -538,6 +562,10 @@ pipeline:
                               - linux-arm64-kaniko1.9.1
                             caching: false
                             dockerfile: docker/<+matrix.repo>/Dockerfile.linux.arm64.kaniko1.9.1
+                            envVariables:
+                              PLUGIN_BASE_IMAGE_USERNAME: <+secrets.getValue("harness0HARUsername")>
+                              PLUGIN_BASE_IMAGE_PASSWORD: <+secrets.getValue("harness0HARPAT")>
+                              PLUGIN_BASE_IMAGE_REGISTRY: harness0.harness.io/oci/docker_artifacts
                           when:
                             stageStatus: Success
                             condition: <+codebase.build.type> == "branch"
