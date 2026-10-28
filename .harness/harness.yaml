@@ -36,8 +36,8 @@ pipeline:
                       name: Build Binary
                       identifier: Build
                       spec:
-                        connectorRef: Plugins_Docker_Hub_Connector
-                        image: golang:1.25.13
+                        connectorRef: HHI_Public_Images
+                        image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10@sha256:e53efe9b20a7cd4e812449a3b70a0f9fb0a5dc5c9fb78d4086e8983d7032b975
                         shell: Sh
                         command: |-
                           go test ./...
@@ -58,6 +58,9 @@ pipeline:
                               auto_tag: "true"
                               auto_tag_suffix: linux-amd64
                               daemon_off: "false"
+                              base_image_username: <+secrets.getValue("harness0HARUsername")>
+                              base_image_password: <+secrets.getValue("harness0HARPAT")>
+                              base_image_registry: harness0.harness.io/oci/docker_artifacts
                           when:
                             stageStatus: Success
                             condition: <+codebase.build.type> == "tag"
@@ -132,6 +135,9 @@ pipeline:
                               auto_tag: "true"
                               auto_tag_suffix: linux-amd64-kaniko1.9.1
                               daemon_off: "false"
+                              base_image_username: <+secrets.getValue("harness0HARUsername")>
+                              base_image_password: <+secrets.getValue("harness0HARPAT")>
+                              base_image_registry: harness0.harness.io/oci/docker_artifacts
                           when:
                             stageStatus: Success
                             condition: <+codebase.build.type> == "tag"
@@ -185,6 +191,10 @@ pipeline:
                               - linux-amd64
                             caching: false
                             dockerfile: docker/<+matrix.repo>/Dockerfile.linux.amd64
+                            envVariables:
+                              PLUGIN_BASE_IMAGE_USERNAME: <+secrets.getValue("harness0HARUsername")>
+                              PLUGIN_BASE_IMAGE_PASSWORD: <+secrets.getValue("harness0HARPAT")>
+                              PLUGIN_BASE_IMAGE_REGISTRY: harness0.harness.io/oci/docker_artifacts
                           when:
                             stageStatus: Success
                             condition: <+codebase.build.type> == "branch"
@@ -255,6 +265,10 @@ pipeline:
                               - linux-amd64-kaniko1.9.1
                             caching: false
                             dockerfile: docker/<+matrix.repo>/Dockerfile.linux.amd64.kaniko1.9.1
+                            envVariables:
+                              PLUGIN_BASE_IMAGE_USERNAME: <+secrets.getValue("harness0HARUsername")>
+                              PLUGIN_BASE_IMAGE_PASSWORD: <+secrets.getValue("harness0HARPAT")>
+                              PLUGIN_BASE_IMAGE_REGISTRY: harness0.harness.io/oci/docker_artifacts
                           when:
                             stageStatus: Success
                             condition: <+codebase.build.type> == "branch"
@@ -323,8 +337,8 @@ pipeline:
                       name: Build Binary
                       identifier: Build_and_Test
                       spec:
-                        connectorRef: Plugins_Docker_Hub_Connector
-                        image: golang:1.25.13
+                        connectorRef: HHI_Public_Images
+                        image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10@sha256:e53efe9b20a7cd4e812449a3b70a0f9fb0a5dc5c9fb78d4086e8983d7032b975
                         shell: Sh
                         command: |-
                           go test ./...
@@ -345,6 +359,9 @@ pipeline:
                               auto_tag: "true"
                               auto_tag_suffix: linux-arm64
                               daemon_off: "false"
+                              base_image_username: <+secrets.getValue("harness0HARUsername")>
+                              base_image_password: <+secrets.getValue("harness0HARPAT")>
+                              base_image_registry: harness0.harness.io/oci/docker_artifacts
                           when:
                             stageStatus: Success
                             condition: <+codebase.build.type> == "tag"
@@ -419,6 +436,9 @@ pipeline:
                               auto_tag: "true"
                               auto_tag_suffix: linux-arm64-kaniko1.9.1
                               daemon_off: "false"
+                              base_image_username: <+secrets.getValue("harness0HARUsername")>
+                              base_image_password: <+secrets.getValue("harness0HARPAT")>
+                              base_image_registry: harness0.harness.io/oci/docker_artifacts
                           when:
                             stageStatus: Success
                             condition: <+codebase.build.type> == "tag"
@@ -472,6 +492,10 @@ pipeline:
                               - linux-arm64
                             caching: false
                             dockerfile: docker/<+matrix.repo>/Dockerfile.linux.arm64
+                            envVariables:
+                              PLUGIN_BASE_IMAGE_USERNAME: <+secrets.getValue("harness0HARUsername")>
+                              PLUGIN_BASE_IMAGE_PASSWORD: <+secrets.getValue("harness0HARPAT")>
+                              PLUGIN_BASE_IMAGE_REGISTRY: harness0.harness.io/oci/docker_artifacts
                           when:
                             stageStatus: Success
                             condition: <+codebase.build.type> == "branch"
@@ -542,6 +566,10 @@ pipeline:
                               - linux-arm64-kaniko1.9.1
                             caching: false
                             dockerfile: docker/<+matrix.repo>/Dockerfile.linux.arm64.kaniko1.9.1
+                            envVariables:
+                              PLUGIN_BASE_IMAGE_USERNAME: <+secrets.getValue("harness0HARUsername")>
+                              PLUGIN_BASE_IMAGE_PASSWORD: <+secrets.getValue("harness0HARPAT")>
+                              PLUGIN_BASE_IMAGE_REGISTRY: harness0.harness.io/oci/docker_artifacts
                           when:
                             stageStatus: Success
                             condition: <+codebase.build.type> == "branch"
@@ -621,8 +649,8 @@ pipeline:
                       name: Build Binary
                       identifier: build_binary
                       spec:
-                        connectorRef: Plugins_Docker_Hub_Connector
-                        image: golang:1.25.13
+                        connectorRef: HHI_Public_Images
+                        image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10@sha256:e53efe9b20a7cd4e812449a3b70a0f9fb0a5dc5c9fb78d4086e8983d7032b975
                         shell: Sh
                         command: |-
                           go test ./...
@@ -928,8 +956,8 @@ pipeline:
                       name: Build Binary
                       identifier: build_binary
                       spec:
-                        connectorRef: Plugins_Docker_Hub_Connector
-                        image: golang:1.25.13
+                        connectorRef: HHI_Public_Images
+                        image: harness0.harness.io/oci/docker_artifacts/hhi/go:1.26.10@sha256:e53efe9b20a7cd4e812449a3b70a0f9fb0a5dc5c9fb78d4086e8983d7032b975
                         shell: Sh
                         command: |-
                           go test ./...

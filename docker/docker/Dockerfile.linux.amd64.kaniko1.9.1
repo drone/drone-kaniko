@@ -1,5 +1,7 @@
-FROM gcr.io/kaniko-project/executor:v1.9.1
+FROM harness0.harness.io/oci/docker_artifacts/hhi/harnessos-alpine:1@sha256:aa1f4e2851f202f6fb08e30eace3d94298b610aceb381d2df92815f536fd516f AS hhi-ca-certificates
 
+FROM gcr.io/kaniko-project/executor:v1.9.1@sha256:23ae6ccaba2b0f599966dbc5ecf38aa4404f4cd799add224167eaf285696551a
 ENV KANIKO_VERSION=1.9.1
 ADD release/linux/amd64/kaniko-docker /kaniko/
 ENTRYPOINT ["/kaniko/kaniko-docker"]
+COPY --from=hhi-ca-certificates /etc/ssl/certs/ca-certificates.crt /kaniko/ssl/certs/ca-certificates.crt
