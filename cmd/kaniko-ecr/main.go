@@ -278,6 +278,16 @@ func main() {
 			EnvVar: "PLUGIN_COMPRESSED_CACHING",
 		},
 		cli.StringFlag{
+			Name:   "compression",
+			Usage:  "Compression algorithm kaniko uses when pushing image layers. One of: gzip, zstd.",
+			EnvVar: "PLUGIN_COMPRESSION",
+		},
+		cli.IntFlag{
+			Name:   "compression-level",
+			Usage:  "Compression level kaniko uses when pushing image layers.",
+			EnvVar: "PLUGIN_COMPRESSION_LEVEL",
+		},
+		cli.StringFlag{
 			Name:   "context-sub-path",
 			Usage:  "Sub-path within the context to build.",
 			EnvVar: "PLUGIN_CONTEXT_SUB_PATH",
@@ -510,6 +520,8 @@ func run(c *cli.Context) error {
 			EnableCache:                 c.Bool("enable-cache"),
 			CacheRepo:                   fmt.Sprintf("%s/%s", c.String("registry"), c.String("cache-repo")),
 			CacheTTL:                    c.Int("cache-ttl"),
+			Compression:                 c.String("compression"),
+			CompressionLevel:            c.Int("compression-level"),
 			DigestFile:                  defaultDigestFile,
 			NoPush:                      noPush,
 			Verbosity:                   c.String("verbosity"),
