@@ -1,7 +1,7 @@
 FROM harness0.harness.io/oci/docker_artifacts/hhi/harnessos-alpine:1@sha256:aa1f4e2851f202f6fb08e30eace3d94298b610aceb381d2df92815f536fd516f AS hhi-ca-certificates
 
-FROM harness0.harness.io/oci/docker_artifacts/hhi/kaniko:1.25@sha256:ff201ee2fe095719619762add529df52020d5770b812d6dee1adf939183276ac
-ENV KANIKO_VERSION=1.25.19 \
+FROM harness0.harness.io/oci/docker_artifacts/hhi/kaniko:1.25@sha256:2f8e60892596dd064c84ec0e2deb71a18e3149696a0bfb3709170969b63e4eb1
+ENV KANIKO_VERSION=1.25.20 \
     PATH=/usr/local/bin:/kaniko \
     SSL_CERT_FILE=/kaniko/ssl/certs/ca-certificates.crt \
     SSL_CERT_DIR=/kaniko/ssl/certs \
